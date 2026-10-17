@@ -1,16 +1,20 @@
-# 命理引擎 · mingli-engine
+# bazi-ziwei-engine
 
-**八字（四柱）与紫微斗数的双系统排盘与运势引擎 —— 零依赖、天文历法自算、可用真实经历反推校准。**
+**BaZi (Four Pillars) and Zi Wei Dou Shu in one engine — zero dependencies, a calendar computed from astronomy, and a reading that grades itself against your real life.**
 
 > English | [简体中文](README.zh-CN.md)
 
 <p align="center">
-  <a href="https://weiwei0614.github.io/bazi-ziwei/"><img alt="live demo" src="https://img.shields.io/badge/LIVE_DEMO-open_in_browser-e8a33d?style=for-the-badge"></a>
+  <a href="https://weiwei0614.github.io/bazi-ziwei-engine/"><img alt="live demo" src="https://img.shields.io/badge/LIVE_DEMO-open_in_browser-e8a33d?style=for-the-badge"></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="deps" src="https://img.shields.io/badge/dependencies-zero-5dcaa5?style=for-the-badge">
   <img alt="tests" src="https://img.shields.io/badge/tests-38_passing-5dcaa5?style=for-the-badge">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-a99ce8?style=for-the-badge">
 </p>
+
+![the back-test card](docs/img/hook.png)
+
+<sub>The card is generated from whatever events you enter — it is not a template. Run it on your own life and the numbers change, **including the miss**.</sub>
 
 ![chart](docs/img/chart.png)
 
@@ -43,8 +47,8 @@ drawing the chart. This one is built around five ideas the others skip:
 ## Quick start
 
 ```bash
-git clone https://github.com/WEIWEI0614/bazi-ziwei.git
-cd bazi-ziwei
+git clone https://github.com/WEIWEI0614/bazi-ziwei-engine.git
+cd bazi-ziwei-engine
 
 python -m mingli chart --date 1993-06-14 --time 17:31 --gender male --lon 116.65
 python -m mingli year  2027 --date 1993-06-14 --time 17:31 --gender male
@@ -61,7 +65,36 @@ Browser version (same engine, ported 1:1):
 cd docs && python3 -m http.server 8000     # http://127.0.0.1:8000
 ```
 
-or just open the hosted demo: **https://weiwei0614.github.io/bazi-ziwei/**
+or just open the hosted demo: **https://weiwei0614.github.io/bazi-ziwei-engine/**
+
+## Use it as an agent skill, or over MCP
+
+The engine is packaged twice so an assistant can call it directly instead of re-deriving the chart.
+
+**As an agent skill.** `SKILL.md` at the repo root follows the Agent Skills convention, so cloning it into a skills directory is enough:
+
+```bash
+git clone https://github.com/WEIWEI0614/bazi-ziwei-engine.git ~/.claude/skills/bazi-ziwei
+```
+
+The skill instructs the model to run the back-test **before** interpreting, and to cite a stem, a god or a palace for every claim it makes.
+
+**As an MCP server.** `mcp_server.py` speaks JSON-RPC over stdio, standard library only:
+
+```json
+{"mcpServers": {"bazi-ziwei": {
+  "command": "python",
+  "args": ["/absolute/path/to/bazi-ziwei-engine/mcp_server.py"]}}}
+```
+
+| tool | returns |
+|---|---|
+| `chart` | four pillars, structure, grade audit, element shares, 45 shensha, twelve palaces |
+| `annual` | year and month scores with the components that produced them |
+| `backtest` | hit rate, Pearson, the years it got wrong, refitted weights |
+| `synastry` | two charts across six relationship types |
+
+The two systems are **cross-validated** rather than averaged: BaZi judges the structure, Zi Wei judges the palace, and the report says so when they disagree.
 
 ---
 

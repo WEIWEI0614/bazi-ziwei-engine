@@ -125,6 +125,7 @@ def compare_events(chart: BaziChart, events: list[dict]) -> dict:
         "weights": {k: round(v, 3) for k, v in ws.items()},
         "misses": misses,
         "verdict": _verdict(hit, n, corr),
+        "verdict_en": _verdict_en(hit, n, corr),
     }
 
 
@@ -173,6 +174,20 @@ def _calibrate(rows) -> dict:
     # keep sane magnitudes
     sol = [max(0.2, min(2.2, v)) for v in sol]
     return dict(zip(keys, sol))
+
+
+def _verdict_en(hit: int, n: int, corr: float) -> str:
+    if n == 0:
+        return "No events supplied — nothing to calibrate against."
+    rate = hit / n
+    if rate >= 0.75 and corr >= 0.5:
+        return "The model tracks your reported years closely; its forward scores are worth weighing."
+    if rate >= 0.6:
+        return "Broad agreement, with some years read too optimistically or too harshly. Prefer the calibrated scores."
+    if rate >= 0.4:
+        return "Moderate agreement — your chart's weights differ from the generic model. The weights have been refitted."
+    return ("Poor agreement. Check (1) whether the birth time was already true solar time or daylight saving, "
+            "(2) whether events are counted from Li Chun, (3) whether era or family factors outweighed the chart.")
 
 
 def _verdict(hit: int, n: int, corr: float) -> str:

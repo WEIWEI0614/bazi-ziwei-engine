@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bazi-ziwei": {
+      "command": "python",
+      "args": ["/absolute/path/to/bazi-ziwei-engine/mcp_server.py"]
+    }
+  }
+}

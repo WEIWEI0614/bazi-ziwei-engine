@@ -1,16 +1,20 @@
-# 命理引擎 · mingli-engine
+# bazi-ziwei-engine
 
-**八字（四柱）与紫微斗数的双系统排盘与运势引擎 —— 零依赖、天文历法自算、可用真实经历反推校准。**
+**八字（四柱）与紫微斗数双系统交叉验证的排盘与运势引擎 —— 零依赖、天文历法自算，并且会用你的真实经历给自己打分。**
 
 > [English](README.md) | 简体中文
 
 <p align="center">
-  <a href="https://weiwei0614.github.io/bazi-ziwei/"><img alt="在线演示" src="https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%BC%94%E7%A4%BA-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%89%93%E5%BC%80-e8a33d?style=for-the-badge"></a>
+  <a href="https://weiwei0614.github.io/bazi-ziwei-engine/"><img alt="在线演示" src="https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%BC%94%E7%A4%BA-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%89%93%E5%BC%80-e8a33d?style=for-the-badge"></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="零依赖" src="https://img.shields.io/badge/%E4%BE%9D%E8%B5%96-%E9%9B%B6-5dcaa5?style=for-the-badge">
   <img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-38_%E9%80%9A%E8%BF%87-5dcaa5?style=for-the-badge">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-a99ce8?style=for-the-badge">
 </p>
+
+![回测分享卡](docs/img/hook.png)
+
+<sub>这张卡是按你自己填的经历算出来的，不是模板。换成你的年份，数字会变——**包括判错的那一年**。</sub>
 
 ![命盘](docs/img/chart.png)
 
@@ -40,7 +44,7 @@
 ## 快速开始
 
 ```bash
-git clone https://github.com/WEIWEI0614/bazi-ziwei.git
+git clone https://github.com/WEIWEI0614/bazi-ziwei-engine.git
 cd bazi-ziwei
 
 python -m mingli chart --date 1993-06-14 --time 17:31 --gender male --lon 116.65
@@ -58,9 +62,47 @@ python -m mingli serve            # http://127.0.0.1:8788
 cd docs && python3 -m http.server 8000     # http://127.0.0.1:8000
 ```
 
-或直接打开在线演示：**https://weiwei0614.github.io/bazi-ziwei/**
+或直接打开在线演示：**https://weiwei0614.github.io/bazi-ziwei-engine/**
 
 ---
+
+## 包成 Agent Skill 或 MCP
+
+同一套引擎打包了两次，让 AI 助手直接调用，而不是自己瞎推排盘。
+
+**做成 Agent Skill。** 仓库根目录的 `SKILL.md` 遵循 Agent Skills 规范，克隆到 skills 目录即可：
+
+```bash
+git clone https://github.com/WEIWEI0614/bazi-ziwei-engine.git ~/.claude/skills/bazi-ziwei
+```
+
+技能里明确规定：**先跑回测、再解释**，而且每一个结论都要指到具体的干支、十神或宫位。这一条是为了对付模型「说得很像但拿不出依据」的通病。
+
+**做成 MCP server。** `mcp_server.py` 走 stdio 的 JSON-RPC，只用标准库：
+
+```json
+{"mcpServers": {"bazi-ziwei": {
+  "command": "python",
+  "args": ["/绝对路径/bazi-ziwei-engine/mcp_server.py"]}}}
+```
+
+| 工具 | 返回 |
+|---|---|
+| `chart` | 四柱、格局、成格/破格/救应审计、五行占比、45 神煞、紫微十二宫 |
+| `annual` | 流年与流月分数，附产生这个分数的每一项成分 |
+| `backtest` | 命中率、Pearson、判错的年份、重拟合后的权重 |
+| `synastry` | 两张盘、六种关系 |
+
+## 八字紫微交叉验证
+
+这个名字里的「交叉」不是修辞。大多数工具要么只排八字、要么只排紫微，两者的结论即使打架也没人管。这里做的是：
+
+- **八字判结构**（格成不成、什么破了它、有没有救应），**紫微判宫位**（命、财、官、迁的星曜与四化）；
+- 两边的判断**分别成段列出**，不取平均——合成一个总分是最省事也最骗人的做法；
+- **结论不一致时如实写出来**。比如八字说事业强于财帛、紫微说财帛宫更旺，报告会并列呈现，让读者自己判断哪一边更贴近自己的经历；
+- 判完之后，用**你的真实经历**（年份 + 发生了什么 + 好坏 −3…+3）回头检验它，给出命中率、相关系数，以及**它算错的年份**。
+
+这也是「八字紫微交叉验证」与「八字紫微都算一遍」的区别：前者要的是互相印证或互相证伪，后者只是把两个排盘软件并排打开。
 
 ## 它能算出什么
 

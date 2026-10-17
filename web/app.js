@@ -983,7 +983,7 @@
         <div class="card"><h4>${t("corr")}</h4><div class="big">${res.correlation}</div></div>
         <div class="card"><h4>${t("corr2")}</h4><div class="big" style="color:var(--teal)">${res.calibratedCorrelation}</div></div>
       </div>
-      <div class="card" style="margin-top:10px"><h4>${t("verdict")}</h4><div class="note">${res.verdict}</div>
+      <div class="card" style="margin-top:10px"><h4>${t("verdict")}</h4><div class="note">${LANG === "zh" ? res.verdict : (res.verdictEn || res.verdict)}</div>
         <div class="note" style="margin-top:5px">校准权重：${Object.keys(res.weights).map((k) => `${k} ${res.weights[k].toFixed(2)}`).join(" · ")}</div></div>
       <div class="card" style="margin-top:10px;overflow-x:auto">
         <table class="dt"><thead><tr><th>${L("年份","Year")}</th><th>${L("干支","Pillar")}</th><th>${L("类型","Kind")}</th><th>${L("自评","Impact")}</th>
@@ -995,6 +995,11 @@
           <td>${r.agree ? '<span class="pill p-hi">吻合</span>' : '<span class="pill p-low">不符</span>'}</td>
           <td class="note">${r.note || (r.cautions[0] || "")}</td></tr>`).join("")}
         </tbody></table></div>`;
+    $("shareHint").textContent = LANG === "zh"
+      ? "这张卡是按你刚填的经历算出来的，不是模板。发出去的时候，它同时也是一份「这套算法愿意被检验」的声明。"
+      : "Built from your own events, not a template. Posting it also states that the method is willing to be checked.";
+    $("dlCard").textContent = LANG === "zh" ? "下载 PNG" : "Download PNG";
+    drawShareCard();
   }
 
   /* ---------- method ---------- */
@@ -1040,6 +1045,147 @@
     annotate(document.querySelector("main"));
   }
 
+  /* ---------- 分享卡：Canvas 2D 直绘，导出与所见完全一致 ---------- */
+  const CARD = {
+    w: 1200, h: 630, bg: "#0e1015", panel: "#14161c", line: "#272b35",
+    tx: "#e9e5da", tx2: "#9a9a94", tx3: "#6b6d74",
+    amber: "#e8a33d", teal: "#5dcaa5", red: "#e2635f",
+    serif: '"Songti SC","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif',
+    sans: '-apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif',
+  };
+
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawShareCard() {
+    const cv = $("shareCard");
+    if (!cv) return;
+    const dpr = 2;
+    cv.width = CARD.w * dpr;
+    cv.height = CARD.h * dpr;
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const ZH = LANG === "zh";
+    const ev = R.events;
+
+    ctx.fillStyle = CARD.bg;
+    ctx.fillRect(0, 0, CARD.w, CARD.h);
+    ctx.fillStyle = CARD.amber;
+    ctx.fillRect(0, 0, 5, CARD.h);
+
+    if (!ev || !ev.rows || !ev.rows.length) {
+      ctx.fillStyle = CARD.tx3;
+      ctx.font = `16px ${CARD.sans}`;
+      ctx.textAlign = "center";
+      ctx.fillText(ZH ? "先在上方填 3 条以上真实经历并点「开始对照」" : "Add three or more real events above, then run the back-test",
+        CARD.w / 2, CARD.h / 2 - 8);
+      ctx.fillStyle = CARD.line;
+      ctx.font = `13px ${CARD.sans}`;
+      ctx.fillText(ZH ? "卡片会按你的命中率自动生成" : "The card is generated from your own hit rate",
+        CARD.w / 2, CARD.h / 2 + 20);
+      ctx.textAlign = "left";
+      return;
+    }
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = CARD.amber;
+    ctx.font = `bold 12px ${CARD.sans}`;
+    ctx.fillText(ZH ? "回 测 结 果" : "B A C K - T E S T", 72, 82);
+
+    ctx.fillStyle = CARD.tx;
+    ctx.font = `34px ${CARD.serif}`;
+    ctx.fillText(ZH ? "它算错过，并且说得出是哪一年"
+      : "It was wrong — and it can name the year", 72, 136);
+
+    ctx.fillStyle = CARD.tx2;
+    ctx.font = `15px ${CARD.sans}`;
+    ctx.fillText(ZH
+      ? `${ev.n} 条真实经历 · 引擎盲打分 · 命中率与偏差全部公开`
+      : `${ev.n} real events · engine scored blind · hit rate and misses published`, 72, 172);
+
+    ctx.strokeStyle = CARD.line;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(72, 198); ctx.lineTo(1128, 198); ctx.stroke();
+
+    const missYear = (ev.misses && ev.misses.length)
+      ? (ev.misses[0].year !== undefined ? ev.misses[0].year : ev.misses[0]) : null;
+    const corr = ev.calibratedCorrelation != null ? ev.calibratedCorrelation : ev.correlation;
+    const stats = [
+      [ev.hitRate + "%", ZH ? "命中率" : "hit rate", CARD.amber],
+      [Number(corr).toFixed(2), ZH ? "校准后相关" : "calibrated r", CARD.teal],
+      [missYear == null ? "—" : String(missYear), ZH ? "判错的年份" : "missed year", CARD.red],
+    ];
+    stats.forEach(([val, label, col], i) => {
+      const x = 72 + i * 336;
+      ctx.fillStyle = col;
+      ctx.font = `62px ${CARD.serif}`;
+      ctx.fillText(String(val), x, 288);
+      ctx.fillStyle = CARD.tx3;
+      ctx.font = `13px ${CARD.sans}`;
+      ctx.fillText(label, x + 2, 316);
+    });
+
+    const rows = ev.rows.slice(0, 8);
+    const top = 358, base = 480, hgt = base - top;
+    const step = 980 / rows.length;
+    const bw = Math.min(34, step * 0.42);
+    ctx.strokeStyle = CARD.line;
+    ctx.beginPath(); ctx.moveTo(72, base); ctx.lineTo(1128, base); ctx.stroke();
+
+    rows.forEach((r, i) => {
+      const cx = 72 + step * i + step / 2;
+      const ok = r.agree;
+      const bh = Math.max(6, (r.predicted / 100) * hgt);
+      ctx.fillStyle = ok ? "rgba(93,202,165,.34)" : "rgba(226,99,95,.34)";
+      rr(ctx, cx - bw / 2, base - bh, bw, bh, 3);
+      ctx.fill();
+      ctx.strokeStyle = ok ? CARD.teal : CARD.red;
+      ctx.lineWidth = 1.5;
+      rr(ctx, cx - bw / 2, base - bh, bw, bh, 3);
+      ctx.stroke();
+
+      const ay = base - ((Math.max(-3, Math.min(3, r.impact)) + 3) / 6) * hgt;
+      ctx.beginPath();
+      ctx.arc(cx, ay, 6, 0, Math.PI * 2);
+      ctx.fillStyle = CARD.tx;
+      ctx.fill();
+      ctx.strokeStyle = CARD.bg;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = CARD.tx2;
+      ctx.font = `13px ${CARD.sans}`;
+      ctx.textAlign = "center";
+      ctx.fillText(String(r.year), cx, base + 26);
+      ctx.fillStyle = CARD.tx3;
+      ctx.font = `11px ${CARD.sans}`;
+      ctx.fillText(r.ganzhi, cx, base + 44);
+      ctx.textAlign = "left";
+    });
+
+    ctx.fillStyle = CARD.tx2;
+    ctx.font = `14px ${CARD.sans}`;
+    const verdict = String((ZH ? ev.verdict : ev.verdictEn) || ev.verdict || "").replace(/\s+/g, " ");
+    ctx.fillText(verdict.length > 62 ? verdict.slice(0, 62) + "…" : verdict, 72, 566);
+
+    ctx.fillStyle = CARD.amber;
+    ctx.font = `bold 13px ${CARD.sans}`;
+    ctx.fillText("bazi-ziwei-engine", 72, 596);
+    ctx.fillStyle = CARD.tx3;
+    ctx.font = `12px ${CARD.sans}`;
+    ctx.fillText("weiwei0614.github.io/bazi-ziwei-engine", 208, 596);
+    ctx.textAlign = "right";
+    ctx.fillText(ZH ? "绿＝判对　红＝判错　圆点＝真实好坏" : "green = agreed · red = missed · dot = actual", 1128, 596);
+    ctx.textAlign = "left";
+  }
+
   /* ---------- 大模型问答 ---------- */
   const CHAT_KEY = "ml_chat_cfg";
   let CHAT_HISTORY = [];
@@ -1063,6 +1209,17 @@
       const [base, model] = v.split("|");
       $("c-base").value = base;
       $("c-model").value = model;
+    };
+    $("demoEv").onclick = () => { fillDemo(); $("runEv").click(); };
+    $("dlCard").onclick = () => {
+      const cv = $("shareCard");
+      cv.toBlob((blob) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "bazi-ziwei-backtest.png";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }, "image/png");
     };
     $("c-save").onclick = () => {
       localStorage.setItem(CHAT_KEY, JSON.stringify({
@@ -1102,6 +1259,31 @@
     d.textContent = text;
     log.appendChild(d);
     log.scrollTop = log.scrollHeight;
+  }
+
+  // 示例经历（仅用于演示卡片形态，数字由引擎现算，不是写死的宣传值）
+  const DEMO_EV = [
+    [2016, "study", 1, "入职第一年"],
+    [2018, "career", -2, "低谷：项目停摆"],
+    [2019, "career", 1, "转正"],
+    [2021, "career", -2, "最难的一年"],
+    [2023, "career", 1, "转机"],
+    [2025, "money", -1, "收入回落"],
+  ];
+
+  function fillDemo() {
+    const list = $("evList");
+    while (list.children.length < DEMO_EV.length) list.appendChild(evRow(null));
+    DEMO_EV.forEach(([y, k, imp, note], i) => {
+      const row = list.children[i];
+      if (!row) return;
+      row.querySelector(".ev-year").value = y;
+      row.querySelector(".ev-kind").value = k;
+      row.querySelector(".ev-note").value = note || "";
+      const rng = row.querySelector(".ev-imp");
+      rng.value = imp;
+      rng.dispatchEvent(new Event("input"));
+    });
   }
 
   function renderChat() {
@@ -1267,6 +1449,12 @@
       `<option value="${k}">${rel[k].zh} / ${rel[k].en}</option>`).join("");
     $("s-run").onclick = renderSyn;
     initChat();
+    try {
+      if (new URLSearchParams(location.search).get("demo") === "1") {
+        fillDemo();
+        setTimeout(() => $("runEv").click(), 60);
+      }
+    } catch (e) { /* ignore */ }
     renderMethod(); activateFromHash();
     window.addEventListener("hashchange", activateFromHash);
     $("go").onclick = cast;
@@ -1283,11 +1471,17 @@
       if (R) {
         renderBaziTable(); renderDayun(); renderLiunian(); renderBoard();
         renderScore(); drawRadar(); renderAvatar();
-        renderYears(); renderMonths(); renderEventResult();
+        renderYears(); renderMonths(); renderEventResult(); drawShareCard();
         if ($("guaOut").children.length) renderGua();
         if ($("synOut").children.length) renderSyn();
       }
       initChat();
+    try {
+      if (new URLSearchParams(location.search).get("demo") === "1") {
+        fillDemo();
+        setTimeout(() => $("runEv").click(), 60);
+      }
+    } catch (e) { /* ignore */ }
       annotate(document.querySelector("main"));
       renderMethod();
       const list = $("evList"); list.innerHTML = "";

@@ -1440,17 +1440,17 @@
     const n = rows.length, hit = rows.filter((r) => r.agree).length;
     const corr = pearson(rows.map((r) => r.predicted), rows.map((r) => r.impact));
     const corr2 = pearson(rows.map((r) => r.calibrated), rows.map((r) => r.impact));
-    let verdict;
+    let verdict, verdictEn;
     const rate = n ? hit / n : 0;
-    if (!n) verdict = "未提供经历，无法校准。";
-    else if (rate >= 0.75 && corr >= 0.5) verdict = "模型与你的经历高度吻合，后续流年评分的参考价值较高。";
-    else if (rate >= 0.6) verdict = "模型大体吻合，局部年份偏乐观或偏保守，建议以校准后的分数为主。";
-    else if (rate >= 0.4) verdict = "吻合度一般——你的命局权重与通用模型有差异，校准权重已调整。";
-    else verdict = "吻合度偏低。请核对：①出生时间是否已换算真太阳时/夏令时；②年份是否按立春计；③是否有时代或家庭变量压过个人命局。";
+    if (!n) { verdict = "未提供经历，无法校准。"; verdictEn = "No events supplied — nothing to calibrate against."; }
+    else if (rate >= 0.75 && corr >= 0.5) { verdict = "模型与你的经历高度吻合，后续流年评分的参考价值较高。"; verdictEn = "The model tracks your reported years closely; its forward scores are worth weighing."; }
+    else if (rate >= 0.6) { verdict = "模型大体吻合，局部年份偏乐观或偏保守，建议以校准后的分数为主。"; verdictEn = "Broad agreement, with some years read too optimistically or too harshly. Prefer the calibrated scores."; }
+    else if (rate >= 0.4) { verdict = "吻合度一般——你的命局权重与通用模型有差异，校准权重已调整。"; verdictEn = "Moderate agreement — your chart's weights differ from the generic model. The weights have been refitted."; }
+    else { verdict = "吻合度偏低。请核对：①出生时间是否已换算真太阳时/夏令时；②年份是否按立春计；③是否有时代或家庭变量压过个人命局。"; verdictEn = "Poor agreement. Check the birth time, whether years count from Li Chun, and whether era or family factors outweighed the chart."; }
     return { rows, n, hitRate: n ? Math.round(1000 * hit / n) / 10 : 0,
       correlation: Math.round(corr * 1000) / 1000,
       calibratedCorrelation: Math.round(corr2 * 1000) / 1000,
-      weights: ws, verdict, misses: rows.filter((r) => !r.agree) };
+      weights: ws, verdict, verdictEn, misses: rows.filter((r) => !r.agree) };
   }
 
   /* ---------------- reading ---------------- */

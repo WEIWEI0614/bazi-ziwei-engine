@@ -279,7 +279,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 <header class="top"><div class="in">
   <div class="brand"><b>命理引擎</b><span>BaZi × Zi Wei</span></div>
   <div class="spacer"></div>
-  <a class="btn ghost" href="https://github.com/WEIWEI0614/bazi-ziwei" target="_blank" rel="noopener">GitHub</a>
+  <a class="btn ghost" href="https://github.com/WEIWEI0614/bazi-ziwei-engine" target="_blank" rel="noopener">GitHub</a>
   <button class="btn" id="langBtn">EN</button>
 </div></header>
 
@@ -480,9 +480,20 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
       <div class="ev-row" style="font-size:10.5px;color:var(--tx3)" id="evHead"></div>
       <div id="evList"></div>
       <button class="btn" id="addEv" style="margin-top:5px">+ 添加事件</button>
+      <button class="btn" id="demoEv" style="margin-top:5px">填入示例</button>
       <button class="btn primary" id="runEv" style="margin-top:5px">开始对照 · Calibrate</button>
     </div>
     <div id="evOut"></div>
+    <h2 class="sec" id="h-share">分享卡</h2>
+    <div class="card">
+      <p class="note" id="shareHint" style="margin:0 0 10px"></p>
+      <canvas id="shareCard" width="1200" height="630"
+        style="width:100%;max-width:780px;border-radius:10px;display:block;border:1px solid var(--line)"></canvas>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn primary" id="dlCard">下载 PNG</button>
+        <span class="note" style="align-self:center">1200 × 630，可直接发 X / 公众号 / 朋友圈</span>
+      </div>
+    </div>
   </section>
 
   <section class="view" id="v-method">
@@ -508,9 +519,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=6"></script>
-<script src="engine.js?v=6"></script>
-<script src="extra.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="data.js?v=7"></script>
+<script src="engine.js?v=7"></script>
+<script src="extra.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

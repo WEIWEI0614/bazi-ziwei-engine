@@ -300,7 +300,7 @@ def bazi_grade(chart) -> dict:
                if any(_GWX.get(h) in avoid for h in p.hidden)]
         if hit:
             add("rescue", "忌神入墓受制", True, 4,
-                f"忌神{''.join(avoid)}落于{hit[0].position}支{hit[0].zhi}，其势受制")
+                f"忌神{''.join(avoid)}落于{_POS.get(hit[0].position, hit[0].position)}支{hit[0].zhi}，其势受制")
 
     # ---- 汇总 ------------------------------------------------------------
     setup = sum(i["weight"] for i in items if i["kind"] == "setup" and i["ok"])
