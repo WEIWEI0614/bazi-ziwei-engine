@@ -1,6 +1,21 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
+  const BUILD = "2026-10-18a";
+  /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
+     避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
+  if (!document.getElementById("bzTable")) {
+    if (!sessionStorage.getItem("ml_reload")) {
+      sessionStorage.setItem("ml_reload", "1");
+      location.replace(location.pathname + "?v=" + Date.now());
+      return;
+    }
+    document.body.innerHTML =
+      '<div style="padding:40px;font:14px/1.8 system-ui;color:#e9e6df">' +
+      '<h3 style="color:#e8a33d">页面缓存版本不一致</h3>' +
+      '请按 <b>⌘⇧R</b>（Windows 为 Ctrl+F5）强制刷新。</div>';
+    return;
+  }
   const ML = window.ML;
   let LANG = "zh";
   let R = null;
@@ -81,9 +96,10 @@
     set("l-fx", LANG === "zh" ? "飞星派四化" : "Feixing sihua");
     set("l-lp", LANG === "zh" ? "闰月分半" : "Split leap month");
     set("l-fy", LANG === "zh" ? "流年" : "Year");
-    $("foot").innerHTML = LANG === "zh"
+    $("foot").innerHTML = (LANG === "zh"
       ? "命理引擎 · 零依赖 · 天文历法自算 · 八字与紫微斗数双系统 · 仅供研究与传统文化学习，不构成任何决策建议。"
-      : "Mingli Engine · zero dependencies · astronomical calendar · BaZi + Zi Wei Dou Shu · for research and study only, not advice.";
+      : "Mingli Engine · zero dependencies · astronomical calendar · BaZi + Zi Wei Dou Shu · for research and study only, not advice.")
+      + ` <span style="opacity:.5">· build ${BUILD}</span>`;
   }
 
   /* ---------- bazi table ---------- */
