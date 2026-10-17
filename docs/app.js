@@ -181,9 +181,20 @@
     $("overall").textContent = s.overall.toFixed(1);
     $("tier").textContent = s.tier;
     const zs = R.zsummary;
+    const ue0 = ML.usefulElements(R.bazi);
     $("tierNote").innerHTML = LANG === "zh"
-      ? `命宫 ${zs.mingStars.join(" / ") || "空宫"}；${zs.patterns.map((p) => p.name).join("、") || "无成形格局"}。<br>评分是相对刻度：60 分以上为可用之局，75 分以上属同类中的优等。`
-      : `Life palace: ${zs.mingStars.join(" / ") || "empty"}; patterns: ${zs.patterns.map((p) => p.name).join(", ") || "none"}.<br>Scores are relative: above 60 is workable, above 75 is strong among peers.`;
+      ? `<div style="line-height:2">日主 <b style="color:var(--amber2)">${R.bazi.dayMaster}${R.bazi.dayMasterWx}</b>，
+         ${R.bazi.strengthLabel}（${R.bazi.strength.toFixed(0)}%）；格局 <b>${R.bazi.structure.name}</b>；
+         紫微命宫 <b>${zs.mingStars.join(" / ") || "空宫"}</b>。<br>
+         喜用 <b style="color:var(--teal)">${ue0.favor.join(" ")}</b>，忌 <b style="color:var(--red)">${ue0.avoid.join(" ")}</b>；
+         调候取 ${R.bazi.tiaohou.sequence || "—"}。<br>
+         <span style="color:var(--tx3)">评分是相对刻度：60 分以上为可用之局，75 分以上属同类中的优等。它不是命运的绝对值，只是结构张力的读数。</span></div>`
+      : `<div style="line-height:2">Day master <b style="color:var(--amber2)">${R.bazi.dayMaster} ${R.bazi.dayMasterWx}</b>,
+         ${R.bazi.strengthLabel} (${R.bazi.strength.toFixed(0)}%); structure <b>${R.bazi.structure.name}</b>;
+         life palace <b>${zs.mingStars.join(" / ") || "empty"}</b>.<br>
+         Favourable <b style="color:var(--teal)">${ue0.favor.join(" ")}</b>, avoid <b style="color:var(--red)">${ue0.avoid.join(" ")}</b>;
+         climate god ${R.bazi.tiaohou.sequence || "—"}.<br>
+         <span style="color:var(--tx3)">Scores are relative: above 60 is workable, above 75 is strong among peers. They read structural tension, not fate.</span></div>`;
 
     const dim = s.dimensions;
     const names = {
@@ -231,9 +242,60 @@
 
     const ss = b.shensha, rel = b.relations;
     const relZh = { 合: "六合", 冲: "六冲", 刑: "刑", 害: "害", 破: "破", 干合: "天干合", 干冲: "天干冲", 三合: "三合", 三会: "三会", 半合: "半合" };
+    $("schoolbox").innerHTML = schoolViews();
     $("ssbox").innerHTML = `
       <div style="margin-bottom:10px">${Object.keys(ss).length ? Object.keys(ss).map((k) => `<span class="star" style="margin:2px">${k} <b style="color:var(--amber)">${ss[k].join("")}</b></span>`).join("") : "—"}</div>
       <div>${Object.keys(rel).length ? Object.keys(rel).map((k) => `<span class="star" style="margin:2px">${relZh[k] || k}：${rel[k].map((x) => x.pair).join("　")}</span>`).join("") : "—"}</div>`;
+  }
+
+  function schoolViews() {
+    const b = R.bazi, ue = ML.usefulElements(b), s = R.scores;
+    const zs = R.zsummary, z = R.ziwei;
+    const el = b.elementScores;
+    const dom = Object.keys(el).sort((x, y) => el[y] - el[x])[0];
+    const weak = Object.keys(el).sort((x, y) => el[x] - el[y])[0];
+    const ZH = {
+      ziping: "子平 · 格局法",
+      tiaohou: "调候 · 穷通宝鉴",
+      xinpai: "新派 · 量化旺衰",
+      ziwei: "紫微 · 三方四正"
+    };
+    const EN = {
+      ziping: "Ziping · structure",
+      tiaohou: "Climate · Qiong Tong Bao Jian",
+      xinpai: "Modern · quantitative strength",
+      ziwei: "Zi Wei · trine & opposite"
+    };
+    const rows = [];
+    if (LANG === "zh") {
+      rows.push(["ziping", `月令${b.month.zhi}，${b.structure.basis}。格局${b.structure.kind === "特殊格" ? "特殊，成败系于一点，不宜以常规喜忌论" : "属普通格，重在用神是否透出有力"}。` +
+        `日主${b.strengthLabel}，${b.strength >= 52 ? "宜泄宜克，不宜再补" : b.strength <= 45 ? "宜生宜扶，忌再耗泄" : "中和可任财官，取用弹性较大"}。`]);
+      rows.push(["tiaohou", `《穷通宝鉴》${b.dayMaster}日生${b.month.zhi}月，调候取${b.tiaohou.sequence || "—"}（${b.tiaohou.primary || "—"}为先）。` +
+        `已见 ${b.tiaohou.satisfied.join("") || "无"}，缺 ${b.tiaohou.missing.join("") || "无"}。` +
+        `${b.tiaohou.missing.length ? "调候有缺，主环境给的支持不足，需靠后天补（方位、行业、择时）。" : "调候齐备，先天气候得宜，起手条件不差。"}`]);
+      rows.push(["xinpai", `按干支加权（月令 24 %）叠加旺相休囚死系数，${dom}最旺（${el[dom].toFixed(1)}%），${weak}最弱（${el[weak].toFixed(1)}%）。` +
+        `同党合计 ${b.strength.toFixed(1)}%，判为${b.strengthLabel}。量化法的长处是可比、可追踪；短处是它不认「格局」的贵贱，` +
+        `因此本引擎把它只当六维中的一维，不做总判。`]);
+      rows.push(["ziwei", `命宫${z.mingBranch}，${zs.mingStars.join("、") || "空宫（借对宫）"}；三方四正得分 ${s.dimensions.sanfang}。` +
+        `${zs.patterns.length ? "成格：" + zs.patterns.map((p) => p.name + "（" + p.desc + "）").join("；") : "未成典型格局，按宫位单论"}。` +
+        `财帛 ${zs.wealthScore}、官禄 ${zs.careerScore}——${zs.careerScore > zs.wealthScore ? "事业强于财帛，宜以职位与专业换资源" : "财帛强于官禄，宜以经营与配置取胜"}。`]);
+    } else {
+      rows.push(["ziping", `Month command ${b.month.zhi}: ${b.structure.basis}. ` +
+        `Structure is ${b.structure.kind === "特殊格" ? "exceptional — outcome hinges on one point, ordinary favourable-element logic does not apply" : "ordinary — what matters is whether the useful god is transparent and rooted"}. ` +
+        `Day master is ${b.strengthLabel}; ${b.strength >= 52 ? "drain and control it, do not reinforce" : b.strength <= 45 ? "support it, stop draining" : "balanced enough to carry wealth and office"}.`]);
+      rows.push(["tiaohou", `${b.dayMaster} born in ${b.month.zhi} month: the climate god is ${b.tiaohou.sequence || "—"} (${b.tiaohou.primary || "—"} first). ` +
+        `Present ${b.tiaohou.satisfied.join("") || "none"}, missing ${b.tiaohou.missing.join("") || "none"}. ` +
+        `${b.tiaohou.missing.length ? "A missing climate stem means the environment under-supports you; compensate by direction, industry and timing." : "Climate is complete — the starting conditions are not bad."}`]);
+      rows.push(["xinpai", `Weighted stems and branches (month command 24 %) times seasonal multipliers: ${dom} strongest (${el[dom].toFixed(1)} %), ${weak} weakest (${el[weak].toFixed(1)} %). ` +
+        `Allies total ${b.strength.toFixed(1)} %, hence ${b.strengthLabel}. Quantification is comparable and trackable, but it ignores the nobility of a structure — ` +
+        `which is why it counts as one dimension of six here, never as the verdict.`]);
+      rows.push(["ziwei", `Life palace at ${z.mingBranch}: ${zs.mingStars.join(", ") || "empty (borrow opposite)"}; trine score ${s.dimensions.sanfang}. ` +
+        `${zs.patterns.length ? "Patterns: " + zs.patterns.map((p) => p.name).join(", ") : "No canonical pattern; read palace by palace"}. ` +
+        `Wealth ${zs.wealthScore} vs career ${zs.careerScore} — ${zs.careerScore > zs.wealthScore ? "career outranks wealth: convert position and expertise into resources" : "wealth outranks career: win through operation and allocation"}.`]);
+    }
+    return rows.map(([k, txt]) =>
+      `<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--amber);letter-spacing:.08em;margin-bottom:4px">${LANG === "zh" ? ZH[k] : EN[k]}</div>
+       <div class="note" style="color:var(--tx2)">${txt}</div></div>`).join("");
   }
 
   function drawRadar() {
