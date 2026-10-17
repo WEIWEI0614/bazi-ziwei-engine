@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mingli-engine"
+version = "0.1.0"
+description = "BaZi (Four Pillars) + Zi Wei Dou Shu dual-system engine with astronomical calendar and back-test calibration"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "WEIWEI0614" }]
+keywords = ["bazi", "ziwei", "chinese-astrology", "four-pillars", "ganzhi"]
+dependencies = []
+
+[project.scripts]
+mingli = "mingli.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mingli*"]

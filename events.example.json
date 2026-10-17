@@ -1,0 +1,7 @@
+[
+  {"year": 2016, "kind": "study",  "impact":  2, "note": "出国读研 / left for grad school"},
+  {"year": 2019, "kind": "career", "impact":  1, "note": "第一份工作 / first job"},
+  {"year": 2021, "kind": "career", "impact":  1},
+  {"year": 2023, "kind": "career", "impact": -2, "note": "最难的一年 / hardest year"},
+  {"year": 2025, "kind": "career", "impact":  1}
+]
