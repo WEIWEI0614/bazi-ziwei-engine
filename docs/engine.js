@@ -839,14 +839,26 @@
     const overall = Object.keys(dims).reduce((s, k) => s + dims[k] * W[k], 0);
     const tier = overall >= 78 ? "上格" : overall >= 68 ? "中上格" : overall >= 56 ? "中格" : overall >= 44 ? "中下格" : "下格";
     const dmwx = chart.dayMasterWx;
-    const career = 0.45 * shishenScore(chart, ["正官", "七杀", "食神", "伤官"]) + 0.55 * zs.careerScore;
-    const wealth = 0.45 * shishenScore(chart, ["正财", "偏财"]) + 0.55 * zs.wealthScore;
-    const love = 0.4 * shishenScore(chart, ["正财", "正官", "偏财", "七杀"]) + 0.35 * sanfang
-      + 0.25 * (70 - 12 * zhiRels(chart.day.zhi, chart.day.zhi).filter((x) => ["六冲", "相刑", "相害"].includes(x)).length);
-    const health = 0.4 * (100 - Math.abs((es[dmwx] || 0) - 25) * 2.2) + 0.6 * palaceScore(zc, zc.palaces.find((p) => p.name === "疾厄"));
-    const study = 0.45 * shishenScore(chart, ["正印", "偏印"]) + 0.55 * zs.mingScore;
-    const social = 0.35 * shishenScore(chart, ["比肩", "劫财"]) + 0.65 * palaceScore(zc, zc.palaces.find((p) => p.name === "仆役"));
-    const clamp = (v) => Math.round(Math.max(6, Math.min(96, v)) * 10) / 10;
+    const yin2 = Object.keys(D.SHENG).find((k) => D.SHENG[k] === dmwx);
+    const shiEl = D.SHENG[dmwx], caiEl = D.KE[dmwx];
+    const guanEl = Object.keys(D.KE).find((k) => D.KE[k] === dmwx);
+    const share = (el) => es[el] || 0;
+    const shareScore = (p) => Math.max(6, Math.min(92, 55 + (p - 20) * 1.2));
+    const male = ["male", "男", "m"].includes(chart.gender);
+    const loveEl = male ? caiEl : guanEl;
+    const guanPal = palaceScore(zc, zc.palaces.find((p) => p.name === "官禄"));
+    const caiPal = palaceScore(zc, zc.palaces.find((p) => p.name === "财帛"));
+    const mingPal = palaceScore(zc, zc.palaces.find((p) => p.name === "命宫"));
+    const jiPal = palaceScore(zc, zc.palaces.find((p) => p.name === "疾厄"));
+    const puPal = palaceScore(zc, zc.palaces.find((p) => p.name === "仆役"));
+    const career = 0.45 * (shareScore(share(guanEl)) + shareScore(share(shiEl))) / 2 + 0.55 * guanPal;
+    const wealth = 0.45 * shareScore(share(caiEl)) + 0.55 * caiPal;
+    const love = 0.35 * shareScore(share(loveEl)) + 0.35 * sanfang
+      + 0.3 * (70 - 12 * zhiRels(chart.day.zhi, chart.day.zhi).filter((x) => ["六冲", "相刑", "相害"].includes(x)).length);
+    const health = 0.4 * Math.max(10, 95 - Math.abs(share(dmwx) - 22) * 2.6) + 0.6 * jiPal;
+    const study = 0.45 * shareScore(share(yin2)) + 0.55 * mingPal;
+    const social = 0.35 * shareScore(share(dmwx)) + 0.65 * puPal;
+    const clamp = (v) => Math.round(Math.max(6, Math.min(94, v)) * 10) / 10;
     return { overall: Math.round(overall * 10) / 10, tier, dimensions: dims, weights: W,
       areas: { career: clamp(career), wealth: clamp(wealth), love: clamp(love),
         health: clamp(health), study: clamp(study), social: clamp(social) } };

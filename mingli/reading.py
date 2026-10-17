@@ -45,10 +45,10 @@ def score_overall(chart: BaziChart, zc: ZiweiChart) -> dict:
 
     zsum = zw_analysis.summary(zc)
     ming = zsum["ming_score"]
-    cai = zsum["wealth_score"]
+    cai_s = zsum["wealth_score"]
     guan = zsum["career_score"]
     qian = zw_analysis.palace_score(zc, zc.palace("迁移"))[0]
-    sanfang = round((ming * 0.4 + cai * 0.2 + guan * 0.2 + qian * 0.2), 1)
+    sanfang = round((ming * 0.4 + cai_s * 0.2 + guan * 0.2 + qian * 0.2), 1)
 
     favor, avoid, _ = bz_luck.useful_elements(chart)
     present = sum(es.get(f, 0) for f in favor)
@@ -68,28 +68,39 @@ def score_overall(chart: BaziChart, zc: ZiweiChart) -> dict:
     tier = ("上格" if overall >= 78 else "中上格" if overall >= 68 else
             "中格" if overall >= 56 else "中下格" if overall >= 44 else "下格")
 
-    # 六领域
-    ss = chart
-    guan_sha = es.get([k for k in ("木", "火", "土", "金", "水")
-                       if _ke(k) == chart.day_master_wx][0], 0)
-    _ = guan_sha
-    career = 0.45 * _shishen_score(ss, ("正官", "七杀", "食神", "伤官")) + 0.55 * guan
-    wealth = 0.45 * _shishen_score(ss, ("正财", "偏财")) + 0.55 * cai
-    love = 0.40 * _shishen_score(ss, ("正财", "正官", "偏财", "七杀")) \
-        + 0.35 * sanfang + 0.25 * _zhi_health(ss, ss.day.zhi)
-    health = 0.4 * (100 - abs(es.get(chart.day_master_wx, 0) - 25) * 2.2) \
+    # 六领域 — 以十神所属五行的实际占比折算，避免"个个都差不多"
+    from .calendar.ganzhi import KE, SHENG
+    dm = chart.day_master_wx
+    yin = [k for k in SHENG if SHENG[k] == dm][0]
+    shi, cai, guan_wx = SHENG[dm], KE[dm], [k for k in KE if KE[k] == dm][0]
+
+    def share(el: str) -> float:
+        return es.get(el, 0.0)
+
+    def share_score(p: float) -> float:
+        """20 % 视为常态（55 分），每多 10 个百分点加 14 分。"""
+        return max(6.0, min(92.0, 55.0 + (p - 20.0) * 1.2))
+
+    male = chart.gender in ("male", "男", "m")
+    love_el = cai if male else guan_wx
+    career = 0.45 * (share_score(share(guan_wx)) + share_score(share(shi))) / 2 + 0.55 * guan
+    wealth = 0.45 * share_score(share(cai)) + 0.55 * cai_s
+    love = 0.35 * share_score(share(love_el)) + 0.35 * sanfang \
+        + 0.30 * _zhi_health(chart, chart.day.zhi)
+    health = 0.4 * max(10.0, 95 - abs(share(dm) - 22) * 2.6) \
         + 0.6 * zw_analysis.palace_score(zc, zc.palace("疾厄"))[0]
-    study = 0.45 * _shishen_score(ss, ("正印", "偏印")) + 0.55 * ming
-    social = 0.35 * _shishen_score(ss, ("比肩", "劫财")) \
+    study = 0.45 * share_score(share(yin)) + 0.55 * ming
+    social = 0.35 * share_score(share(dm)) \
         + 0.65 * zw_analysis.palace_score(zc, zc.palace("仆役"))[0]
 
+    CL = 94.0
     areas = {
-        "career": round(min(96, max(6, career)), 1),
-        "wealth": round(min(96, max(6, wealth)), 1),
-        "love": round(min(96, max(6, love)), 1),
-        "health": round(min(96, max(6, health)), 1),
-        "study": round(min(96, max(6, study)), 1),
-        "social": round(min(96, max(6, social)), 1),
+        "career": round(min(CL, max(6, career)), 1),
+        "wealth": round(min(CL, max(6, wealth)), 1),
+        "love": round(min(CL, max(6, love)), 1),
+        "health": round(min(CL, max(6, health)), 1),
+        "study": round(min(CL, max(6, study)), 1),
+        "social": round(min(CL, max(6, social)), 1),
     }
     return {"overall": round(overall, 1), "tier": tier, "dimensions": dims,
             "areas": areas, "weights": weights}
