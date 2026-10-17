@@ -17,13 +17,18 @@
     return;
   }
   const ML = window.ML;
+  const I18 = window.ML_DATA.I18N;
   let LANG = "zh";
   let R = null;
   let SEL = 0;
   let FOCUS = 2026;
 
   const S = {
-    tabs: { zh: ["命盘", "评分", "大运流年", "流月", "经历对照", "方法"], en: ["Chart", "Scores", "Cycles", "Months", "Back-test", "Method"] },
+    tabs: { zh: ["命盘", "评分", "详解", "大运流年", "流月", "经历对照", "方法"], en: ["Chart", "Scores", "Reading", "Cycles", "Months", "Back-test", "Method"] },
+    reading: { zh: "流派详解", en: "Detailed Reading" },
+    highlights: { zh: "结构亮点", en: "Strengths" },
+    weaknesses: { zh: "结构短板", en: "Deductions" },
+    percentile: { zh: "百分位", en: "Percentile" },
     bazi: { zh: "四柱八字", en: "Four Pillars" },
     dayun: { zh: "大运", en: "Ten-year cycles" },
     liunian: { zh: "流年", en: "Annual" },
@@ -62,11 +67,23 @@
   const bandColor = (s) => s >= 70 ? "#5dcaa5" : s >= 58 ? "#8fc98a" : s >= 45 ? "#e8a33d" : s >= 32 ? "#e2855f" : "#e2635f";
   const WX = { 木: "wx-木", 火: "wx-火", 土: "wx-土", 金: "wx-金", 水: "wx-水" };
   const NAT = { 吉: "ji", 凶: "xiong", 中: "zhong" };
+  const BAND_EN = { 大吉: "excellent", 吉: "good", 小吉: "fair", 平: "neutral",
+    小凶: "weak", 凶: "poor", 大凶: "difficult" };
+  const tr = (x) => !x ? x : (LANG === "zh" ? x :
+    (I18.shishen[x] || I18.shensha[x] || I18.structure[x] || I18.star[x] ||
+     I18.palaceNameEn[x] || I18.theme[x] || x));
+  const bi = (x) => !x ? "" : (typeof x === "string" ? x : (LANG === "zh" ? x.zh : x.en));
+  const bandTxt = (b) => LANG === "zh" ? b : (BAND_EN[b] || b);
+  const dimName = (k) => LANG === "zh"
+    ? { structure: "格局层次", flow: "五行流通", climate: "调候得宜", root: "年月根基",
+        ming: "紫微命宫", sanfang: "三方四正", shensha: "神煞吉凶" }[k]
+    : { structure: "Structure", flow: "Element flow", climate: "Climate", root: "Foundations",
+        ming: "Life palace", sanfang: "Trine", shensha: "Stars" }[k];
 
   /* ---------- chrome ---------- */
   function paintChrome() {
     const tabs = $("tabs"); tabs.innerHTML = "";
-    const secs = ["chart", "score", "year", "month", "event", "method"];
+    const secs = ["chart", "score", "reading", "year", "month", "event", "method"];
     S.tabs[LANG].forEach((label, i) => {
       const d = document.createElement("div");
       d.className = "tab" + (i === 0 ? " on" : "");
@@ -86,6 +103,7 @@
     set("h-school", t("school")); set("h-ss", t("ss")); set("h-luck", t("luck"));
     set("h-timeline", t("timeline")); set("h-month", t("month"));
     set("h-event", t("event")); set("h-method", t("method"));
+    set("h-reading", t("reading"));
     $("evHint").innerHTML = t("evHint");
     set("addEv", t("addEv")); set("runEv", t("runEv"));
     $("evHead").innerHTML = `<div>${LANG === "zh" ? "年份" : "Year"}</div><div>${LANG === "zh" ? "类型" : "Type"}</div><div>${LANG === "zh" ? "说明" : "Note"}</div><div style="text-align:center">${LANG === "zh" ? "影响 −3…+3" : "Impact"}</div><div></div>`;
@@ -150,7 +168,7 @@
     strip.innerHTML = R.cycles.map((c, i) =>
       `<div class="lk${SEL === i ? " on" : ""}${c.active ? " cur" : ""}" data-i="${i}">
         <div class="gz">${c.label}</div>
-        <div class="ss">${c.shishenGan}</div>
+        <div class="ss">${tr(c.shishenGan)}</div>
         <div class="yr">${c.startAge}–${c.endAge} 岁</div>
         <div class="yr">${c.startYear}</div>
       </div>`).join("");
@@ -168,7 +186,7 @@
       `<div class="lk" title="${d.band}">
         <div class="gz" style="color:${bandColor(d.score)}">${d.label}</div>
         <div class="yr">${d.name} · ${d.age}</div>
-        <div class="yr" style="color:${bandColor(d.score)}">${d.score.toFixed(0)} ${d.band}</div>
+        <div class="yr" style="color:${bandColor(d.score)}">${d.score.toFixed(0)} ${bandTxt(d.band)}</div>
       </div>`).join("");
   }
 
@@ -241,7 +259,7 @@
       const target = z.palaces.find((q) => q.stars.some((s) => s.name === st));
       return target ? `<span class="hua hua${hua[st]}">${hua[st]}</span> ${st} → ${target.name}` : "";
     }).filter(Boolean).join("　");
-    const tri = [-4, 4, 6].map((o) => z.palaces.find((q) => q.index === (p.index + o) % 12));
+    const tri = [-4, 4, 6].map((o) => z.palaces.find((q) => q.index === ((p.index + o) % 12 + 12) % 12));
     const lis = (arr, cls) => arr.map((s) => `<span class="${cls}">${s.name}${s.hua ? "化" + s.hua : ""}${s.brightness ? "[" + s.brightness + "]" : ""}</span>`).join("　");
     $("palaceDetail").innerHTML = `
       <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px">
@@ -254,62 +272,106 @@
       <div style="margin-bottom:4px"><span class="note">辅煞　</span>${lis(p.stars.filter((s) => s.kind !== "主星" && s.kind !== "杂曜"), "min") || "—"}</div>
       <div style="margin-bottom:4px"><span class="note">杂曜　</span><span class="note">${p.stars.filter((s) => s.kind === "杂曜").map((s) => s.name).join("　") || "—"}</span></div>
       <div style="margin-bottom:4px"><span class="note">宫干飞化　</span>${fly}</div>
-      <div><span class="note">三方四正　</span>${tri.map((q) => `${q.name}(${q.gan}${q.branch})`).join("　")}</div>`;
+      <div><span class="note">三方四正　</span>${tri.filter(Boolean).map((q) => `${q.name}(${q.gan}${q.branch})`).join("　")}</div>`;
   }
 
   /* ---------- score ---------- */
+  const set2 = (id, txt) => { const e = $(id); if (e) e.textContent = txt; };
+
   function renderScore() {
     const s = R.scores, zs = R.zsummary, ue = ML.usefulElements(R.bazi);
     $("overall").textContent = s.overall.toFixed(1);
-    $("tier").textContent = s.tier;
-    $("tierNote").innerHTML = `日主 <b style="color:var(--amber2)">${R.bazi.dayMaster}${R.bazi.dayMasterWx}</b>，${R.bazi.strengthLabel}（${R.bazi.strength.toFixed(0)}%）；格局 <b>${R.bazi.structure.name}</b>；命宫 <b>${zs.mingStars.join(" / ") || "空宫"}</b>。<br>
-      喜用 <b style="color:var(--teal)">${ue.favor.join(" ")}</b>，忌 <b style="color:var(--red)">${ue.avoid.join(" ")}</b>；调候 ${R.bazi.tiaohou.sequence || "—"}。<br>
-      <span style="color:var(--tx3)">60 分以上为可用之局，75 分以上属同类优等。它读数结构张力，不是命运的绝对值。</span>`;
+    $("tier").textContent = LANG === "zh" ? s.tier : (I18.tier ? I18.tier[s.tier] : s.tier);
+    const tierEn = { 上上格: "top tier", 上格: "upper", 中上格: "upper-middle", 中格: "middle", 中下格: "lower-middle", 下格: "low" };
+    $("tier").textContent = LANG === "zh" ? s.tier : (tierEn[s.tier] || s.tier);
+    $("tierNote").innerHTML = LANG === "zh"
+      ? `日主 <b style="color:var(--amber2)">${R.bazi.dayMaster}${R.bazi.dayMasterWx}</b>，${R.bazi.strengthLabel}（${R.bazi.strength.toFixed(0)}%）；格局 <b>${R.bazi.structure.name}</b>；命宫 <b>${zs.mingStars.join(" / ") || "空宫"}</b>。<br>
+         喜用 <b style="color:var(--teal)">${ue.favor.join(" ")}</b>，忌 <b style="color:var(--red)">${ue.avoid.join(" ")}</b>；调候 ${R.bazi.tiaohou.sequence || "—"}。<br>
+         高于随机命盘的 <b style="color:var(--amber2)">${s.percentile.toFixed(0)}%</b>。<br>
+         <span style="color:var(--tx3)">分数是结构张力的读数，不是人生结果的预测：出身、时代与选择都不在这个数字里。</span>`
+      : `Day master <b style="color:var(--amber2)">${R.bazi.dayMaster} ${I18.wx[R.bazi.dayMasterWx]}</b>, ${I18.strength[R.bazi.strengthLabel]} (${R.bazi.strength.toFixed(0)}%); structure <b>${I18.structure[R.bazi.structure.name] || R.bazi.structure.name}</b>; life palace <b>${zs.mingStars.map(tr).join(" / ") || "empty"}</b>.<br>
+         Favourable <b style="color:var(--teal)">${ue.favor.map((f) => I18.wx[f]).join(" ")}</b>, avoid <b style="color:var(--red)">${ue.avoid.map((f) => I18.wx[f]).join(" ")}</b>.<br>
+         Above <b style="color:var(--amber2)">${s.percentile.toFixed(0)}%</b> of randomly sampled charts.<br>
+         <span style="color:var(--tx3)">A structural reading, not a forecast: birth, era and choice are not in this number.</span>`;
 
-    const zh = { structure: "结构格局", flow: "五行流通", climate: "调候得宜", ming: "紫微命宫", sanfang: "三方四正", yongshen: "用神得力" };
     $("dims").innerHTML = Object.keys(s.dimensions).map((k) =>
-      `<div class="dimrow"><span class="nm">${zh[k]}</span>
+      `<div class="dimrow"><span class="nm">${dimName(k)}</span>
        <span class="bar"><i style="width:${s.dimensions[k]}%;background:${bandColor(s.dimensions[k])}"></i></span>
        <span class="vl">${s.dimensions[k].toFixed(0)}</span></div>`).join("") +
-      `<div class="note" style="margin-top:6px">权重：${Object.keys(s.weights).map((k) => `${zh[k]} ${(s.weights[k] * 100).toFixed(0)}%`).join(" · ")}</div>`;
+      `<div class="note" style="margin-top:6px">${LANG === "zh" ? "权重：" : "Weights: "}${Object.keys(s.weights).map((k) => `${dimName(k)} ${(s.weights[k] * 100).toFixed(0)}%`).join(" · ")}</div>`;
 
-    const az = { career: "事业", wealth: "财富", love: "感情", health: "健康", study: "学业", social: "人脉" };
+    const az = { career: ["事业", "Career"], wealth: ["财富", "Wealth"], love: ["感情", "Love"],
+      health: ["健康", "Health"], study: ["学业", "Study"], social: ["人脉", "Network"] };
     $("areas").innerHTML = Object.keys(s.areas).map((k) =>
-      `<div class="dimrow"><span class="nm">${az[k]}</span>
+      `<div class="dimrow"><span class="nm">${az[k][LANG === "zh" ? 0 : 1]}</span>
        <span class="bar"><i style="width:${s.areas[k]}%;background:${bandColor(s.areas[k])}"></i></span>
        <span class="vl">${s.areas[k].toFixed(0)}</span></div>`).join("");
 
     const b = R.bazi;
     $("bzread").innerHTML = `
-      <dt>日主</dt><dd>${b.dayMaster}（${b.dayMasterWx}）· ${b.strengthLabel} ${b.strength.toFixed(1)}%</dd>
-      <dt>格局</dt><dd>${b.structure.name}</dd><dt></dt><dd class="note">${b.structure.basis}</dd>
-      <dt>调候</dt><dd>${b.tiaohou.sequence || "—"}　已见 ${b.tiaohou.satisfied.join("") || "无"}　缺 ${b.tiaohou.missing.join("") || "无"}</dd>
-      <dt>喜用</dt><dd>${ue.favor.join(" ")}</dd><dt>忌神</dt><dd>${ue.avoid.join(" ")}</dd>
-      <dt>五行</dt><dd>${Object.keys(b.elementScores).map((k) => `<span class="${WX[k]}">${k} ${b.elementScores[k].toFixed(1)}%</span>`).join("　")}</dd>`;
+      <dt>${LANG === "zh" ? "日主" : "Day master"}</dt><dd>${b.dayMaster}（${I18.wx[b.dayMasterWx]}）· ${LANG === "zh" ? b.strengthLabel : I18.strength[b.strengthLabel]} ${b.strength.toFixed(1)}%</dd>
+      <dt>${LANG === "zh" ? "格局" : "Structure"}</dt><dd>${LANG === "zh" ? b.structure.name : (I18.structure[b.structure.name] || b.structure.name)}</dd>
+      <dt></dt><dd class="note">${LANG === "zh" ? b.structure.basis : ""}</dd>
+      <dt>${LANG === "zh" ? "调候" : "Climate"}</dt><dd>${b.tiaohou.sequence || "—"}</dd>
+      <dt>${LANG === "zh" ? "喜用" : "Favourable"}</dt><dd>${ue.favor.map((f) => I18.wx[f]).join(" ")}</dd>
+      <dt>${LANG === "zh" ? "忌神" : "Avoid"}</dt><dd>${ue.avoid.map((f) => I18.wx[f]).join(" ")}</dd>
+      <dt>${LANG === "zh" ? "五行" : "Elements"}</dt><dd>${Object.keys(b.elementScores).map((k) => `<span class="${WX[k]}">${I18.wx[k]} ${b.elementScores[k].toFixed(1)}%</span>`).join("　")}</dd>`;
     const z = R.ziwei, dec = R.ziweiDecades.find((d) => d.active);
     $("zwread").innerHTML = `
-      <dt>命宫</dt><dd>${z.mingBranch} · ${R.zsummary.mingStars.join(" / ") || "空宫"}</dd>
-      <dt>身宫</dt><dd>${z.shenBranch} · ${R.zsummary.bodyPalace}</dd>
-      <dt>命主</dt><dd>${z.mingZhu}　身主 ${z.shenZhu}</dd>
-      <dt>五行局</dt><dd>${z.ju}</dd>
-      <dt>格局</dt><dd>${R.zsummary.patterns.map((p) => p.name).join("、") || "—"}</dd>
-      <dt></dt><dd class="note">${R.zsummary.patterns.map((p) => p.desc).join("；") || ""}</dd>
-      <dt>大限</dt><dd>${dec ? `${dec.startAge}–${dec.endAge} 岁 · ${dec.palace} · ${dec.theme}` : "—"}</dd>
-      <dt>宫位分</dt><dd>命 ${R.zsummary.mingScore.toFixed(0)}　官 ${R.zsummary.careerScore.toFixed(0)}　财 ${R.zsummary.wealthScore.toFixed(0)}</dd>`;
+      <dt>${LANG === "zh" ? "命宫" : "Life palace"}</dt><dd>${z.mingBranch} · ${R.zsummary.mingStars.map(tr).join(" / ") || "—"}</dd>
+      <dt>${LANG === "zh" ? "身宫" : "Body palace"}</dt><dd>${z.shenBranch} · ${tr(R.zsummary.bodyPalace)}</dd>
+      <dt>${LANG === "zh" ? "命主 / 身主" : "Rulers"}</dt><dd>${tr(z.mingZhu)} / ${tr(z.shenZhu)}</dd>
+      <dt>${LANG === "zh" ? "五行局" : "Bureau"}</dt><dd>${LANG === "zh" ? z.ju : z.ju.replace("局", "")}</dd>
+      <dt>${LANG === "zh" ? "格局" : "Patterns"}</dt><dd>${R.zsummary.patterns.map((p) => LANG === "zh" ? p.name : (I18.patternEn && I18.patternEn[p.name]) || p.name).join("、") || "—"}</dd>
+      <dt></dt><dd class="note">${LANG === "zh" ? R.zsummary.patterns.map((p) => p.desc).join("；") : ""}</dd>
+      <dt>${LANG === "zh" ? "大限" : "Decade"}</dt><dd>${dec ? `${dec.startAge}–${dec.endAge} · ${tr(dec.palace)} · ${LANG === "zh" ? dec.theme : ""}` : "—"}</dd>
+      <dt>${LANG === "zh" ? "宫位分" : "Palace scores"}</dt><dd>${R.zsummary.mingScore.toFixed(0)} / ${R.zsummary.careerScore.toFixed(0)} / ${R.zsummary.wealthScore.toFixed(0)}</dd>`;
 
+    $("hlBox").innerHTML = (s.highlights || []).map((x) => `<div class="note" style="color:var(--tx2);margin:3px 0">＋ ${bi(x)}</div>`).join("") || "—";
+    $("wkBox").innerHTML = (s.weaknesses || []).map((x) => `<div class="note" style="color:var(--tx2);margin:3px 0">－ ${bi(x)}</div>`).join("") || "—";
+    set2("h-hl", LANG === "zh" ? "结构亮点" : "Strengths");
+    set2("h-wk", LANG === "zh" ? "结构短板" : "Deductions");
     $("schoolbox").innerHTML = schoolViews();
     const ss = b.shensha, rel = b.relations;
-    const relZh = { 合: "六合", 冲: "六冲", 刑: "刑", 害: "害", 破: "破", 干合: "天干合", 干冲: "天干冲", 三合: "三合", 三会: "三会", 半合: "半合" };
+    const relZh = { 合: ["六合", "combination"], 冲: ["六冲", "clash"], 刑: ["刑", "punishment"],
+      害: ["害", "harm"], 破: ["破", "destruction"], 干合: ["天干合", "stem combination"],
+      干冲: ["天干冲", "stem clash"], 三合: ["三合", "triple harmony"],
+      三会: ["三会", "directional"], 半合: ["半合", "half harmony"] };
     const groups = { 吉: [], 中: [], 凶: [] };
     Object.keys(ss).forEach((k) => groups[ss[k].nature].push(k));
+    const gn = { 吉: ["吉", "Auspicious"], 中: ["中", "Neutral"], 凶: ["凶", "Inauspicious"] };
     $("ssbox").innerHTML = ["吉", "中", "凶"].map((g) =>
-      `<div style="margin-bottom:8px"><span style="font-size:11px;color:var(--tx3);letter-spacing:.1em">${g}</span><br>` +
+      `<div style="margin-bottom:8px"><span style="font-size:11px;color:var(--tx3);letter-spacing:.1em">${gn[g][LANG === "zh" ? 0 : 1]}</span><br>` +
       (groups[g].length ? groups[g].map((k) =>
-        `<span class="tag ${NAT[g]}" title="${ss[k].desc}｜${ss[k].basis}">${k}<span style="opacity:.65"> ${ss[k].positions.join("")}</span></span>`).join("") : "—") +
+        `<span class="tag ${NAT[g]}" title="${LANG === "zh" ? ss[k].desc + "｜" + ss[k].basis : (I18.shensha[k] || k)}">${tr(k)}<span style="opacity:.65"> ${ss[k].positions.map((x) => LANG === "zh" ? x : ({ 年: "Y", 月: "M", 日: "D", 时: "H", 全局: "all" }[x])).join("")}</span></span>`).join("") : "—") +
       `</div>`).join("") +
       `<div style="border-top:1px solid var(--line);padding-top:8px">${Object.keys(rel).length
-        ? Object.keys(rel).map((k) => `<span class="tag">${relZh[k] || k}：${rel[k].map((x) => x.pair).join("　")}</span>`).join("")
+        ? Object.keys(rel).map((k) => `<span class="tag">${relZh[k][LANG === "zh" ? 0 : 1]}：${rel[k].map((x) => x.pair).join("　")}</span>`).join("")
         : "—"}</div>`;
+    renderReading();
+  }
+
+  /* ---------- detailed reading ---------- */
+  function renderReading() {
+    const bs = ML.interpretBazi(R.bazi);
+    const zs = ML.interpretZiwei(R.ziwei);
+    const headZh = { structure: "格局与用神", shishen: "十神分布", pillars: "四柱宫位", shensha: "神煞与刑冲" };
+    const headEn = { structure: "Structure & useful god", shishen: "Ten gods", pillars: "Four pillars", shensha: "Stars & clashes" };
+    let html = `<h2 class="sec" id="h-bzdetail">${LANG === "zh" ? "八字详解" : "BaZi reading"}</h2>`;
+    bs.forEach((sec) => {
+      html += `<div class="card" style="margin-bottom:10px"><h4>${LANG === "zh" ? headZh[sec.key] : headEn[sec.key]}</h4>` +
+        (LANG === "zh" ? sec.zh : sec.en).map((p) => `<p class="note" style="color:var(--tx2);margin:5px 0">${p}</p>`).join("") + `</div>`;
+    });
+    html += `<h2 class="sec">${LANG === "zh" ? "紫微十二宫详解" : "Zi Wei reading — twelve palaces"}</h2>`;
+    html += `<div class="two" style="align-items:start">`;
+    zs.forEach((sec, i) => {
+      html += `<div class="card" style="margin-bottom:10px">
+        <h4 style="color:var(--amber)">${LANG === "zh" ? sec.name : tr(sec.name)} <span style="color:var(--tx3);font-weight:400">${sec.branch}</span></h4>`
+        + (LANG === "zh" ? sec.zh : sec.en).map((p) => `<p class="note" style="color:var(--tx2);margin:4px 0">${p}</p>`).join("") + `</div>`;
+      if (i === 5) html += `</div><div class="two" style="align-items:start">`;
+    });
+    html += `</div>`;
+    $("readingBox").innerHTML = html;
   }
 
   function schoolViews() {
@@ -317,12 +379,19 @@
     const el = b.elementScores;
     const dom = Object.keys(el).sort((x, y) => el[y] - el[x])[0];
     const weak = Object.keys(el).sort((x, y) => el[x] - el[y])[0];
-    const ZH = { ziping: "子平 · 格局法", tiaohou: "调候 · 穷通宝鉴", xinpai: "新派 · 量化旺衰", ziwei: "紫微 · 三方四正" };
-    const rows = [
+    const ZH = LANG === "zh"
+      ? { ziping: "子平 · 格局法", tiaohou: "调候 · 穷通宝鉴", xinpai: "新派 · 量化旺衰", ziwei: "紫微 · 三方四正" }
+      : { ziping: "Ziping · structure", tiaohou: "Climate · Qiong Tong Bao Jian", xinpai: "Modern · quantitative strength", ziwei: "Zi Wei · trine & opposite" };
+    const rows = LANG === "zh" ? [
       ["ziping", `月令${b.month.zhi}，${b.structure.basis}。${b.structure.kind === "特殊格" ? "特殊格局，成败系于一点，不宜以常规喜忌论。" : "属普通格，重在用神是否透出有力。"}日主${b.strengthLabel}，${b.strength >= 52 ? "宜泄宜克，不宜再补。" : b.strength <= 45 ? "宜生宜扶，忌再耗泄。" : "中和可任财官，取用弹性较大。"}`],
       ["tiaohou", `《穷通宝鉴》${b.dayMaster}日生${b.month.zhi}月，调候取${b.tiaohou.sequence || "—"}（${b.tiaohou.primary || "—"}为先）。已见 ${b.tiaohou.satisfied.join("") || "无"}，缺 ${b.tiaohou.missing.join("") || "无"}。${b.tiaohou.missing.length ? "调候有缺，主环境支持不足，需后天补（方位、行业、择时）。" : "调候齐备，先天气候得宜，起手条件不差。"}`],
-      ["xinpai", `按干支加权（月令 24 %）叠加旺相休囚死系数，${dom}最旺（${el[dom].toFixed(1)}%），${weak}最弱（${el[weak].toFixed(1)}%）。同党合计 ${b.strength.toFixed(1)}%，判为${b.strengthLabel}。量化法可比可追踪，但不认格局贵贱，故只作六维中的一维。`],
+      ["xinpai", `按干支加权（月令 24 %）叠加旺相休囚死系数，${dom}最旺（${el[dom].toFixed(1)}%），${weak}最弱（${el[weak].toFixed(1)}%）。同党合计 ${b.strength.toFixed(1)}%，判为${b.strengthLabel}。量化法可比可追踪，但不认格局贵贱，故只作七维中的一维。`],
       ["ziwei", `命宫${z.mingBranch}，${zs.mingStars.join("、") || "空宫"}；三方四正 ${s.dimensions.sanfang}。${zs.patterns.length ? "成格：" + zs.patterns.map((p) => p.name + "（" + p.desc + "）").join("；") : "未成典型格局，按宫位单论"}。财帛 ${zs.wealthScore}、官禄 ${zs.careerScore}——${zs.careerScore > zs.wealthScore ? "事业强于财帛，宜以职位与专业换资源。" : "财帛强于官禄，宜以经营与配置取胜。"}`]
+    ] : [
+      ["ziping", `Month command ${b.month.zhi}: ${I18.structure[b.structure.name] || b.structure.name}; day master ${I18.strength[b.strengthLabel]}. ${b.strength >= 52 ? "Drain and control it rather than reinforcing." : "Support it rather than draining."}`],
+      ["tiaohou", `Climate god ${b.tiaohou.sequence || "—"}; present ${b.tiaohou.satisfied.join(", ") || "none"}, missing ${b.tiaohou.missing.join(", ") || "none"}. ${b.tiaohou.missing.length ? "Compensate through direction, industry and timing." : "Climate is complete."}`],
+      ["xinpai", `${I18.wx[dom]} strongest (${el[dom].toFixed(1)} %), ${I18.wx[weak]} weakest (${el[weak].toFixed(1)} %); allies ${b.strength.toFixed(1)} %. Quantification is comparable but blind to structure — one dimension of seven, never the verdict.`],
+      ["ziwei", `Life palace ${z.mingBranch}: ${zs.mingStars.map(tr).join(", ") || "empty"}; trine ${s.dimensions.sanfang}. Wealth ${zs.wealthScore} vs career ${zs.careerScore}.`]
     ];
     return rows.map(([k, txt]) =>
       `<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--amber);letter-spacing:.08em;margin-bottom:3px">${ZH[k]}</div>
@@ -332,7 +401,10 @@
   function drawRadar() {
     if (!R) return;
     const d = R.scores.dimensions, keys = Object.keys(d);
-    const zh = { structure: "结构", flow: "流通", climate: "调候", ming: "命宫", sanfang: "三方", yongshen: "用神" };
+    const zh = { structure: "结构", flow: "流通", climate: "调候", root: "根基",
+      ming: "命宫", sanfang: "三方", shensha: "神煞", yongshen: "用神" };
+    const zhEn = { structure: "Struct", flow: "Flow", climate: "Climate", root: "Root",
+      ming: "Palace", sanfang: "Trine", shensha: "Stars" };
     const cx = 160, cy = 148, rad = 96, n = keys.length;
     let out = "";
     for (let ring = 1; ring <= 4; ring++) {
@@ -356,7 +428,7 @@
       const rr = rad * Math.max(0.04, d[k] / 100);
       out += `<circle cx="${cx + rr * Math.cos(a)}" cy="${cy + rr * Math.sin(a)}" r="2.8" fill="#f3c26b"/>`;
       const lx = cx + (rad + 26) * Math.cos(a), ly = cy + (rad + 24) * Math.sin(a);
-      out += `<text x="${lx}" y="${ly}" fill="#a4a3a0" font-size="11" text-anchor="middle">${zh[k]}</text>`;
+      out += `<text x="${lx}" y="${ly}" fill="#a4a3a0" font-size="11" text-anchor="middle">${LANG === "zh" ? (zh[k] || k) : (zhEn[k] || k)}</text>`;
       out += `<text x="${lx}" y="${ly + 12}" fill="#e9e6df" font-size="10" text-anchor="middle">${d[k].toFixed(0)}</text>`;
     });
     $("radar").innerHTML = out;
@@ -371,7 +443,7 @@
           <td><b style="font-family:var(--serif);font-size:15px;color:${c.active ? "var(--amber2)" : "var(--tx)"}">${c.label}</b></td>
           <td class="num">${c.startAge}–${c.endAge}</td>
           <td class="num">${c.startYear}–${c.endYear}</td>
-          <td>${c.shishenGan} / ${c.shishenZhi}</td>
+          <td>${tr(c.shishenGan)} / ${tr(c.shishenZhi)}</td>
           <td class="note">${dec ? dec.palace + " · " + dec.theme : "—"}</td>
           <td>${c.active ? '<span class="pill p-mid">当前</span>' : ""}</td></tr>`;
       }).join("") + "</tbody>";
@@ -403,9 +475,9 @@
         <td><b style="font-family:var(--serif)">${d.label}</b></td>
         <td>${d.luckCycle || "—"}</td>
         <td class="num" style="color:${bandColor(d.score)}">${d.score.toFixed(1)}</td>
-        <td><span class="pill ${bandCls(d.score)}">${d.band}</span></td>
-        <td class="note">${d.themes.slice(0, 3).join(" · ")}</td>
-        <td class="note">${d.cautions.slice(0, 2).join("；") || "—"}</td></tr>`).join("") + "</tbody>";
+        <td><span class="pill ${bandCls(d.score)}">${bandTxt(d.band)}</span></td>
+        <td class="note">${d.themes.slice(0, 3).map(tr).join(" · ")}</td>
+        <td class="note">${d.cautions.slice(0, 2).map(bi).join(LANG === "zh" ? "；" : "; ") || "—"}</td></tr>`).join("") + "</tbody>";
   }
 
   function renderMonths() {
@@ -428,10 +500,10 @@
     $("monthTable").innerHTML = `<thead><tr><th>区间</th><th>干支</th><th class="num">评分</th><th>评级</th><th>主题</th><th>机会</th><th>注意事项</th></tr></thead><tbody>` +
       d.map((m) => `<tr><td class="num">${m.name}</td><td><b style="font-family:var(--serif)">${m.label}</b></td>
         <td class="num" style="color:${bandColor(m.score)}">${m.score.toFixed(1)}</td>
-        <td><span class="pill ${bandCls(m.score)}">${m.band}</span></td>
-        <td class="note">${m.themes.slice(0, 2).join(" · ")}</td>
-        <td class="note">${(m.opportunities || []).slice(0, 1).join("") || "—"}</td>
-        <td class="note">${(m.cautions || []).slice(0, 1).join("") || "—"}</td></tr>`).join("") + "</tbody>";
+        <td><span class="pill ${bandCls(m.score)}">${bandTxt(m.band)}</span></td>
+        <td class="note">${m.themes.slice(0, 2).map(tr).join(" · ")}</td>
+        <td class="note">${(m.opportunities || []).slice(0, 1).map(bi).join("") || "—"}</td>
+        <td class="note">${(m.cautions || []).slice(0, 1).map(bi).join("") || "—"}</td></tr>`).join("") + "</tbody>";
   }
 
   /* ---------- events ---------- */
@@ -499,7 +571,7 @@
     if ($("f-cal").value === "lunar") {
       const raw = ($("f-lunar").value || "").trim().replace(/[年月]/g, "-").replace(/日/g, "");
       const parts = raw.split("-").filter(Boolean);
-      if (parts.length < 3) { alert("农历格式：1993-4-25 或 1993-闰4-25"); return; }
+      if (parts.length < 3) { alert(LANG === "zh" ? "农历格式：1990-4-21 或 1990-闰5-1" : "Lunar format: 1990-4-21 or 1990-leap5-1"); return; }
       const ly = +parts[0], isLeap = parts[1].includes("闰"), lm = parseInt(parts[1].replace("闰", ""), 10), lday = +parts[2];
       const jd = ML.lunarToJD(ly, lm, lday, isLeap);
       if (jd == null) { alert("该农历日期不存在"); return; }
@@ -507,7 +579,7 @@
       y = s[0]; mo = s[1]; d = s[2];
       $("f-date").value = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     } else {
-      const v = ($("f-date").value || "1993-06-14").split("-").map(Number);
+      const v = ($("f-date").value || "1990-05-15").split("-").map(Number);
       y = v[0]; mo = v[1]; d = v[2];
     }
     const [h, mi] = ($("f-time").value || "12:00").split(":").map(Number);
@@ -525,15 +597,18 @@
     });
     SEL = R.cycles.findIndex((c) => c.active);
     if (SEL < 0) SEL = 0;
-    renderBaziTable(); renderDayun(); renderLiunian(); renderBoard();
-    showPalace(R.ziwei.palaces[0]);
-    renderScore(); drawRadar(); renderYears(); renderMonths();
+    const step = (n, fn) => { try { fn(); } catch (e) { window.__mlErr && window.__mlErr(n + ": " + e.message); throw e; } };
+    step("bazi", renderBaziTable); step("dayun", renderDayun);
+    step("liunian", renderLiunian); step("board", renderBoard);
+    step("palace", () => showPalace(R.ziwei.palaces[0]));
+    step("score", renderScore); step("radar", drawRadar);
+    step("years", renderYears); step("months", renderMonths);
     if (R.events) renderEventResult();
   }
 
   /* ---------- wire ---------- */
   function activateFromHash() {
-    const order = ["chart", "score", "year", "month", "event", "method"];
+    const order = ["chart", "score", "reading", "year", "month", "event", "method"];
     const h = (location.hash || "").replace("#", "");
     const i = order.indexOf(h);
     if (i < 0) return;
@@ -546,7 +621,8 @@
   document.addEventListener("DOMContentLoaded", () => {
     paintChrome();
     [0, 1, 2].forEach(() => $("evList").appendChild(evRow(null)));
-    cast(); renderMethod(); activateFromHash();
+    try { cast(); } catch (e) { console.error(e); }
+    renderMethod(); activateFromHash();
     window.addEventListener("hashchange", activateFromHash);
     $("go").onclick = cast;
     $("f-cal").onchange = () => {

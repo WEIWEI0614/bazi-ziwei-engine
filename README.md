@@ -63,12 +63,13 @@ or just open the hosted demo: **https://weiwei0614.github.io/bazi-ziwei/**
 | Layer | Output |
 |---|---|
 | **Calendar** | Apparent solar longitude (VSOP87 truncated), 24 solar terms to the second, new moons (Meeus 49), lunisolar calendar with the no-zhongqi leap rule, true solar time (longitude + equation of time) |
-| **Four Pillars** | Year/month/day/hour pillars, 10 gods, hidden stems, nayin, twelve stages, void branches, seasonal state (旺相休囚死), quantitative element shares, day-master strength, structure (格局), climate god (调候), **35 shensha in three grades with the rule that produced each**, all 合/冲/刑/害/破 interactions |
+| **Four Pillars** | Year/month/day/hour pillars, 10 gods, hidden stems, nayin, twelve stages, void branches, seasonal state (旺相休囚死), quantitative element shares, day-master strength, structure (格局), climate god (调候), **45 shensha in three grades with the rule that produced each**, all 合/冲/刑/害/破 interactions |
 | **Luck cycles** | Direction, starting age (3 days = 1 year), ten 10-year cycles, annual pillars, monthly pillars on the 12 *jie* |
 | **Zi Wei** | Twelve palaces, five-element bureau, 14 majors with 7 brightness grades, 6+6 auxiliaries, **38 adjective stars**, **four sets of twelve gods (长生/博士/将前/岁前)**, decade and minor limits, life/body rulers, Dou Jun, birth-year sihua (Sanhe **and** Feixing), palace-stem self-transformation, annual palace |
-| **Scoring** | Six dimensions → overall 0-100 and tier; six life areas (career / wealth / love / health / study / network), each with its components exposed |
+| **Scoring** | Seven dimensions → overall score with a **percentile against 10,000 sampled charts**, plus named strengths and deductions; six life areas, each with its components exposed |
 | **Timeline** | Per-year score with themes, cautions and openings; per-month the same, scaled |
 | **Back-test** | Hit rate, Pearson correlation, ridge-refitted weights, per-event disagreement list |
+| **Reading** | Per-chart prose in Chinese and English: structure & useful god, ten-god distribution, four-pillar palatial reading, shensha reading, and all twelve Zi Wei palaces |
 
 ![score](docs/img/score.png)
 ![month](docs/img/month.png)
@@ -89,7 +90,7 @@ every disagreement was chased down.
 | Zi Wei vs `iztro` (14 majors + 13 auxiliaries) | 700 charts | **1 chart** differs by one major star (new-moon knife edge) |
 | Zi Wei vs `iztro` (38 adjective stars) | 700 charts | **1 chart** (same knife edge) |
 | Zi Wei vs `iztro` (长生/博士/将前/岁前, 小限, 大限) | 700 charts | **0 errors** |
-| Shensha (35 stars) JS vs Python | 30 charts | identical name set, positions and grades |
+| Shensha (45 stars) JS vs Python | 30 charts | identical name set, positions and grades |
 | Browser JS vs Python | 60 charts, 15 field groups | identical; differences only from rounding convention (±0.1) |
 
 Two bugs found this way and worth recording, because both are common in other projects:

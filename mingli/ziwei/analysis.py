@@ -10,6 +10,12 @@ from .chart import (BRIGHT_SCORE, HUA_NAMES, LUCKY, MAJOR_STARS, PALACE_NAMES,
 
 OPPOSITE = 6   # 對宮 offset in palace index
 
+PATTERN_BONUS = {
+    "極向離明": 8.0, "君臣慶會": 7.0, "紫府朝垣": 6.0, "月朗天門": 5.0,
+    "日照雷門": 5.0, "石中隱玉": 4.0, "英星入廟": 3.0, "機月同梁": 3.0,
+    "殺破狼": 2.0, "命無正曜": -4.0,
+}
+
 PATTERNS = [
     ("紫府朝垣", "紫微與天府分居命、財、官三合，主格局寬厚、資源聚合"),
     ("君臣慶會", "紫微坐命而左輔右弼、天魁天鉞同會，主貴人成群的領導格"),
@@ -184,15 +190,18 @@ def yearly_palace(chart: ZiweiChart, year: int) -> dict:
 def summary(chart: ZiweiChart) -> dict:
     ming = chart.palace("命宫")
     sc, detail = palace_score(chart, ming)
+    pats = detect_patterns(chart)
+    # 格局本身是贵气，不能只看主星亮度
+    sc = max(2.0, min(98.0, sc + sum(PATTERN_BONUS.get(p["name"], 0) for p in pats)))
     cai = chart.palace("财帛")
     guan = chart.palace("官禄")
     cai_s, _ = palace_score(chart, cai)
     guan_s, _ = palace_score(chart, guan)
     return {
-        "ming_score": sc,
+        "ming_score": round(sc, 1),
         "wealth_score": cai_s,
         "career_score": guan_s,
-        "patterns": detect_patterns(chart),
+        "patterns": pats,
         "ming_stars": [f"{s.name}" + (f"化{s.hua}" if s.hua else "")
                        + (f"[{s.brightness}]" if s.brightness else "")
                        for s in ming.major],

@@ -190,9 +190,9 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
         <select id="f-gender"><option value="male">男 / Male</option><option value="female">女 / Female</option></select></div>
       <div class="field"><label id="l-cal">历法 / Calendar</label>
         <select id="f-cal"><option value="solar">公历 Gregorian</option><option value="lunar">农历 Lunar</option></select></div>
-      <div class="field" id="wrap-solar"><label id="l-date">生日 / Date</label><input id="f-date" type="date" value="1993-06-14"></div>
+      <div class="field" id="wrap-solar"><label id="l-date">生日 / Date</label><input id="f-date" type="date" value="1990-05-15"></div>
       <div class="field" id="wrap-lunar" style="display:none"><label>农历 / Lunar</label><input id="f-lunar" placeholder="1993-4-25 / 1993-闰4-25"></div>
-      <div class="field"><label id="l-time">时间 / Time</label><input id="f-time" type="time" value="17:31"></div>
+      <div class="field"><label id="l-time">时间 / Time</label><input id="f-time" type="time" value="10:20"></div>
       <div class="field"><label id="l-lon">经度 / Longitude</label>
         <select id="f-city">
           <option value="116.40">北京 116.40</option><option value="121.47">上海 121.47</option>
@@ -242,6 +242,10 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
       <div class="card"><h4 id="h-radar">六维</h4><svg id="radar" viewBox="0 0 320 300" style="width:100%;max-width:400px"></svg></div>
     </div>
     <h2 class="sec" id="h-dims">评分拆解</h2><div class="card" id="dims"></div>
+    <div class="two" style="margin-top:10px">
+      <div class="card"><h4 id="h-hl" style="color:var(--teal)">结构亮点</h4><div id="hlBox"></div></div>
+      <div class="card"><h4 id="h-wk" style="color:var(--red)">结构短板</h4><div id="wkBox"></div></div>
+    </div>
     <h2 class="sec" id="h-areas">六领域</h2><div class="card" id="areas"></div>
     <h2 class="sec" id="h-read">命局解读</h2>
     <div class="two">
@@ -250,6 +254,11 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     </div>
     <h2 class="sec" id="h-school">流派视角</h2><div class="card" id="schoolbox"></div>
     <h2 class="sec" id="h-ss">神煞 · 刑冲合害</h2><div class="card" id="ssbox"></div>
+  </section>
+
+  <section class="view" id="v-reading">
+    <h2 class="sec" id="h-reading">流派详解</h2>
+    <div id="readingBox"></div>
   </section>
 
   <section class="view" id="v-year">

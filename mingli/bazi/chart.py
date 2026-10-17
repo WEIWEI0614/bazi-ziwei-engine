@@ -324,8 +324,10 @@ def _analyse_structure(chart: BaziChart) -> None:
         if ss in ("比肩", "劫财"):
             if mz == LU[dm]:
                 name, basis = "建禄格", f"月令{mz}为日主临官（禄）之地，{h}透干，取建禄格"
-            else:
+            elif mz == YANGREN[dm]:
                 name, basis = "月刃格", f"月令{mz}为日主帝旺（羊刃）之地，{h}透干，取月刃格"
+            else:
+                name, basis = f"{ss}格", f"月令{mz}藏{h}透干，{ss}当权，不属禄刃"
         else:
             name = {
                 "正官": "正官格", "七杀": "七杀格", "正财": "正财格", "偏财": "偏财格",
@@ -336,8 +338,10 @@ def _analyse_structure(chart: BaziChart) -> None:
     elif m_wx == dm_wx:
         if mz == LU[dm]:
             name, basis = "建禄格", f"月令{mz}为日主临官（禄）之地，取建禄格"
-        else:
+        elif mz == YANGREN[dm]:
             name, basis = "月刃格", f"月令{mz}为日主帝旺（羊刃）之地，取月刃格"
+        else:
+            name, basis = "比劫格", f"月令{mz}为日主同类之地，取比劫格"
         kind = "普通格"
     else:
         h = m_hidden[0]

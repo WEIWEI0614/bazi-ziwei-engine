@@ -22,6 +22,41 @@ from mingli.ziwei import chart as ZC  # noqa: E402
 from mingli.ziwei import analysis as ZA  # noqa: E402
 
 
+def _percentiles():
+    from mingli import scoring
+    return {"quantiles": scoring.QUANTILES,
+            "dimStats": scoring.DIM_STATS,
+            "weights": scoring.WEIGHTS,
+            "dims": scoring.DIMS}
+
+
+def _i18n():
+    from mingli import interpret as I
+    from mingli.calendar import ganzhi as G
+    from mingli.ziwei import chart as ZC
+    return {
+        "shishen": {k: v.split(" (")[0] for k, v in G.SHISHEN_EN.items()},
+        "shishenInfo": I.SHISHEN_INFO,
+        "shensha": I.SHENSHA_EN,
+        "structure": I.STRUCTURE_EN,
+        "theme": I.THEME_EN,
+        "zwPalace": I.ZW_PALACE,
+        "zwStar": I.ZW_STAR,
+        "zwStarEn": I.ZW_STAR_EN,
+        "palaceEn": I.PALACE_EN,
+        "huaInfo": I.HUA_INFO,
+        "huaEn": I.HUA_EN,
+        "bright": I.BRIGHT_ZH, "brightEn": I.BRIGHT_EN,
+        "pillarInfo": I.PILLAR_INFO,
+        "star": ZC.STAR_EN,
+        "palaceNameEn": dict(zip(ZC.PALACE_NAMES, ZC.PALACE_EN)),
+        "wx": I.TIANGAN_WX_EN,
+        "strength": {"极强": "very strong", "偏强": "strong", "中和": "balanced",
+                     "偏弱": "weak", "极弱": "very weak"},
+        "structureKind": {"普通格": "ordinary", "特殊格": "exceptional"},
+    }
+
+
 def _shensha_tables():
     from mingli.bazi import shensha as S
     names = ["TIANYI", "TAIJI", "WENCHANG", "GUOYIN", "FUXING", "LU", "YANGREN",
@@ -81,6 +116,8 @@ def dump():
         "MING_ZHU": ZC.MING_ZHU, "SHEN_ZHU": ZC.SHEN_ZHU,
         "XIAOXIAN_START": ZC.XIAOXIAN_START,
         "SHENSHA": _shensha_tables(),
+        "I18N": _i18n(),
+        "PERCENTILES": _percentiles(),
         "PATTERNS": [list(p) for p in ZA.PATTERNS],
         "DECADE_THEMES": {k: list(v) for k, v in ZA.DECADE_THEMES.items()},
         "THEME_MAP": BC.__dict__.get("THEME_MAP") or {},
