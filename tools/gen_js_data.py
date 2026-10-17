@@ -22,6 +22,27 @@ from mingli.ziwei import chart as ZC  # noqa: E402
 from mingli.ziwei import analysis as ZA  # noqa: E402
 
 
+def _glossary():
+    from mingli.glossary import GLOSSARY
+    return GLOSSARY
+
+
+def _gua():
+    from mingli import gua as G
+    rows = [[up, lo, name, text, tone, en]
+            for (up, lo), (name, text, tone, en) in G.GUA.items()]
+    return {"rows": rows,
+            "trigrams": [[t[0], t[1], list(t[2]), t[3], t[4], t[5]] for t in G.TRIGRAMS],
+            "tones": {"zh": G.TONE_ZH, "en": G.TONE_EN}}
+
+
+def _synastry_cfg():
+    from mingli import synastry as S
+    return {k: {"zh": v["zh"], "en": v["en"], "weights": v["weights"],
+                "note": v["note"], "noteEn": v["noteEn"]}
+            for k, v in S.RELATIONS.items()}
+
+
 def _percentiles():
     from mingli import scoring
     return {"quantiles": scoring.QUANTILES,
@@ -117,6 +138,9 @@ def dump():
         "XIAOXIAN_START": ZC.XIAOXIAN_START,
         "SHENSHA": _shensha_tables(),
         "I18N": _i18n(),
+        "GLOSSARY": _glossary(),
+        "GUA": _gua(),
+        "SYNASTRY": _synastry_cfg(),
         "PERCENTILES": _percentiles(),
         "PATTERNS": [list(p) for p in ZA.PATTERNS],
         "DECADE_THEMES": {k: list(v) for k, v in ZA.DECADE_THEMES.items()},

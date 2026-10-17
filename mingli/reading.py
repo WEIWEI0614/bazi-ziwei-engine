@@ -11,6 +11,7 @@ from .calendar import astro
 from .ziwei import analysis as zw_analysis
 from .ziwei.chart import ZiweiChart, build_ziwei
 
+from . import pattern as _pattern
 from .scoring import score_overall  # noqa: E402
 
 
@@ -19,6 +20,7 @@ class Reading:
     chart: BaziChart
     ziwei: ZiweiChart
     scores: dict = field(default_factory=dict)
+    grade: dict = field(default_factory=dict)
     zsummary: dict = field(default_factory=dict)
     cycles: list = field(default_factory=list)
     timeline: list = field(default_factory=list)
@@ -41,6 +43,11 @@ def build_reading(name: str, gender: str, year: int, month: int, day: int,
                      sihua_school, leap_policy)
     r = Reading(chart=chart, ziwei=zc)
     r.scores = score_overall(chart, zc)
+    # 格位（贵贱）与强度（力量）分开：前者按「成格/破格/救应」判定，
+    # 后者是七维加权。二者不可互相折算，故并列出。
+    r.grade = _pattern.combined_grade(_pattern.bazi_grade(chart),
+                                      _pattern.ziwei_grade(zc))
+    r.scores["grade"] = r.grade
     r.zsummary = zw_analysis.summary(zc)
     r.cycles = bz_luck.luck_cycles(chart, count=10, as_of=focus_year)
     r.timeline = bz_luck.timeline(chart, years=12, as_of_year=focus_year)

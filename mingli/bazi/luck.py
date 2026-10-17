@@ -211,11 +211,11 @@ def useful_elements(chart) -> tuple[list[str], list[str], dict]:
 
 
 def _band(score: float) -> str:
-    if score >= 78:
+    if score >= 80:
         return "大吉"
-    if score >= 65:
+    if score >= 68:
         return "吉"
-    if score >= 55:
+    if score >= 58:
         return "小吉"
     if score >= 45:
         return "平"
@@ -240,68 +240,127 @@ THEME_MAP = {
 }
 
 
+# 十神吉凶（《渊海子平》通行分法）
+AUSPICIOUS = {"正财", "正印", "正官", "食神"}
+OMINOUS = {"伤官", "七杀", "劫财", "偏印"}
+
+
+def _ten_god_score(god: str, is_favor: bool) -> float:
+    """吉神在流年为喜用最好；凶神为忌最重。"""
+    if god in AUSPICIOUS:
+        return 5.0 if is_favor else 1.5
+    if god in OMINOUS:
+        return -1.5 if is_favor else -5.0
+    return 1.5 if is_favor else -1.5
+
+
 def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) -> dict:
-    """Score a single 干支 against the natal chart. Returns components + text."""
+    """流年/流月评分。
+
+    判法依《子平真诠》「以用神为纲，以格局为本，以岁运为用」，顺序为：
+        1. 先看喜忌 —— 干支五行是否命局所需（地支为主，天干主外）
+        2. 再看十神 —— 吉神 / 凶神 / 中神 与喜忌交叉
+        3. 后看会合刑冲 —— 「有合先论合，无合论刑冲」，合可解冲
+        4. 再叠大运 —— 大运定十年基调，流年只是触发
+        5. 神煞仅作辅助，不压过五行喜忌
+    """
     dm = chart.day_master
     ss_g = shishen(dm, gan)
     ss_z = shishen(dm, HIDDEN[zhi][0])
     favor, avoid, _ = useful_elements(chart)
+    comp: dict[str, float] = {}
 
-    comp = {}
-
-    # 1) 五行得用
+    # ---- 1) 喜忌：地支 0.6、天干 0.4，地支权重加倍（主吉凶之本体）---------
     add = _element_of(gan, zhi)
-    good, bad = 0.0, 0.0
+    # 负向系数低于正向：不得用是常态，得用才是稀缺，故不一味重罚。
+    # 更重要的一条：忌神有制则不凶 —— 局中有克它或泄它的五行且有力时，惩罚折半。
+    es = chart.element_scores
+    gain = 0.0
+    loss = 0.0
     for el, v in add.items():
         if v <= 0:
             continue
         if el in favor:
-            good += v
+            gain += v * 1.7
         if el in avoid:
-            bad += v
-    comp["用神"] = max(-26.0, min(26.0, (good - bad) * 70.0))
+            ctrl = [k for k in KE if KE[k] == el][0]      # 克我者
+            drain = SHENG[el]                              # 我生者（泄）
+            checked = max(es.get(ctrl, 0), es.get(drain, 0))
+            loss += v * (0.55 if checked >= 8 else 1.10)
+    comp["用神"] = round(max(-22.0, min(26.0, (gain - loss) * 40.0)), 1)
+    comp["忌神有制"] = 1.0 if loss < sum(v * 1.10 for e, v in add.items() if e in avoid) else 0.0
 
-    # 2) 冲合刑害 (against each pillar)
-    rels = []
+    # ---- 2) 十神 ----------------------------------------------------------
+    f_gan = GAN_WUXING[GAN.index(gan)] in favor
+    f_zhi = GAN_WUXING[GAN.index(HIDDEN[zhi][0])] in favor
+    god_s = _ten_god_score(ss_g, f_gan) * 0.5 + _ten_god_score(ss_z, f_zhi) * 0.7
+    comp["十神"] = round(god_s, 1)
+
+    # ---- 3) 会合刑冲（有合先论合）----------------------------------------
+    rels: list[str] = []
     penalty = 0.0
     bonus = 0.0
+    POSW = {"年": 1.0, "月": 1.2, "日": 1.4, "时": 0.9}
     for i, p in enumerate(chart.pillars):
         pos = POS_NAMES[i]
-        w = POS_WEIGHT[pos]
-        for r in zhi_relations(p.zhi, zhi):
+        w = POSW[pos]
+        zrels = zhi_relations(p.zhi, zhi)
+        has_he = "六合" in zrels
+        for r in zrels:
             rels.append(f"{pos}支{p.zhi}与{zhi}{r}")
-            if r == "六冲":
-                penalty += 7.0 * w
+            if r == "六合":
+                bonus += 3.2 * w
+            elif r == "六冲":
+                # 合能解冲：本柱既合又冲时，冲力折半
+                penalty += (3.5 if has_he else 7.0) * w
             elif r == "相刑":
                 penalty += 4.0 * w
             elif r in ("相害", "相破"):
                 penalty += 2.5 * w
-            elif r == "六合":
-                bonus += 3.0 * w
             elif r == "伏吟":
-                penalty += 3.0 * w
+                penalty += 3.5 * w
         for r in gan_relations(p.gan, gan):
             rels.append(f"{pos}干{p.gan}与{gan}{r}")
             if r == "天干相冲":
                 penalty += 3.5 * w
             elif r == "天干五合":
-                bonus += 2.0 * w
-    # 三合 / 三会 with natal branches
+                bonus += 2.2 * w
+        if GAN_CHONG.get(p.gan) == gan and CHONG[p.zhi] == zhi:
+            penalty += 6.0 * w
+            rels.append(f"与{pos}柱天克地冲")
     for grp in SANHE:
         if zhi in grp[:3]:
             have = [z for z in chart.all_zhi() if z in grp[:3] and z != zhi]
             if len(set(have)) >= 2:
                 bonus += 5.0
                 rels.append(f"{zhi}与命局成三合{grp[3]}局")
+            elif len(set(have)) == 1:
+                bonus += 2.0
+                rels.append(f"{zhi}与{have[0]}半合{grp[3]}局")
     comp["冲合"] = round(bonus - penalty, 1)
 
-    # 3) 天克地冲 (gan and zhi both clash)
-    for i, p in enumerate(chart.pillars):
-        if GAN_CHONG.get(p.gan) == gan and CHONG[p.zhi] == zhi:
-            comp["冲合"] -= 8.0
-            rels.append(f"与{['年','月','日','时'][i]}柱天克地冲")
+    # ---- 4) 大运（定十年基调，流年只作触发）------------------------------
+    tone = 0.0
+    big = 0.0
+    if luck:
+        lg, lz = luck.gan, luck.zhi
+        ladd = _element_of(lg, lz)
+        lg_gain = sum(v for e, v in ladd.items() if e in favor)
+        lg_loss = sum(v for e, v in ladd.items() if e in avoid)
+        tone = max(-1.0, min(1.0, (lg_gain - lg_loss) * 1.8))
+        big = tone * 7.0
+        if GAN_CHONG.get(lg) == gan and CHONG[lz] == zhi:
+            big -= 8.0
+            rels.append("大运流年天克地冲")
+        if zhi == lz:
+            big -= 3.0
+            rels.append("流年伏吟大运")
+        elif CHONG.get(lz) == zhi:
+            big -= 2.5
+            rels.append("流年冲大运")
+    comp["大运"] = round(big, 1)
 
-    # 4) 神煞
+    # ---- 5) 神煞（辅助，不压喜忌）----------------------------------------
     sha = 0.0
     if zhi in TIANYI.get(dm, ()):
         sha += 4.0
@@ -314,27 +373,22 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         rels.append("流年临禄")
     if zhi in ("辰", "戌", "丑", "未") and ss_z in ("正官", "七杀"):
         sha -= 2.0
-    comp["神煞"] = sha
+    comp["神煞"] = round(sha, 1)
 
-    # 5) 大运叠加
-    big = 0.0
-    if luck:
-        lg, lz = luck.gan, luck.zhi
-        favors_l = sum(1 for e in _element_of(lg, lz) if e in favor)
-        big = (favors_l - 2) * 2.0
-        if GAN_CHONG.get(lg) == gan and CHONG[lz] == zhi:
-            big -= 10.0
-            rels.append("大运流年天克地冲")
-        if zhi == lz:
-            big -= 3.0
-            rels.append("流年伏吟大运")
-    comp["大运"] = round(big, 1)
+    raw = 50.0 + comp["用神"] + comp["十神"] + comp["冲合"] + comp["大运"] + comp["神煞"]
 
-    raw = 50.0 + comp["用神"] + comp["冲合"] + comp["神煞"] + comp["大运"]
-    # compress towards 50 so that a single year never reads as catastrophic
-    score = max(12.0, min(92.0, 50.0 + (max(2.0, min(98.0, raw)) - 50.0) * 0.86))
+    # 大运吉而流年凶 → 不至大凶；大运凶而流年吉 → 吉力打折
+    if tone > 0 and raw < 50:
+        raw = 50 - (50 - raw) * (1 - 0.42 * tone)
+    elif tone < 0 and raw > 50:
+        raw = 50 + (raw - 50) * (1 - 0.42 * abs(tone))
+
+    # tanh 压缩：中段近似线性，两端收敛，避免单年读到「必凶」
+    import math as _m
+    score = 50.0 + 41.0 * _m.tanh((max(0.0, min(100.0, raw)) - 50.0) / 34.0)
     comp["base"] = 50.0
     comp["raw"] = round(raw, 1)
+    comp["大运基调"] = round(tone, 2)
 
     themes = list(THEME_MAP.get(ss_g, ())) + list(THEME_MAP.get(ss_z, ()))
     seen, th = set(), []
@@ -343,7 +397,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             seen.add(t)
             th.append(t)
 
-    cautions = []
+    cautions: list[str] = []
     for r in rels:
         if "六冲" in r and "日" in r:
             cautions.append("日支被冲：住所、婚姻或自身状态易有变动，忌仓促决定")
@@ -351,6 +405,8 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             cautions.append("月柱被冲：工作环境或家庭结构面临调整")
         elif "六冲" in r and "年" in r:
             cautions.append("年柱被冲：长辈、根基或长期规划受扰")
+        elif "六冲" in r and "时" in r:
+            cautions.append("时柱被冲：子女、下属或投资标的易有变动")
         elif "天克地冲" in r:
             cautions.append("天克地冲：该领域阻力最大，宜守不宜攻")
         elif "相刑" in r:
@@ -359,22 +415,25 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             cautions.append("相害：人际暗耗，慎防被牵连")
         elif "伏吟" in r:
             cautions.append("伏吟：旧事重来，情绪反复，宜静守")
-    if ss_g in ("七杀", "伤官") and score < 48:
+    if ss_g in OMINOUS and score < 48:
         cautions.append(f"{ss_g}当值而全局失衡：压力与是非集中，忌硬碰体制与上级")
-    if ss_g in ("正官", "正印") and score >= 55:
-        cautions.append("官印相生之年，宜按程序推进，勿走捷径以免失信")
+    if ss_g in AUSPICIOUS and score >= 55:
+        cautions.append("吉神当值，宜按程序推进，勿走捷径以免失信")
 
-    opps = []
+    opps: list[str] = []
     if score >= 62:
         opps.append(f"{ss_g}/{ss_z}得用，是推进主业与积累信誉的窗口")
-    if "天乙贵人" in " ".join(rels):
+    joined = " ".join(rels)
+    if "天乙贵人" in joined:
         opps.append("天乙贵人到位：主动求见关键人物，成功率高")
-    if "文昌" in " ".join(rels):
+    if "文昌" in joined:
         opps.append("文昌到位：考试、论文、资格与公开发表皆宜")
-    if "临禄" in " ".join(rels):
+    if "临禄" in joined:
         opps.append("临禄：正财与职位稳固，适合谈薪与升迁")
     if comp["用神"] >= 12:
         opps.append(f"喜用{''.join(favor)}当令，资源顺势而来，宜进取")
+    if "三合" in joined or "半合" in joined:
+        opps.append("成合局：宜合作、宜结盟，借他人之力成事")
 
     return {
         "shishen_gan": ss_g, "shishen_zhi": ss_z, "score": round(score, 1),

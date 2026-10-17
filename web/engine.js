@@ -592,84 +592,145 @@
   const T = (zh, en) => ({ zh, en });
   const IS_WEAK = (n) => /断点|断绝|偏枯/.test(typeof n === "string" ? n : n.zh);
 
+  const AUSPICIOUS = { 正财: 1, 正印: 1, 正官: 1, 食神: 1 };
+  const OMINOUS = { 伤官: 1, 七杀: 1, 劫财: 1, 偏印: 1 };
+  const GWX_MAP = (() => { const o = {}; D.GAN.split("").forEach((g, i) => { o[g] = D.GAN_WUXING[i]; }); return o; })();
+
+  function tenGodScore(god, isFavor) {
+    if (AUSPICIOUS[god]) return isFavor ? 5 : 1.5;
+    if (OMINOUS[god]) return isFavor ? -1.5 : -5;
+    return isFavor ? 1.5 : -1.5;
+  }
+
+  /* 流年/流月评分 —— 顺序依《子平真诠》：
+       1 先看喜忌（地支为主） 2 再看十神（吉神/凶神×喜忌）
+       3 后看会合刑冲（有合先论合） 4 再叠大运基调 5 神煞仅作辅助 */
   function evaluatePeriod(c, gan, zhi, luckCyc) {
-    const dm = c.dayMaster, ssG = shishen(dm, gan), ssZ = shishen(dm, D.HIDDEN[zhi][0]);
-    const { favor, avoid } = usefulElements(c);
+    const dm = c.dayMaster;
+    const ssG = shishen(dm, gan), ssZ = shishen(dm, D.HIDDEN[zhi][0]);
+    const ue = usefulElements(c);
+    const favor = ue.favor, avoid = ue.avoid;
     const comp = {};
+
     const add = elementOf(gan, zhi);
-    let good = 0, bad = 0;
+    const es = c.elementScores;
+    let gain = 0, loss = 0;
     Object.keys(add).forEach((el) => {
-      if (add[el] <= 0) return;
-      if (favor.includes(el)) good += add[el];
-      if (avoid.includes(el)) bad += add[el];
+      const v = add[el];
+      if (v <= 0) return;
+      if (favor.includes(el)) gain += v * 1.7;
+      if (avoid.includes(el)) {
+        // 忌神有制则不凶：局中有克它或泄它的五行且有力时，惩罚折半
+        const ctrl = Object.keys(D.KE).find((k) => D.KE[k] === el);
+        const drain = D.SHENG[el];
+        const checked = Math.max(es[ctrl] || 0, es[drain] || 0);
+        loss += v * (checked >= 8 ? 0.55 : 1.10);
+      }
     });
-    comp["用神"] = Math.max(-26, Math.min(26, (good - bad) * 70));
-    let penalty = 0, bonus = 0;
+    comp["用神"] = Math.round(Math.max(-22, Math.min(26, (gain - loss) * 40)) * 10) / 10;
+    comp["忌神有制"] = loss < Object.keys(add).filter((e) => avoid.includes(e))
+      .reduce((n, e) => n + add[e] * 1.10, 0) ? 1 : 0;
+
+    const fGan = favor.includes(GWX_MAP[gan]);
+    const fZhi = favor.includes(GWX_MAP[D.HIDDEN[zhi][0]]);
+    comp["十神"] = Math.round((tenGodScore(ssG, fGan) * 0.5 + tenGodScore(ssZ, fZhi) * 0.7) * 10) / 10;
+
     const rels = [];
-    const posNames = { year: "年", month: "月", day: "日", hour: "时" };
+    let penalty = 0, bonus = 0;
+    const POSW = { year: 1.0, month: 1.2, day: 1.4, hour: 0.9 };
+    const POSN = { year: "年", month: "月", day: "日", hour: "时" };
     c.pillars.forEach((p) => {
-      const pos = posNames[p.position], w = POS_W[pos];
-      zhiRels(p.zhi, zhi).forEach((r) => {
+      const pos = POSN[p.position], w = POSW[p.position];
+      const zr = zhiRels(p.zhi, zhi);
+      const hasHe = zr.includes("六合");
+      zr.forEach((r) => {
         rels.push(`${pos}支${p.zhi}与${zhi}${r}`);
-        if (r === "六冲") penalty += 7 * w;
-        else if (r === "相刑") penalty += 4 * w;
+        if (r === "六合") bonus += 3.2 * w;
+        else if (r === "六冲") penalty += (hasHe ? 3.5 : 7.0) * w;
+        else if (r === "相刑") penalty += 4.0 * w;
         else if (r === "相害" || r === "相破") penalty += 2.5 * w;
-        else if (r === "六合") bonus += 3 * w;
-        else if (r === "伏吟") penalty += 3 * w;
+        else if (r === "伏吟") penalty += 3.5 * w;
       });
       ganRels(p.gan, gan).forEach((r) => {
         rels.push(`${pos}干${p.gan}与${gan}${r}`);
         if (r === "天干相冲") penalty += 3.5 * w;
-        else if (r === "天干五合") bonus += 2 * w;
+        else if (r === "天干五合") bonus += 2.2 * w;
       });
       if (D.GAN_CHONG[p.gan] === gan && D.CHONG[p.zhi] === zhi) {
-        comp["冲合"] = (comp["冲合"] || 0) - 8;
+        penalty += 6.0 * w;
         rels.push(`与${pos}柱天克地冲`);
       }
     });
     D.SANHE.forEach((grp) => {
       if (!grp.slice(0, 3).includes(zhi)) return;
-      const have = [...new Set(c.pillars.map((p) => p.zhi).filter((z) => grp.slice(0, 3).includes(z) && z !== zhi))];
+      const have = [...new Set(c.pillars.map((p) => p.zhi)
+        .filter((z) => grp.slice(0, 3).includes(z) && z !== zhi))];
       if (have.length >= 2) { bonus += 5; rels.push(`${zhi}与命局成三合${grp[3]}局`); }
+      else if (have.length === 1) { bonus += 2; rels.push(`${zhi}与${have[0]}半合${grp[3]}局`); }
     });
-    comp["冲合"] = (comp["冲合"] || 0) + bonus - penalty;
+    comp["冲合"] = Math.round((bonus - penalty) * 10) / 10;
+
+    let tone = 0, big = 0;
+    if (luckCyc) {
+      const ladd = elementOf(luckCyc.gan, luckCyc.zhi);
+      let lg = 0, ll = 0;
+      Object.keys(ladd).forEach((e) => {
+        if (favor.includes(e)) lg += ladd[e];
+        if (avoid.includes(e)) ll += ladd[e];
+      });
+      tone = Math.max(-1, Math.min(1, (lg - ll) * 1.8));
+      big = tone * 7;
+      if (D.GAN_CHONG[luckCyc.gan] === gan && D.CHONG[luckCyc.zhi] === zhi) {
+        big -= 8; rels.push("大运流年天克地冲");
+      }
+      if (zhi === luckCyc.zhi) { big -= 3; rels.push("流年伏吟大运"); }
+      else if (D.CHONG[luckCyc.zhi] === zhi) { big -= 2.5; rels.push("流年冲大运"); }
+    }
+    comp["大运"] = Math.round(big * 10) / 10;
+
     let sha = 0;
-    if (D.TIANYI[dm].includes(zhi)) { sha += 4; rels.push("流年天乙贵人"); }
+    if ((D.TIANYI[dm] || "").includes(zhi)) { sha += 4; rels.push("流年天乙贵人"); }
     if (D.WENCHANG[dm] === zhi) { sha += 3; rels.push("流年文昌"); }
     if (D.LU[dm] === zhi) { sha += 3; rels.push("流年临禄"); }
-    if (["辰", "戌", "丑", "未"].includes(zhi) && ["正官", "七杀"].includes(ssZ)) sha -= 2;
+    if (["辰", "戌", "丑", "未"].includes(zhi) && (ssZ === "正官" || ssZ === "七杀")) sha -= 2;
     comp["神煞"] = sha;
-    let big = 0;
-    if (luckCyc) {
-      const el = elementOf(luckCyc.gan, luckCyc.zhi);
-      const favs = Object.keys(el).filter((e) => favor.includes(e)).length;
-      big = (favs - 2) * 2;
-      if (D.GAN_CHONG[luckCyc.gan] === gan && D.CHONG[luckCyc.zhi] === zhi) { big -= 10; rels.push("大运流年天克地冲"); }
-      if (zhi === luckCyc.zhi) { big -= 3; rels.push("流年伏吟大运"); }
-    }
-    comp["大运"] = big;
-    const raw = 50 + comp["用神"] + comp["冲合"] + comp["神煞"] + comp["大运"];
-    const score = Math.max(12, Math.min(92, 50 + (Math.max(2, Math.min(98, raw)) - 50) * 0.86));
+
+    let raw = 50 + comp["用神"] + comp["十神"] + comp["冲合"] + comp["大运"] + comp["神煞"];
+    // 大运吉而流年凶 → 不至大凶；大运凶而流年吉 → 吉力打折
+    if (tone > 0 && raw < 50) raw = 50 - (50 - raw) * (1 - 0.42 * tone);
+    else if (tone < 0 && raw > 50) raw = 50 + (raw - 50) * (1 - 0.42 * Math.abs(tone));
+
+    const score = 50 + 41 * Math.tanh((Math.max(0, Math.min(100, raw)) - 50) / 34);
+    comp["base"] = 50;
+    comp["raw"] = Math.round(raw * 10) / 10;
+    comp["大运基调"] = Math.round(tone * 100) / 100;
+
     const themes = [...new Set([...(THEME_MAP[ssG] || []), ...(THEME_MAP[ssZ] || [])])];
     const cautions = [], opps = [];
     rels.forEach((r) => {
       if (r.includes("六冲") && r.includes("日")) cautions.push(T("日支被冲：住所、婚姻或自身状态易有变动，忌仓促决定", "Day branch clashed: home, marriage or your own state shifts — avoid hasty decisions"));
       else if (r.includes("六冲") && r.includes("月")) cautions.push(T("月柱被冲：工作环境或家庭结构面临调整", "Month pillar clashed: work environment or family structure adjusts"));
       else if (r.includes("六冲") && r.includes("年")) cautions.push(T("年柱被冲：长辈、根基或长期规划受扰", "Year pillar clashed: elders, foundations or long plans are disturbed"));
-      else if (r.includes("天克地冲")) cautions.push(T("天克地冲：该领域阻力最大，宜守不宜攻", "Stem-and-branch clash: the strongest headwind here — hold, do not attack"));
-      else if (r.includes("相刑")) cautions.push(T("相刑：易生是非、官非或健康小疾，注意契约与口舌", "Punishment: disputes, legal friction or minor illness — mind contracts and words"));
-      else if (r.includes("相害")) cautions.push(T("相害：人际暗耗，慎防被牵连", "Harm: quiet attrition in relationships — avoid being dragged in"));
-      else if (r.includes("伏吟")) cautions.push(T("伏吟：旧事重来，情绪反复，宜静守", "Repetition: old matters return, mood swings — stay quiet"));
+      else if (r.includes("六冲") && r.includes("时")) cautions.push(T("时柱被冲：子女、下属或投资标的易有变动", "Hour pillar clashed: children, staff or investments shift"));
+      else if (r.includes("天克地冲")) cautions.push(T("天克地冲：该领域阻力最大，宜守不宜攻", "Stem-and-branch clash: the strongest headwind — hold, do not attack"));
+      else if (r.includes("相刑")) cautions.push(T("相刑：易生是非、官非或健康小疾，注意契约与口舌", "Punishment: disputes, legal friction or minor illness"));
+      else if (r.includes("相害")) cautions.push(T("相害：人际暗耗，慎防被牵连", "Harm: quiet attrition in relationships"));
+      else if (r.includes("伏吟")) cautions.push(T("伏吟：旧事重来，情绪反复，宜静守", "Repetition: old matters return, mood swings"));
     });
-    if (["七杀", "伤官"].includes(ssG) && score < 48) cautions.push(T(`${ssG}当值而全局失衡：压力与是非集中，忌硬碰体制与上级`, `${ssG} rules an unbalanced year: pressure concentrates — do not fight authority head-on`));
-    if (["正官", "正印"].includes(ssG) && score >= 55) cautions.push(T("官印相生之年，宜按程序推进，勿走捷径以免失信", "Officer and resource support each other: proceed by procedure, do not cut corners"));
-    if (score >= 62) opps.push(T(`${ssG}/${ssZ}得用，是推进主业与积累信誉的窗口`, `${ssG}/${ssZ} are useful: a window to push your main line and build credit`));
-    if (rels.some((r) => r.includes("天乙贵人"))) opps.push(T("天乙贵人到位：主动求见关键人物，成功率高", "Tian Yi present: approach key people proactively"));
-    if (rels.some((r) => r.includes("文昌"))) opps.push(T("文昌到位：考试、论文、资格与公开发表皆宜", "Wen Chang present: exams, papers, credentials and publication"));
-    if (rels.some((r) => r.includes("临禄"))) opps.push(T("临禄：正财与职位稳固，适合谈薪与升迁", "Lu present: salary and position steady — good for negotiation and promotion"));
-    if (comp["用神"] >= 12) opps.push(T(`喜用${favor.join("")}当令，资源顺势而来，宜进取`, `Favourable ${favor.map((e) => D.I18N.wx[e]).join("/")} in season: resources come with the flow`));
-    return { shishenGan: ssG, shishenZhi: ssZ, score: Math.round(score * 10) / 10, band: band(score),
-      components: comp, relations: rels, themes, cautions, opportunities: opps };
+    if (OMINOUS[ssG] && score < 48) cautions.push(T(`${ssG}当值而全局失衡：压力与是非集中，忌硬碰体制与上级`, `${ssG} rules an unbalanced period: pressure concentrates — do not fight authority`));
+    if (AUSPICIOUS[ssG] && score >= 55) cautions.push(T("吉神当值，宜按程序推进，勿走捷径以免失信", "A benefic rules: proceed by procedure, do not cut corners"));
+
+    if (score >= 62) opps.push(T(`${ssG}/${ssZ}得用，是推进主业与积累信誉的窗口`, `${ssG}/${ssZ} are useful: a window to push your main line`));
+    const joined = rels.join(" ");
+    if (joined.includes("天乙贵人")) opps.push(T("天乙贵人到位：主动求见关键人物，成功率高", "Tian Yi present: approach key people proactively"));
+    if (joined.includes("文昌")) opps.push(T("文昌到位：考试、论文、资格与公开发表皆宜", "Wen Chang present: exams, papers, credentials"));
+    if (joined.includes("临禄")) opps.push(T("临禄：正财与职位稳固，适合谈薪与升迁", "Lu present: salary and position steady"));
+    if (comp["用神"] >= 12) opps.push(T(`喜用${favor.join("")}当令，资源顺势而来，宜进取`, `Favourable elements in season: resources come with the flow`));
+    if (joined.includes("三合") || joined.includes("半合")) opps.push(T("成合局：宜合作、宜结盟，借他人之力成事", "A combination forms: ally with others"));
+
+    return { shishenGan: ssG, shishenZhi: ssZ, score: Math.round(score * 10) / 10,
+      band: band(score), components: comp, relations: rels,
+      themes, cautions, opportunities: opps };
   }
 
   function yearPeriod(c, year, luckCyc) {

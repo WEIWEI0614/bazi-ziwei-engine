@@ -7,8 +7,12 @@ DST = os.path.join(ROOT, "docs")
 
 def main():
     os.makedirs(DST, exist_ok=True)
-    for f in ("index.html", "app.js", "engine.js", "data.js"):
+    for f in ("index.html", "app.js", "engine.js", "data.js", "extra.js"):
         shutil.copy2(os.path.join(SRC, f), os.path.join(DST, f))
+    # 日主形象图
+    img_src = os.path.join(SRC, "img")
+    if os.path.isdir(img_src):
+        shutil.copytree(img_src, os.path.join(DST, "img"), dirs_exist_ok=True)
     for extra in ("CNAME", "robots.txt"):
         p = os.path.join(SRC, extra)
         if os.path.exists(p):

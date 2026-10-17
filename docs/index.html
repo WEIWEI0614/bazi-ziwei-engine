@@ -165,12 +165,74 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 .kv dt{color:var(--tx3)}
 .kv dd{margin:0;color:var(--tx)}
 .foot{max-width:1320px;margin:0 auto;padding:0 20px 50px;font-size:11px;color:#55554f;line-height:1.8}
+/* ---------- 术语提示 ---------- */
+.t-term{border-bottom:1px dotted rgba(232,163,61,.45);cursor:help}
+.t-tip{position:fixed;z-index:9997;max-width:330px;background:#1b1e27;border:1px solid #3a4050;
+  border-radius:9px;padding:10px 13px;font-size:12px;line-height:1.7;color:#b9b8b3;
+  box-shadow:0 14px 38px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .13s;transform:translateY(4px)}
+.t-tip.on{opacity:1;transform:none}
+.t-tip .tt-h{font-family:var(--serif);font-size:13.5px;color:var(--amber2);letter-spacing:.07em;margin-bottom:3px}
+.t-tip .tt-c{font-size:9.5px;color:#6a6a66;letter-spacing:.12em;margin-left:6px}
+.t-tip .tt-en{color:#7d828f;font-size:11px;margin-top:5px;padding-top:5px;border-top:1px solid #2a2f3a;font-style:italic}
+
+/* ---------- 选中态 ---------- */
+.cell.sel{border-color:var(--amber);box-shadow:0 0 0 2px rgba(232,163,61,.34),inset 0 0 30px rgba(232,163,61,.07)}
+.cell.sel .hd b{color:var(--amber2)}
+.lk.sel{border-color:var(--amber2);box-shadow:0 0 0 2px rgba(232,163,61,.3)}
+.bz td.sel{background:rgba(232,163,61,.09);box-shadow:inset 0 0 0 1px rgba(232,163,61,.4)}
+.pal-chip{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11.5px;cursor:pointer;
+  background:#21242c;border:1px solid #2c3139;color:var(--tx3);margin:2px 3px 2px 0}
+.pal-chip:hover{border-color:var(--line2);color:var(--tx2)}
+.pal-chip.on{background:#2b2418;border-color:var(--amber);color:var(--amber2)}
+
+/* ---------- 卦象 ---------- */
+.gua-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.gua-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.gua-box h4{margin:0 0 8px;font-size:11px;color:var(--tx3);letter-spacing:.12em;font-weight:500}
+.gua-fig{display:flex;flex:none;flex-direction:column-reverse;gap:7px;margin:10px 0 12px;width:118px}
+.gua-line{height:12px;border-radius:2px;background:#b9b6ae;position:relative}
+.gua-line.yin{background:transparent}
+.gua-line.yin:before,.gua-line.yin:after{content:"";position:absolute;top:0;height:100%;width:41%;
+  background:#b9b6ae;border-radius:2px}
+.gua-line.yin:before{left:0}.gua-line.yin:after{right:0}
+.gua-line.mv{background:var(--amber);box-shadow:0 0 10px rgba(232,163,61,.55)}
+.gua-line.yin.mv:before,.gua-line.yin.mv:after{background:var(--amber);box-shadow:0 0 10px rgba(232,163,61,.55)}
+.gua-name{font-family:var(--serif);font-size:21px;color:var(--amber2);letter-spacing:.1em}
+.gua-tr{font-family:var(--serif);font-size:15px;color:var(--tx3);margin-left:8px;letter-spacing:.14em}
+.gua-text{font-size:12.5px;color:var(--tx2);line-height:1.8;margin-top:6px}
+.gua-nums{font-size:11px;color:var(--tx3);margin-top:8px;font-variant-numeric:tabular-nums}
+
+/* ---------- 合盘 ---------- */
+.syn-head{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center}
+.syn-side{text-align:center;padding:10px}
+.syn-side .four{font-family:var(--serif);font-size:19px;letter-spacing:.16em;color:var(--tx);margin:5px 0}
+.syn-side .meta{font-size:11px;color:var(--tx3)}
+.syn-mid{text-align:center;padding:0 8px}
+.syn-mid .sc{font-family:var(--serif);font-size:44px;line-height:1;color:var(--amber2)}
+.syn-mid .bd{font-size:12px;color:var(--tx3);letter-spacing:.14em;margin-top:3px}
+.syn-item{margin:9px 0}
+.syn-item .top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--tx2);margin-bottom:3px}
+.syn-item .why{font-size:11.5px;color:var(--tx3);line-height:1.7;margin-top:3px}
+
+/* ---------- 日主形象 ---------- */
+.avatar-wrap{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+.avatar{position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;
+  background:radial-gradient(120% 80% at 50% 10%,#232733,#14161c 70%);border:1px solid var(--line)}
+.avatar img{width:100%;height:100%;object-fit:contain;display:block}
+.avatar .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif);font-size:64px;color:rgba(232,163,61,.28)}
+.avatar .tagline{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;font-size:10.5px;
+  background:linear-gradient(transparent,rgba(8,9,12,.92));color:var(--amber2);letter-spacing:.08em;text-align:center}
+
 @media(max-width:900px){
   .two{grid-template-columns:1fr}
   .bz .gz{font-size:24px}
   .board{grid-template-rows:repeat(4,minmax(136px,auto))}
   .cell{font-size:10.5px}
   .ev-row{grid-template-columns:1fr 1fr}
+  .gua-grid{grid-template-columns:1fr}
+  .syn-head{grid-template-columns:1fr}
+  .avatar-wrap{grid-template-columns:110px 1fr}
 }
 </style>
 </head>
@@ -236,11 +298,36 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 
   <section class="view" id="v-score">
     <div class="cards" style="grid-template-columns:minmax(250px,1fr) minmax(300px,1.5fr)">
-      <div class="card"><h4 id="h-overall">综合格局</h4>
-        <div><span class="big" id="overall">—</span><small id="tier"></small></div>
-        <div class="note" id="tierNote" style="margin-top:7px"></div></div>
-      <div class="card"><h4 id="h-radar">六维</h4><svg id="radar" viewBox="0 0 320 300" style="width:100%;max-width:400px"></svg></div>
+      <div class="card" style="display:flex;flex-direction:column">
+        <h4 id="h-overall">综合格局</h4>
+        <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap">
+          <span class="big" id="gradeName" style="font-size:44px">—</span>
+          <small id="gradeScore" style="color:var(--tx3);font-size:12px"></small>
+        </div>
+        <div class="note" id="tierNote" style="margin-top:8px"></div>
+        <div style="margin-top:11px;padding-top:9px;border-top:1px solid var(--line)">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--tx3)">
+            <span id="h-int">结构强度</span><span id="intVal">—</span></div>
+          <div class="bar" style="margin-top:5px"><i id="intBar" style="width:0%"></i></div>
+        </div>
+      </div>
+      <div class="card"><h4 id="h-radar">七维</h4><svg id="radar" viewBox="0 0 320 300" style="width:100%;max-width:400px"></svg></div>
     </div>
+    <h2 class="sec" id="h-avatar">日主形象 <small>Day Master</small></h2>
+    <div class="card">
+      <div class="avatar-wrap">
+        <div class="avatar" id="avatar">
+          <div class="ph" id="avatarPh">丙</div>
+        </div>
+        <div>
+          <div style="font-family:var(--serif);font-size:22px;color:var(--amber2);letter-spacing:.1em" id="avName">—</div>
+          <div class="note" id="avDesc" style="margin-top:6px;color:var(--tx2)"></div>
+          <div class="note" id="avMeta" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+    <h2 class="sec" id="h-grade">格位判定 <small>Grade</small></h2>
+    <div class="card" id="gradeBox"></div>
     <h2 class="sec" id="h-dims">评分拆解</h2><div class="card" id="dims"></div>
     <div class="two" style="margin-top:10px">
       <div class="card"><h4 id="h-hl" style="color:var(--teal)">结构亮点</h4><div id="hlBox"></div></div>
@@ -273,6 +360,46 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     <h2 class="sec" id="h-month">流月</h2>
     <div class="card"><svg id="monthChart" viewBox="0 0 900 190" style="width:100%"></svg></div>
     <div class="card" style="overflow-x:auto;margin-top:10px"><table class="dt" id="monthTable"></table></div>
+  </section>
+
+  <section class="view" id="v-gua">
+    <h2 class="sec" id="h-gua">梅花易数 · 起卦 <small>Plum Blossom</small></h2>
+    <p class="note" style="margin:0 0 10px" id="guaHint"></p>
+    <div class="card" style="margin-bottom:12px">
+      <div class="form" style="padding:0">
+        <div class="field"><label id="g-l-date">起卦时间 / Date</label><input id="g-date" type="date"></div>
+        <div class="field"><label id="g-l-time">时间 / Time</label><input id="g-time" type="time" value="12:00"></div>
+        <div class="field"><label id="g-l-q">所占何事 / Question</label><input id="g-q" placeholder="事业 / 感情 / 财运 …"></div>
+        <div class="field form-actions"><button class="btn primary" id="g-cast" style="width:100%">起卦</button></div>
+      </div>
+    </div>
+    <div class="gua-grid" id="guaOut"></div>
+  </section>
+
+  <section class="view" id="v-syn">
+    <h2 class="sec" id="h-syn">八字合盘 <small>Synastry</small></h2>
+    <p class="note" style="margin:0 0 10px" id="synHint"></p>
+    <div class="card" style="margin-bottom:12px">
+      <div class="form" style="padding:0">
+        <div class="field"><label id="s-l-rel">关系 / Relationship</label>
+          <select id="s-rel"></select></div>
+        <div class="field"><label id="s-l-name">对方姓名 / Name</label><input id="s-name" placeholder="—"></div>
+        <div class="field"><label id="s-l-gender">对方性别 / Gender</label>
+          <select id="s-gender"><option value="male">男 / Male</option><option value="female">女 / Female</option></select></div>
+        <div class="field"><label id="s-l-date">对方生日 / Date</label><input id="s-date" type="date" value="1997-10-10"></div>
+        <div class="field"><label id="s-l-time">时间 / Time</label><input id="s-time" type="time" value="20:00"></div>
+        <div class="field"><label id="s-l-city">出生地 / Longitude</label>
+          <select id="s-city">
+            <option value="116.40">北京</option><option value="121.47">上海</option>
+            <option value="113.26">广州</option><option value="114.06">深圳</option>
+            <option value="104.07">成都</option><option value="105.57">遂宁</option>
+            <option value="108.95">西安</option><option value="114.17">香港</option>
+            <option value="121.52">台北</option><option value="103.85">新加坡</option>
+          </select></div>
+        <div class="field form-actions"><button class="btn primary" id="s-run" style="width:100%">合盘</button></div>
+      </div>
+    </div>
+    <div id="synOut"></div>
   </section>
 
   <section class="view" id="v-event">
@@ -310,8 +437,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=3"></script>
-<script src="engine.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="data.js?v=5"></script>
+<script src="engine.js?v=5"></script>
+<script src="extra.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

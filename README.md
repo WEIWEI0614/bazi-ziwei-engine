@@ -8,7 +8,7 @@
   <a href="https://weiwei0614.github.io/bazi-ziwei/"><img alt="live demo" src="https://img.shields.io/badge/LIVE_DEMO-open_in_browser-e8a33d?style=for-the-badge"></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="deps" src="https://img.shields.io/badge/dependencies-zero-5dcaa5?style=for-the-badge">
-  <img alt="tests" src="https://img.shields.io/badge/tests-21_passing-5dcaa5?style=for-the-badge">
+  <img alt="tests" src="https://img.shields.io/badge/tests-38_passing-5dcaa5?style=for-the-badge">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-a99ce8?style=for-the-badge">
 </p>
 
@@ -19,7 +19,7 @@
 ## Why this one
 
 Most open-source Chinese astrology projects do **either** BaZi **or** Zi Wei, and stop at
-drawing the chart. This one is built around three ideas the others skip:
+drawing the chart. This one is built around five ideas the others skip:
 
 1. **No lookup tables for the calendar.** Solar terms come from a truncated VSOP87 series
    with nutation, aberration and FK5 correction, solved by Newton iteration; new moons come
@@ -30,6 +30,13 @@ drawing the chart. This one is built around three ideas the others skip:
 3. **Back-testing against your own life.** Every other tool tells you what *will* happen.
    This one asks what *did*, compares its own past scores against your report, prints the
    hit rate and correlation, and **refits the component weights** if they disagree.
+4. **Grade and strength are separate numbers.** A chart's *rank* is judged by the classical
+   test — does the structure hold, what breaks it, what rescues it — not by averaging seven
+   dimensions. A "following" structure can be physically weak and still upper-grade; a strong
+   chart can be structurally low. Averaging the two is the most common mistake in this space.
+5. **Every term is explained in place.** 126 terms (stems, ten gods, structures, all 45 stars,
+   the twelve palaces, 64 hexagram vocabulary) carry a hover/click definition in both languages,
+   annotated automatically across the whole page.
 
 ---
 
@@ -69,6 +76,11 @@ or just open the hosted demo: **https://weiwei0614.github.io/bazi-ziwei/**
 | **Scoring** | Seven dimensions → overall score with a **percentile against 10,000 sampled charts**, plus named strengths and deductions; six life areas, each with its components exposed |
 | **Timeline** | Per-year score with themes, cautions and openings; per-month the same, scaled |
 | **Back-test** | Hit rate, Pearson correlation, ridge-refitted weights, per-event disagreement list |
+| **Grade (new)** | Per-rule audit of 成格 / 破格 / 救应 for BaZi, strict "auxiliary stars present **and** no malefic" test for 16 Zi Wei patterns, then a combined rank |
+| **Schools (new)** | Eight schools read side by side: Ziping structure, climate (Qiong Tong Bao Jian), modern quantified strength, blind school (guest–host, work), sound-element/stars, Zi Wei Sanhe, Zi Wei flying star, Hetu-Luoshu palace trigrams |
+| **Hexagram (new)** | Plum Blossom time casting: primary / nuclear / resulting hexagram, moving line, body–matter relation, all 64 hexagrams |
+| **Synastry (new)** | Two charts, six relationship types (couple, romance, friend, partner, parent–child, boss–report), six weighted layers with per-item reasoning |
+| **Day-master portrait (new)** | 20 illustrations (ten stems × two genders), chroma-keyed from green screen, one per day master |
 | **Reading** | Per-chart prose in Chinese and English: structure & useful god, ten-god distribution, four-pillar palatial reading, shensha reading, and all twelve Zi Wei palaces |
 
 ![score](docs/img/score.png)
@@ -91,6 +103,8 @@ every disagreement was chased down.
 | Zi Wei vs `iztro` (38 adjective stars) | 700 charts | **1 chart** (same knife edge) |
 | Zi Wei vs `iztro` (长生/博士/将前/岁前, 小限, 大限) | 700 charts | **0 errors** |
 | Shensha (45 stars) JS vs Python | 30 charts | identical name set, positions and grades |
+| Grade engine JS vs Python | sample chart | identical rank and score (81.3 / upper grade) |
+| Unit tests | 38 | globals: 64 hexagrams present, weights sum to 1, rescue coefficient > 1, band monotonic in score |
 | Browser JS vs Python | 60 charts, 15 field groups | identical; differences only from rounding convention (±0.1) |
 
 Two bugs found this way and worth recording, because both are common in other projects:

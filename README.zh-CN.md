@@ -8,7 +8,7 @@
   <a href="https://weiwei0614.github.io/bazi-ziwei/"><img alt="在线演示" src="https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%BC%94%E7%A4%BA-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%89%93%E5%BC%80-e8a33d?style=for-the-badge"></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="零依赖" src="https://img.shields.io/badge/%E4%BE%9D%E8%B5%96-%E9%9B%B6-5dcaa5?style=for-the-badge">
-  <img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-21_%E9%80%9A%E8%BF%87-5dcaa5?style=for-the-badge">
+  <img alt="测试" src="https://img.shields.io/badge/%E6%B5%8B%E8%AF%95-38_%E9%80%9A%E8%BF%87-5dcaa5?style=for-the-badge">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-a99ce8?style=for-the-badge">
 </p>
 
@@ -17,6 +17,11 @@
 ---
 
 ## 为什么再写一个
+
+> **格位与强度是两个数。** 传统判「上格」看的是——格成不成、什么破了它、有没有救应，而不是把七个维度平均。
+> 从格可以身弱而格高，身强之造也可以格低。把两者混成一个平均分，是这类工具最常见的错。
+>
+> **每个专业词都能解释。** 126 条术语（天干地支、十神、格局、45 颗神煞、紫微十二宫、六十四卦）中英双语，全站自动标注，悬停或点击即出。
 
 开源的中文命理项目，绝大多数只做**八字**或只做**紫微**，而且做到「把盘画出来」就停了。
 这个项目的三条主张，恰好是别人略过的部分：
@@ -68,6 +73,11 @@ cd docs && python3 -m http.server 8000     # http://127.0.0.1:8000
 | **评分** | 七维合成总分 0-100 与格位；事业/财富/感情/健康/学业/人脉六领域分，且每一项的成分都摊开 |
 | **时间轴** | 逐年评分 + 主题 + 注意事项 + 机会；逐月同构，幅度收窄 |
 | **经历对照** | 吻合率、Pearson 相关系数、岭回归重拟合权重、逐条列出不吻合的年份 |
+| **格位判定（新）** | 八字逐条审计「成格 / 破格 / 救应」，紫微按古法「吉星加会且无煞方合此格」判 16 个吉格，再合成格位 |
+| **八派并列（新）** | 子平格局、调候、新派量化、盲派宾主做功、纳音神煞、紫微三合、紫微飞星、河洛宫位卦象 |
+| **卦象（新）** | 梅花易数时间起卦：本卦 / 互卦 / 变卦、动爻、体用生克，六十四卦齐备 |
+| **合盘（新）** | 双盘六种关系（夫妻/恋人/朋友/合伙/亲子/上下级），六层加权，逐条给理由 |
+| **日主形象（新）** | 20 张插画（十天干 × 男女），绿幕生成后抠图，按日主自动匹配 |
 | **详解** | 中英双语的逐盘解读：格局与用神、十神分布、四柱宫位、神煞与刑冲，以及紫微十二宫逐宫论述 |
 
 ![评分](docs/img/score.png)
