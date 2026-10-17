@@ -173,8 +173,26 @@ class TestZiwei(unittest.TestCase):
                   "亥": {"天马", "陀罗"}, "子": {"禄存", "火星"},
                   "丑": {"文昌", "文曲", "擎羊"}}
         for br, names in expect.items():
-            got = {s.name for s in z.by_branch(br).stars if s.kind != "主星"}
+            got = {s.name for s in z.by_branch(br).stars
+                   if s.kind in ("辅星", "煞星")}
             self.assertEqual(got, names, br)
+
+    def test_adjective_stars(self):
+        # verified against iztro: 寅 carries 天月 / 月德, 丑 carries the天伤 group
+        z = build_ziwei("t", "male", 1993, 6, 14, 18, 0, use_true_solar=False)
+        self.assertEqual({s.name for s in z.by_branch("寅").adj}, {"天月", "月德"})
+        self.assertIn("天伤", {s.name for s in z.by_branch("丑").adj})
+        self.assertIn("天使", {s.name for s in z.by_branch("卯").adj})
+
+    def test_twelve_gods(self):
+        z = build_ziwei("t", "male", 1993, 6, 14, 18, 0, use_true_solar=False)
+        br = {p.branch: p for p in z.palaces}
+        self.assertEqual(br["亥"].changsheng, "长生")
+        self.assertEqual(br["申"].boshi, "将军")
+        self.assertEqual(br["酉"].jiangqian, "将星")
+        self.assertEqual(br["酉"].suiqian, "岁建")
+        self.assertEqual(z.ming_zhu, "廉贞")
+        self.assertEqual(z.shen_zhu, "天同")
 
     def test_ming_index_formula(self):
         # 正月子時 -> 命宮在寅

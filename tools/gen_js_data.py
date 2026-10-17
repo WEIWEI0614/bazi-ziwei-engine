@@ -22,6 +22,23 @@ from mingli.ziwei import chart as ZC  # noqa: E402
 from mingli.ziwei import analysis as ZA  # noqa: E402
 
 
+def _shensha_tables():
+    from mingli.bazi import shensha as S
+    names = ["TIANYI", "TAIJI", "WENCHANG", "GUOYIN", "FUXING", "LU", "YANGREN",
+             "JINYU", "HONGYAN", "LIUXIA", "XUETANG", "YIMA", "TAOHUA", "HUAGAI",
+             "JIANGXING", "JIESHA", "ZAISHA", "WANGSHEN", "GUSHEN", "GUASU",
+             "POSUI", "FEILIAN", "TIANDE", "YUEDE"]
+    out = {n: getattr(S, n) for n in names}
+    out["TIANSHU_HIT"] = {k: list(v) for k, v in S.TIANSHU_HIT.items()}
+    out["SIFEI"] = {k: list(v) for k, v in S.SIFEI.items()}
+    out["DEFS"] = {k: list(v) for k, v in S.DEFS.items()}
+    out["KUIGANG"] = sorted(S.KUIGANG)
+    out["SHIE_DABAI"] = sorted(S.SHIE_DABAI)
+    out["YINYANG_CUO"] = sorted(S.YINYANG_CUO)
+    out["SANQI"] = [list(x) for x in S.SANQI]
+    return out
+
+
 def dump():
     data = {
         "GAN": G.GAN, "ZHI": G.ZHI,
@@ -58,6 +75,12 @@ def dump():
         "LUCUN": ZC.LUCUN,
         "HUOXING_START": ZC.HUOXING_START, "LINGXING_START": ZC.LINGXING_START,
         "BRIGHTNESS": ZC.BRIGHTNESS, "BRIGHT_SCORE": ZC.BRIGHT_SCORE,
+        "CHANGSHENG12": ZC.CHANGSHENG12, "BOSHI12": ZC.BOSHI12,
+        "JIANGQIAN12": ZC.JIANGQIAN12, "SUIQIAN12": ZC.SUIQIAN12,
+        "CHANGSHENG_START": ZC.CHANGSHENG_START,
+        "MING_ZHU": ZC.MING_ZHU, "SHEN_ZHU": ZC.SHEN_ZHU,
+        "XIAOXIAN_START": ZC.XIAOXIAN_START,
+        "SHENSHA": _shensha_tables(),
         "PATTERNS": [list(p) for p in ZA.PATTERNS],
         "DECADE_THEMES": {k: list(v) for k, v in ZA.DECADE_THEMES.items()},
         "THEME_MAP": BC.__dict__.get("THEME_MAP") or {},

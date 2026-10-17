@@ -108,8 +108,13 @@ def cmd_chart(r):
 
     if c.shensha:
         _head("神煞")
-        for k, v in c.shensha.items():
-            print(f"  {k:10s} {' '.join(v)}")
+        for nature in ("吉", "中", "凶"):
+            hits = [(k, v) for k, v in c.shensha.items() if v["nature"] == nature]
+            if not hits:
+                continue
+            print(f"  [{nature}]")
+            for k, v in hits:
+                print(f"    {k:8s} {'/'.join(v['positions']):8s} {v['basis']}")
     if c.relations:
         _head("刑冲合害")
         for k, v in c.relations.items():
@@ -117,14 +122,28 @@ def cmd_chart(r):
 
     _head("紫微斗数")
     print(f"  命宫 {z.ming_branch}   身宫 {z.shen_branch}   五行局 {z.ju}   紫微星 {z.ziwei_branch}")
+    print(f"  命主 {z.ming_zhu}   身主 {z.shen_zhu}   斗君 {z.dou_jun}")
     print(f"  生年干 {z.year_gan}  大限{z.decade_direction > 0 and '顺行' or '逆行'}  四化 "
           + " ".join(f"{k}化{v}" for k, v in z.sihua.items()))
+    print()
     for p in z.palaces:
-        stars = " ".join(
+        majors = " ".join(
             s.name + (f"化{s.hua}" if s.hua else "") + (f"[{s.brightness}]" if s.brightness else "")
-            for s in p.stars)
+            for s in p.stars if s.kind == "主星") or "（空宫）"
+        minors = " ".join(
+            s.name + (f"化{s.hua}" if s.hua else "")
+            for s in p.stars if s.kind in ("辅星", "煞星"))
+        adj = " ".join(s.name for s in p.stars if s.kind == "杂曜")
         mark = "◆" if p.is_body else " "
-        print(f"  {p.branch} {p.name:4s}{mark} {p.gan}{p.branch}  {p.decade[0]:>3d}-{p.decade[1]:<3d} {stars}")
+        print(f"  {p.gan}{p.branch} {p.name:4s}{mark} 大限{p.decade[0]:>3d}-{p.decade[1]:<3d} "
+              f"小限{p.ages[0] if p.ages else '-'}")
+        print(f"      主星 {majors}")
+        if minors:
+            print(f"      辅煞 {minors}")
+        if adj:
+            print(f"      杂曜 {adj}")
+        print(f"      十二神 {p.changsheng}·{p.boshi}·{p.suiqian}·{p.jiangqian}"
+              + (f"   自化 {' '.join(n + h for n, h in p.self_hua)}" if p.self_hua else ""))
     zs = r.zsummary
     print(f"\n  命宫星 {''.join(zs['ming_stars']) or '空宫'}   格局 "
           + ("、".join(x["name"] for x in zs["patterns"]) or "无"))

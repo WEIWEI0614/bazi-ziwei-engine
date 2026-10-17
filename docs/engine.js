@@ -206,6 +206,20 @@
     throw new Error("lunar fail " + jd);
   }
 
+  function lunarToJD(year, month, day, isLeap) {
+    for (const Y of [year - 1, year, year + 1]) {
+      const [starts, zq] = sui(Y), nums = numberMonths(starts, zq);
+      for (let i = 0; i < nums.length; i++) {
+        const [lp, mn] = nums[i];
+        if (lp === !!isLeap && mn === month) {
+          const nyear = mn >= 11 ? Y : Y + 1;
+          if (nyear === year) return dayStart(starts[i] + day - 1);
+        }
+      }
+    }
+    return null;
+  }
+
   /* ---------------- pillars ---------------- */
   function yearPillar(jd) {
     const gy = fromJD(jd)[0];
@@ -396,24 +410,68 @@
   }
 
   function findShensha(c) {
-    const dm = c.dayMaster, yz = c.year.zhi, dz = c.day.zhi, out = {};
-    const put = (n, w) => { (out[n] = out[n] || []).push(w); };
-    const posNames = { year: "年", month: "月", day: "日", hour: "时" };
-    c.pillars.forEach((p) => {
-      const w = posNames[p.position], z = p.zhi;
-      if (D.TIANYI[dm].includes(z)) put("天乙贵人", w);
-      if (D.WENCHANG[dm] === z) put("文昌", w);
-      if (D.YANGREN[dm] === z) put("羊刃", w);
-      if (D.LU[dm] === z) put("禄神", w);
-      if (D.YIMA[yz] === z) put("驿马(年支)", w);
-      if (D.YIMA[dz] === z) put("驿马(日支)", w);
-      if (D.TAOHUA[yz] === z) put("桃花(年支)", w);
-      if (D.HUAGAI[yz] === z) put("华盖(年支)", w);
-      if (D.JIANGXING[yz] === z) put("将星(年支)", w);
-      if (p.kong.includes(z)) put("空亡", w);
-      if (["庚辰", "庚戌", "壬辰", "戊戌"].includes(p.gan + z)) put("魁罡", w);
+    const SS = D.SHENSHA, POSN = ["年", "月", "日", "时"];
+    const dm = c.dayMaster;
+    const zhis = c.pillars.map((p) => p.zhi), gans = c.pillars.map((p) => p.gan);
+    const yz = c.year.zhi, dz = c.day.zhi, mz = c.month.zhi;
+    const out = {};
+    const put = (name, positions, basis) => {
+      if (!positions.length) return;
+      const def = SS.DEFS[name] || ["中", ""];
+      const e = out[name] = out[name] || { nature: def[0], desc: def[1], positions: [], basis };
+      positions.forEach((p) => { if (!e.positions.includes(p)) e.positions.push(p); });
+    };
+    const find = (target) => POSN.filter((_, i) => target.includes(zhis[i]));
+    const stemOrBranch = (chars) => {
+      const a = [], b = [];
+      c.pillars.forEach((p, i) => { if (chars.includes(p.zhi)) a.push(POSN[i]); if (chars.includes(p.gan)) b.push(POSN[i]); });
+      return a.concat(b);
+    };
+    [["天乙贵人", SS.TIANYI], ["太极贵人", SS.TAIJI], ["文昌贵人", SS.WENCHANG],
+     ["国印贵人", SS.GUOYIN], ["福星贵人", SS.FUXING], ["金舆", SS.JINYU],
+     ["红艳", SS.HONGYAN], ["流霞", SS.LIUXIA], ["学堂", SS.XUETANG],
+     ["禄神", SS.LU], ["羊刃", SS.YANGREN]].forEach(([nm, tbl]) => {
+      put(nm, find(tbl[dm]), `日干${dm}查${nm}`);
     });
-    c.shensha = out;
+    [["驿马", SS.YIMA], ["桃花", SS.TAOHUA], ["华盖", SS.HUAGAI], ["将星", SS.JIANGXING],
+     ["劫煞", SS.JIESHA], ["灾煞", SS.ZAISHA], ["亡神", SS.WANGSHEN]].forEach(([nm, tbl]) => {
+      put(nm, find(tbl[yz]).concat(find(tbl[dz])), `年支/日支三合局查${nm}`);
+    });
+    const hong = mod(3 - zi(yz), 12);
+    put("红鸾", find(ZHI[hong]), `年支${yz}查红鸾`);
+    put("天喜", find(ZHI[mod(hong + 6, 12)]), "红鸾对宫为天喜");
+    put("孤辰", find(SS.GUSHEN[yz]), `年支${yz}查孤辰`);
+    put("寡宿", find(SS.GUASU[yz]), `年支${yz}查寡宿`);
+    put("破碎", find(SS.POSUI[yz]), `年支${yz}查破碎`);
+    put("蜚廉", find(SS.FEILIAN[yz]), `年支${yz}查蜚廉`);
+    put("天德贵人", stemOrBranch(SS.TIANDE[mz]), `月支${mz}查天德`);
+    put("月德贵人", stemOrBranch(SS.YUEDE[mz]), `月支${mz}查月德`);
+    put("天医", find(ZHI[mod(zi(mz) - 1, 12)]), `月支${mz}前一位为天医`);
+    const season = Object.keys(SS.TIANSHU_HIT).find((k) => k.includes(mz));
+    const [sg, sz] = SS.TIANSHU_HIT[season];
+    if (c.day.gan === sg && c.day.zhi === sz) put("天赦", ["日"], `${mz}月天赦`);
+    const sf = SS.SIFEI[season];
+    if (sf.includes(c.day.gan + c.day.zhi)) put("四废", ["日"], `${mz}月四废日`);
+    const gz = c.day.gan + c.day.zhi;
+    if (SS.KUIGANG.includes(gz)) put("魁罡", ["日"], "魁罡四日之一");
+    if (SS.SHIE_DABAI.includes(gz)) put("十恶大败", ["日"], "十恶大败日");
+    if (SS.YINYANG_CUO.includes(gz)) put("阴阳差错", ["日"], "阴阳差错日");
+    put("空亡", POSN.filter((_, i) => c.pillars[i].kong.includes(zhis[i])), "按日柱旬空");
+    SS.SANQI.forEach(([a, b, cc, label]) => {
+      if ([a, b, cc].every((x) => gans.includes(x))) put("三奇贵人", ["全局"], `${label}齐见`);
+    });
+    const sky = zhis.filter((z) => ["戌", "亥"].includes(z));
+    const net = zhis.filter((z) => ["辰", "巳"].includes(z));
+    const hits = [];
+    if (sky.length >= 2) hits.push(...find("戌"), ...find("亥"));
+    if (net.length >= 2) hits.push(...find("辰"), ...find("巳"));
+    put("天罗地网", [...new Set(hits)].sort((a, b) => POSN.indexOf(a) - POSN.indexOf(b)), "戌亥天罗 / 辰巳地网齐见");
+    const ord = { 吉: 0, 中: 1, 凶: 2 };
+    const keys = Object.keys(out).sort((a, b) => (ord[out[a].nature] - ord[out[b].nature]) || (out[b].positions.length - out[a].positions.length));
+    const res = {};
+    keys.forEach((k) => { res[k] = out[k]; });
+    c.shensha = res;
+    return res;
   }
 
   function zhiRels(a, b) {
@@ -643,6 +701,8 @@
 
   /* ---------------- ziwei ---------------- */
   const PAL = D.PALACE_NAMES, PAL_EN = D.PALACE_EN;
+  const ZSTAR_EN = D.STAR_EN;
+
   function buildZiwei(o) {
     const jd = toJD(o.y, o.m, o.d, o.h, o.mi);
     let ts = { h: o.h, mi: o.mi }, jdT = jd;
@@ -655,20 +715,24 @@
     }
     const ld = lunarFromJD(jd);
     const hidx = zi(hourBranchOf(ts.h + ts.mi / 60));
-    const ygLunar = GAN[mod(ld.year - 4, 10)];
+    const ygLunar = o.yearBoundary === "lichun" ? yearPillar(jd)[0] : GAN[mod(ld.year - 4, 10)];
+    const yzLunar = ZHI[mod(ld.year - 4, 12)];
+    const yi = gi(ygLunar), yiz = zi(yzLunar);
     let mnum = ld.month;
     if (ld.isLeap) {
       if ((o.leapPolicy || "split") === "split") mnum = ld.day <= 15 ? ld.month : ld.month + 1;
       else if (o.leapPolicy === "next") mnum = ld.month + 1;
     }
     mnum = mod(mnum - 1, 12) + 1;
-    const ming = mod(2 + (mnum - 1) - hidx, 12);
-    const shen = mod(2 + (mnum - 1) + hidx, 12);
-    const first = TIGER[gi(ygLunar)];
+    const mi = mnum - 1;
+    const ming = mod(2 + mi - hidx, 12);
+    const shen = mod(2 + mi + hidx, 12);
+    const soulS = mod(ming - 2, 12), bodyS = mod(shen - 2, 12);
+    const first = TIGER[yi];
     const gans = [];
     for (let i = 0; i < 12; i++) gans.push(GAN[mod(first + i, 10)]);
-    const mingGan = gans[mod(ming - 2, 12)], mingZhi = ZHI[ming];
-    const ny = nayin(mingGan, mingZhi);
+    const mingGan = gans[mod(ming - 2, 12)];
+    const ny = nayin(mingGan, ZHI[ming]);
     const juWx = ny[ny.length - 1];
     const [juNum, juName] = D.JU[juWx];
     let offset = 0;
@@ -678,50 +742,115 @@
     iz += offset % 2 === 0 ? offset : -offset;
     const ziIdx = mod(iz + 2, 12);
     const fuIdx = mod(4 - ziIdx, 12);
-    const pos = {};
-    pos["紫微"] = ziIdx;
+    const pos = { "紫微": ziIdx };
     [[-1, "天机"], [-3, "太阳"], [-4, "武曲"], [-5, "天同"], [-8, "廉贞"]].forEach(([off, nm]) => { pos[nm] = mod(ziIdx + off, 12); });
     [[0, "天府"], [1, "太阴"], [2, "贪狼"], [3, "巨门"], [4, "天相"], [5, "天梁"], [6, "七杀"], [10, "破军"]].forEach(([off, nm]) => { pos[nm] = mod(fuIdx + off, 12); });
-    pos["左辅"] = mod(4 + (mnum - 1), 12);
-    pos["右弼"] = mod(10 - (mnum - 1), 12);
+    pos["左辅"] = mod(4 + mi, 12);
+    pos["右弼"] = mod(10 - mi, 12);
     pos["文昌"] = mod(10 - hidx, 12);
     pos["文曲"] = mod(4 + hidx, 12);
     const [kui, yue] = D.KUI_YUE[ygLunar];
     pos["天魁"] = zi(kui); pos["天钺"] = zi(yue);
     const lu = zi(D.LUCUN[ygLunar]);
     pos["禄存"] = lu; pos["擎羊"] = mod(lu + 1, 12); pos["陀罗"] = mod(lu - 1, 12);
-    const yz = ZHI[mod(ld.year - 4, 12)];
-    pos["火星"] = mod(zi(D.HUOXING_START[yz]) + hidx, 12);
-    pos["铃星"] = mod(zi(D.LINGXING_START[yz]) + hidx, 12);
+    pos["火星"] = mod(zi(D.HUOXING_START[yzLunar]) + hidx, 12);
+    pos["铃星"] = mod(zi(D.LINGXING_START[yzLunar]) + hidx, 12);
     pos["地空"] = mod(11 - hidx, 12); pos["地劫"] = mod(11 + hidx, 12);
-    pos["天马"] = zi(D.YIMA[yz]);
+    pos["天马"] = zi(D.YIMA[yzLunar]);
+    // 38 杂曜
+    pos["天姚"] = mod(1 + mi, 12);
+    pos["天刑"] = mod(9 + mi, 12);
+    pos["阴煞"] = zi(["寅", "子", "戌", "申", "午", "辰"][mi % 6]);
+    pos["天月"] = zi(["戌", "巳", "辰", "寅", "未", "卯", "亥", "未", "寅", "午", "戌", "寅"][mi]);
+    pos["天巫"] = zi(["巳", "申", "寅", "亥"][mi % 4]);
+    pos["解神"] = zi(["申", "戌", "子", "寅", "辰", "午"][Math.floor(mi / 2)]);
+    const hong = mod(3 - yiz, 12);
+    pos["红鸾"] = hong; pos["天喜"] = mod(hong + 6, 12);
+    pos["咸池"] = zi({ 申: "酉", 子: "酉", 辰: "酉", 寅: "卯", 午: "卯", 戌: "卯", 巳: "午", 酉: "午", 丑: "午", 亥: "子", 卯: "子", 未: "子" }[yzLunar]);
+    pos["华盖"] = zi({ 申: "辰", 子: "辰", 辰: "辰", 寅: "戌", 午: "戌", 戌: "戌", 巳: "丑", 酉: "丑", 丑: "丑", 亥: "未", 卯: "未", 未: "未" }[yzLunar]);
+    const GU = { 0: ["寅", "戌"], 1: ["寅", "戌"], 2: ["巳", "丑"], 3: ["巳", "丑"], 4: ["巳", "丑"], 5: ["申", "辰"], 6: ["申", "辰"], 7: ["申", "辰"], 8: ["亥", "未"], 9: ["亥", "未"], 10: ["亥", "未"], 11: ["寅", "戌"] };
+    pos["孤辰"] = zi(GU[yiz][0]); pos["寡宿"] = zi(GU[yiz][1]);
+    pos["破碎"] = zi(["巳", "丑", "酉"][yiz % 3]);
+    pos["蜚廉"] = zi(["申", "酉", "戌", "巳", "午", "未", "寅", "卯", "辰", "亥", "子", "丑"][yiz]);
+    pos["龙池"] = mod(4 + yiz, 12); pos["凤阁"] = mod(10 - yiz, 12);
+    pos["天哭"] = mod(6 - yiz, 12); pos["天虚"] = mod(6 + yiz, 12);
+    pos["天官"] = zi(["未", "辰", "巳", "寅", "卯", "酉", "亥", "酉", "戌", "午"][yi]);
+    pos["天福"] = zi(["酉", "申", "子", "亥", "卯", "寅", "午", "巳", "午", "巳"][yi]);
+    pos["天厨"] = zi(["巳", "午", "子", "巳", "午", "申", "寅", "午", "酉", "亥"][yi]);
+    pos["天德"] = mod(9 + yiz, 12); pos["月德"] = mod(5 + yiz, 12);
+    pos["天空"] = mod(yiz + 1, 12);
+    pos["截路"] = zi(["申", "午", "辰", "寅", "子"][yi % 5]);
+    pos["空亡"] = zi(["酉", "未", "巳", "卯", "丑"][yi % 5]);
+    let xun = mod(yiz + 9 - yi + 1, 12);
+    if ((yiz % 2) !== (xun % 2)) xun = mod(xun + 1, 12);
+    pos["旬空"] = xun;
+    pos["年解"] = zi(["戌", "酉", "申", "未", "午", "巳", "辰", "卯", "寅", "丑", "子", "亥"][yiz]);
+    pos["天才"] = mod(soulS + yiz + 2, 12);
+    pos["天寿"] = mod(bodyS + yiz + 2, 12);
+    pos["台辅"] = mod(6 + hidx, 12); pos["封诰"] = mod(2 + hidx, 12);
+    const dayIdx = ld.day - 1;
+    pos["三台"] = mod(pos["左辅"] + dayIdx, 12);
+    pos["八座"] = mod(pos["右弼"] - dayIdx, 12);
+    pos["恩光"] = mod(mod(pos["文昌"] + dayIdx, 12) - 1, 12);
+    pos["天贵"] = mod(mod(pos["文曲"] + dayIdx, 12) - 1, 12);
+    pos["天伤"] = mod(soulS - 7 + 2, 12);
+    pos["天使"] = mod(soulS - 5 + 2, 12);
+
     const tbl = (o.sihuaSchool === "feixing") ? D.SIHUA_FEIXING : D.SIHUA_SANHE;
     const huaMap = {};
     tbl[ygLunar].forEach((st, i) => { huaMap[st] = ["禄", "权", "科", "忌"][i]; });
     const chart = { name: o.name || "", gender: o.gender, birth: { y: o.y, m: o.m, d: o.d },
       lunar: ld, hourBranch: ZHI[hidx], mingBranch: ZHI[ming], shenBranch: ZHI[shen],
-      ju: juName, juNum, ziweiBranch: ZHI[ziIdx], yearGan: ygLunar, palaces: [] };
-    const yang = gi(ygLunar) % 2 === 0, male = ["male", "男", "m"].includes(o.gender);
-    chart.decadeDirection = yang === male ? 1 : -1;
+      ju: juName, juNum, ziweiBranch: ZHI[ziIdx], yearGan: ygLunar, yearZhi: yzLunar,
+      mingZhu: D.MING_ZHU[ZHI[ming]], shenZhu: D.SHEN_ZHU[yzLunar],
+      douJun: ZHI[mod(yiz - mi + hidx, 12)], palaces: [] };
+    const yang = yiz % 2 === 0, male = ["male", "男", "m"].includes(o.gender);
+    const forward = (yang === male);
+    chart.decadeDirection = forward ? 1 : -1;
+    const CS = D.CHANGSHENG12, BS = D.BOSHI12, JQ = D.JIANGQIAN12, SQ = D.SUIQIAN12;
+    const csStart = zi(D.CHANGSHENG_START[juName[0]]);
+    const cs = {}, bs = {};
+    for (let i = 0; i < 12; i++) {
+      cs[forward ? mod(csStart + i, 12) : mod(csStart - i, 12)] = CS[i];
+      bs[forward ? mod(lu + i, 12) : mod(lu - i, 12)] = BS[i];
+    }
+    const jqStart = zi({ 寅: "午", 午: "午", 戌: "午", 申: "子", 子: "子", 辰: "子", 巳: "酉", 酉: "酉", 丑: "酉", 亥: "卯", 卯: "卯", 未: "卯" }[yzLunar]);
+    const jq = {}, sq = {};
+    for (let i = 0; i < 12; i++) { jq[mod(jqStart + i, 12)] = JQ[i]; sq[mod(yiz + i, 12)] = SQ[i]; }
+    const xxStart = zi(D.XIAOXIAN_START[yzLunar]);
+    const agesBy = {};
+    for (let k = 0; k < 12; k++) {
+      const b = male ? mod(xxStart + k, 12) : mod(xxStart - k, 12);
+      const arr = []; for (let a = k + 1; a <= 120; a += 12) arr.push(a);
+      agesBy[b] = arr;
+    }
     for (let k = 0; k < 12; k++) {
       const idx = mod(ming - k, 12);
       const stars = [];
       Object.keys(pos).forEach((nm) => {
         if (pos[nm] !== idx) return;
-        const kind = D.MAJOR_STARS.includes(nm) ? "主星" : D.LUCKY.includes(nm) ? "辅星" : "煞星";
-        stars.push({ name: nm, kind, hua: huaMap[nm] || "",
+        const kind = D.MAJOR_STARS.includes(nm) ? "主星" : D.LUCKY.includes(nm) ? "辅星" : D.UNLUCKY.includes(nm) ? "煞星" : "杂曜";
+        stars.push({ name: nm, nameEn: (ZSTAR_EN || {})[nm] || nm, kind, hua: huaMap[nm] || "",
           brightness: (D.BRIGHTNESS[nm] || {})[ZHI[idx]] || "" });
       });
-      stars.sort((a, b) => (a.kind === "主星" ? 0 : 1) - (b.kind === "主星" ? 0 : 1));
+      const ord = { 主星: 0, 辅星: 1, 煞星: 2, 杂曜: 3 };
+      stars.sort((a, b) => (ord[a.kind] - ord[b.kind]) || (D.MAJOR_STARS.indexOf(a.name) - D.MAJOR_STARS.indexOf(b.name)));
+      const ganHere = gans[mod(idx - 2, 12)];
+      const selfTbl = {};
+      tbl[ganHere].forEach((st, i) => { selfTbl[st] = ["禄", "权", "科", "忌"][i]; });
+      const selfHua = stars.filter((s) => selfTbl[s.name]).map((s) => [s.name, selfTbl[s.name]]);
+      const k2 = forward ? mod(idx - ming, 12) : mod(ming - idx, 12);
       chart.palaces.push({ branch: ZHI[idx], index: idx, name: PAL[k], nameEn: PAL_EN[k],
-        gan: gans[mod(idx - 2, 12)], stars, isBody: idx === shen });
+        gan: ganHere, stars, isBody: idx === shen,
+        changsheng: cs[idx] || "", boshi: bs[idx] || "",
+        jiangqian: jq[idx] || "", suiqian: sq[idx] || "",
+        ages: agesBy[idx] || [], selfHua,
+        decade: [juNum + k2 * 10, juNum + k2 * 10 + 9] });
     }
-    const ages = [];
-    for (let a = juNum; a < juNum + 130; a += 10) ages.push(a);
-    chart.palaces.forEach((p, k) => { p.decade = [ages[k], ages[k] + 9]; });
     chart.sihua = huaMap;
     return chart;
   }
+
   const OPP = 6;
   function palaceScore(chart, palace) {
     const trio = [palace];
@@ -965,7 +1094,7 @@
       ziweiYear: yearlyPalace(ziwei, focus) };
   }
 
-  window.ML = { toJD, fromJD, lunarFromJD, termLocal, buildBazi, buildZiwei,
+  window.ML = { toJD, fromJD, lunarFromJD, lunarToJD, termLocal, buildBazi, buildZiwei,
     luckCycles, startLuck, luckDirection, yearPeriod, monthPeriods, evaluatePeriod,
     palaceScore, detectPatterns, ziweiSummary, decades, yearlyPalace,
     scoreOverall, compareEvents, buildReading, usefulElements, shishen, zhiRels };

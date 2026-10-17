@@ -397,49 +397,8 @@ def _analyse_tiaohou(chart: BaziChart) -> None:
 
 
 def _find_shensha(chart: BaziChart) -> None:
-    dm = chart.day_master
-    zhis = chart.all_zhi()
-    gans = chart.all_gan()
-    yz = chart.year.zhi
-    dz = chart.day.zhi
-    out: dict[str, list[str]] = {}
-
-    def put(name, where):
-        out.setdefault(name, [])
-        if where:
-            out[name].append(where)
-
-    for pos, z in zip(("年", "月", "日", "时"), zhis):
-        if z in TIANYI[dm]:
-            put("天乙贵人", pos)
-        if z == WENCHANG[dm]:
-            put("文昌", pos)
-        if z == YANGREN[dm]:
-            put("羊刃", pos)
-        if z == LU[dm]:
-            put("禄神", pos)
-        if z == YIMA[yz]:
-            put("驿马(年支)", pos)
-        if z == YIMA[dz]:
-            put("驿马(日支)", pos)
-        if z == TAOHUA[yz]:
-            put("桃花(年支)", pos)
-        if z == HUAGAI[yz]:
-            put("华盖(年支)", pos)
-        if z == JIANGXING[yz]:
-            put("将星(年支)", pos)
-        p = chart.pillars[("年", "月", "日", "时").index(pos)]
-        if z in p.kong:
-            put("空亡", pos)
-
-    kui = {"庚辰", "庚戌", "壬辰", "戊戌"}
-    for pos, p in zip(("年", "月", "日", "时"), chart.pillars):
-        if p.gan + p.zhi in kui:
-            put("魁罡", pos)
-    if not any(GAN_WUXING[GAN.index(h)] == "土"
-               for h in chart.hidden_all()) and "土" not in gans:
-        put("四柱无土", "全局")
-    chart.shensha = {k: v for k, v in out.items() if v}
+    from . import shensha as _ss
+    chart.shensha = _ss.compute(chart)
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@
   <a href="https://weiwei0614.github.io/bazi-ziwei/"><img alt="live demo" src="https://img.shields.io/badge/LIVE_DEMO-open_in_browser-e8a33d?style=for-the-badge"></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="deps" src="https://img.shields.io/badge/dependencies-zero-5dcaa5?style=for-the-badge">
-  <img alt="tests" src="https://img.shields.io/badge/tests-19_passing-5dcaa5?style=for-the-badge">
+  <img alt="tests" src="https://img.shields.io/badge/tests-21_passing-5dcaa5?style=for-the-badge">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-a99ce8?style=for-the-badge">
 </p>
 
@@ -63,9 +63,9 @@ or just open the hosted demo: **https://weiwei0614.github.io/bazi-ziwei/**
 | Layer | Output |
 |---|---|
 | **Calendar** | Apparent solar longitude (VSOP87 truncated), 24 solar terms to the second, new moons (Meeus 49), lunisolar calendar with the no-zhongqi leap rule, true solar time (longitude + equation of time) |
-| **Four Pillars** | Year/month/day/hour pillars, 10 gods, hidden stems, nayin, twelve stages, void branches, seasonal state (旺相休囚死), quantitative element shares, day-master strength, structure (格局), climate god (调候), shensha, all 合/冲/刑/害/破 interactions |
+| **Four Pillars** | Year/month/day/hour pillars, 10 gods, hidden stems, nayin, twelve stages, void branches, seasonal state (旺相休囚死), quantitative element shares, day-master strength, structure (格局), climate god (调候), **35 shensha in three grades with the rule that produced each**, all 合/冲/刑/害/破 interactions |
 | **Luck cycles** | Direction, starting age (3 days = 1 year), ten 10-year cycles, annual pillars, monthly pillars on the 12 *jie* |
-| **Zi Wei** | Twelve palaces, five-element bureau, 14 majors with brightness grades, 13 auxiliaries, birth-year sihua (Sanhe **and** Feixing tables), decade limits, annual palace |
+| **Zi Wei** | Twelve palaces, five-element bureau, 14 majors with 7 brightness grades, 6+6 auxiliaries, **38 adjective stars**, **four sets of twelve gods (长生/博士/将前/岁前)**, decade and minor limits, life/body rulers, Dou Jun, birth-year sihua (Sanhe **and** Feixing), palace-stem self-transformation, annual palace |
 | **Scoring** | Six dimensions → overall 0-100 and tier; six life areas (career / wealth / love / health / study / network), each with its components exposed |
 | **Timeline** | Per-year score with themes, cautions and openings; per-month the same, scaled |
 | **Back-test** | Hit rate, Pearson correlation, ridge-refitted weights, per-event disagreement list |
@@ -85,7 +85,11 @@ every disagreement was chased down.
 | Solar terms vs `lunar_python` | 24 terms × 13 years, 1900-2100 | max deviation **30 s**, all dates identical |
 | Lunar date vs `lunar_python` | 4,008 dates × 4 times of day | 44 mismatches = **0.27 %**, all at two knife-edge new moons within seconds of midnight |
 | Four pillars vs `lunar_python` | 3,000 random instants 1902-2098 | **0 errors** on year / month / day / hour |
-| Zi Wei vs `iztro` | 700 charts 1920-2030 | **0 errors** on life palace, bureau, palace stems, 14 majors, 13 auxiliaries; 1 chart differs by a major star (same knife-edge) |
+| Zi Wei vs `iztro` (palaces / bureau / stems) | 700 charts 1920-2030 | **0 errors** |
+| Zi Wei vs `iztro` (14 majors + 13 auxiliaries) | 700 charts | **1 chart** differs by one major star (new-moon knife edge) |
+| Zi Wei vs `iztro` (38 adjective stars) | 700 charts | **1 chart** (same knife edge) |
+| Zi Wei vs `iztro` (长生/博士/将前/岁前, 小限, 大限) | 700 charts | **0 errors** |
+| Shensha (35 stars) JS vs Python | 30 charts | identical name set, positions and grades |
 | Browser JS vs Python | 60 charts, 15 field groups | identical; differences only from rounding convention (±0.1) |
 
 Two bugs found this way and worth recording, because both are common in other projects:
