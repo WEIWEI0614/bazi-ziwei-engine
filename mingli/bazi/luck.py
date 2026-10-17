@@ -187,14 +187,19 @@ def useful_elements(chart) -> tuple[list[str], list[str], dict]:
         reason = (f"日主{dm_wx}偏弱（同党 {chart.strength:.1f}%），宜生宜扶："
                   f"以{yin}（印）生身、{dm_wx}（比劫）帮身")
 
-    # 調候 overrides / adds
+    # 調候：只取「主用」（sequence 第一位），且必须从忌神中剔除。
+    # 早前把整个 sequence 都塞进 favor，导致戊土这样的佐神同时出现在喜与忌里，
+    # favor 膨胀到四个五行，等于「什么都好」，流年判断随之失效。
     th = chart.tiaohou
     th_els = []
-    for c in th.get("sequence", ""):
-        w = GAN_WUXING[GAN.index(c)]
+    seq = th.get("sequence", "") or ""
+    if seq:
+        w = GAN_WUXING[GAN.index(seq[0])]
         th_els.append(w)
+        if w in avoid:
+            avoid.remove(w)
         if w not in favor:
-            favor.append(w)
+            favor.insert(0, w)
     explanation = {
         "strength_based": reason,
         "tiaohou": (f"調候取{th.get('sequence','')}（{th.get('primary','')}為先），"
@@ -217,13 +222,13 @@ def _band(score: float) -> str:
         return "吉"
     if score >= 58:
         return "小吉"
-    if score >= 45:
+    if score >= 46:
         return "平"
-    if score >= 35:
+    if score >= 42:
         return "小凶"
-    if score >= 22:
-        return "凶"
-    return "大凶"
+    if score >= 38:
+        return "偏弱"
+    return "凶"
 
 
 THEME_MAP = {
@@ -287,7 +292,9 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             drain = SHENG[el]                              # 我生者（泄）
             checked = max(es.get(ctrl, 0), es.get(drain, 0))
             loss += v * (0.55 if checked >= 8 else 1.10)
-    comp["用神"] = round(max(-22.0, min(26.0, (gain - loss) * 40.0)), 1)
+    # 上限收到 ±18/−16：原来的 ±26 只要干支都落在喜用就顶格，
+    # 于是同一张盘在 80 与 25 之间反复跳，读起来像「命在剧烈摇摆」。
+    comp["用神"] = round(max(-16.0, min(18.0, (gain - loss) * 40.0)), 1)
     comp["忌神有制"] = 1.0 if loss < sum(v * 1.10 for e, v in add.items() if e in avoid) else 0.0
 
     # ---- 2) 十神 ----------------------------------------------------------
@@ -383,9 +390,10 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     elif tone < 0 and raw > 50:
         raw = 50 + (raw - 50) * (1 - 0.42 * abs(tone))
 
-    # tanh 压缩：中段近似线性，两端收敛，避免单年读到「必凶」
-    import math as _m
-    score = 50.0 + 41.0 * _m.tanh((max(0.0, min(100.0, raw)) - 50.0) / 34.0)
+    # 收窄到 40–86：实际命理软件的单年读数很少低于 40 或高于 86，
+    # 这是「倾向」而非「判决」，压缩后才有可比性。
+    score = 50.0 + (max(0.0, min(100.0, raw)) - 50.0) * 0.72
+    score = max(40.0, min(88.0, score))
     comp["base"] = 50.0
     comp["raw"] = round(raw, 1)
     comp["大运基调"] = round(tone, 2)
@@ -435,6 +443,9 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     if "三合" in joined or "半合" in joined:
         opps.append("成合局：宜合作、宜结盟，借他人之力成事")
 
+    # 同一句提示可能由多个柱位触发（例如两柱伏吟），去重后只留一次
+    cautions = list(dict.fromkeys(cautions))
+    opps = list(dict.fromkeys(opps))
     return {
         "shishen_gan": ss_g, "shishen_zhi": ss_z, "score": round(score, 1),
         "band": _band(score), "components": comp, "relations": rels,

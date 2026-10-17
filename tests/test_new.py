@@ -163,7 +163,7 @@ class TestFlow(unittest.TestCase):
     def test_band_monotonic(self):
         vals = [luck.year_period(self.c, y, self.cyc).score for y in range(2020, 2036)]
         bands = [luck._band(v) for v in vals]
-        order = ["大凶", "凶", "小凶", "平", "小吉", "吉", "大吉"]
+        order = ["凶", "偏弱", "小凶", "平", "小吉", "吉", "大吉"]
         idx = [order.index(b) for b in bands]
         # 分数升高时档位不能倒退
         for i in range(len(vals) - 1):

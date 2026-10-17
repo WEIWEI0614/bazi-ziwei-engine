@@ -302,6 +302,7 @@
       score: Math.round(score * 10) / 10, grade, gradeEn: GRADE_EN[grade],
       bazi: b, ziwei: z,
       basis: `八字格 ${b.score.toFixed(1)}（${b.grade}，成格度 ${(b.setupRatio * 100).toFixed(0)}%，破 ${b.broken} 分、救 ${b.rescued} 分）· 紫微格 ${z.score.toFixed(1)}（${z.grade}）`,
+      basisEn: `BaZi ${b.score.toFixed(1)} (${GRADE_EN[b.grade]}, setup ${(b.setupRatio * 100).toFixed(0)}%, breaks −${b.broken}, rescues +${b.rescued}) · Zi Wei ${z.score.toFixed(1)} (${GRADE_EN[z.grade]})`,
     };
   }
 
@@ -323,7 +324,8 @@
     const g = GUA_MAP[up + "|" + lo];
 
     const upLine = TRI[up][2].slice(), loLine = TRI[lo][2].slice();
-    const lines = upLine.slice().reverse().concat(loLine.slice().reverse());
+    // 六爻从初到上：下卦三爻在前，上卦三爻在后
+    const lines = loLine.slice().reverse().concat(upLine.slice().reverse());
     const flipped = lines.slice();
     flipped[move - 1] = flipped[move - 1] ? 0 : 1;
 
@@ -346,11 +348,14 @@
     else if (WX_KE[tiWx] === yongWx) { rel = "体克用"; relTone = "good"; relZh = "体克用，我能制事，可为但需用力"; relEn = "You control the matter — doable, with effort"; }
     else { rel = "用克体"; relTone = "bad"; relZh = "用克体，事来克我，阻力大，宜退"; relEn = "The matter controls you — strong resistance, better to withdraw"; }
 
+    const NM = D.GUA.names || {};
     return {
-      upper: up, lower: lo, name: g[2], nameEn: g[5], text: g[3], tone: g[4],
+      upper: up, lower: lo, name: g[2], nameEn: NM[g[2]] || g[2],
+      text: g[3], textEn: g[5], tone: g[4],
       trace: TRI[up][1] + TRI[lo][1],
       lines, moving: move, flipped,
-      mutual: hu[2], mutualText: hu[3], result: bian[2], resultText: bian[3], resultTone: bian[4],
+      mutual: hu[2], mutualEn: NM[hu[2]] || hu[2], mutualText: hu[3],
+      result: bian[2], resultEn: NM[bian[2]] || bian[2], resultText: bian[3], resultTone: bian[4],
       ti, yong, tiWx, yongWx, rel, relZh, relEn, relTone,
       numbers: { upper: upN, lower: loN, moving: move, sum: s, sumHour: s + hourBranchNum },
     };

@@ -31,7 +31,7 @@ def _gua():
     from mingli import gua as G
     rows = [[up, lo, name, text, tone, en]
             for (up, lo), (name, text, tone, en) in G.GUA.items()]
-    return {"rows": rows,
+    return {"rows": rows, "names": G.GUA_EN,
             "trigrams": [[t[0], t[1], list(t[2]), t[3], t[4], t[5]] for t in G.TRIGRAMS],
             "tones": {"zh": G.TONE_ZH, "en": G.TONE_EN}}
 

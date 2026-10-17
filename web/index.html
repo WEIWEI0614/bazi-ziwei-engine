@@ -138,7 +138,7 @@ h2.sec small{font-family:inherit;font-size:10.5px;color:var(--tx3);letter-spacin
 .card h4{margin:0 0 7px;font-size:11px;color:var(--tx3);font-weight:500;letter-spacing:.12em}
 .big{font-family:var(--serif);font-size:38px;line-height:1;color:var(--amber2)}
 .big small{font-size:13px;color:var(--tx3);margin-left:3px;font-family:inherit}
-.bar{height:6px;background:#21242c;border-radius:5px;overflow:hidden;margin:5px 0 1px}
+.bar{display:block;height:6px;background:#21242c;border-radius:5px;overflow:hidden;margin:5px 0 1px}
 .bar i{display:block;height:100%;border-radius:5px}
 .dimrow{display:flex;align-items:center;gap:9px;font-size:12.5px;margin:6px 0}
 .dimrow .nm{width:82px;color:var(--tx2);flex:none}
@@ -155,7 +155,13 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 .p-hi{background:#22392c;color:#84dcae}.p-mid{background:#3a3320;color:#ecc47e}.p-low{background:#3c2427;color:#ef9d99}
 .note{font-size:12px;color:var(--tx3);line-height:1.7}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.ev-row{display:grid;grid-template-columns:80px 108px 1fr 150px 30px;gap:7px;align-items:center;margin-bottom:7px}
+.ev-row{display:grid;grid-template-columns:80px 108px 1fr 172px 30px;gap:7px;align-items:center;margin-bottom:7px}
+.ev-row input::placeholder{color:#5a5d66}
+.ev-row .impact{display:flex;align-items:center;gap:7px}
+.ev-row .impact b{width:26px;text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--amber2)}
+.ev-row input[type=range]{-webkit-appearance:none;height:4px;border-radius:3px;background:#2a2e38;border:0}
+.ev-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--amber);border:2px solid #171921;cursor:pointer}
 .ev-row input,.ev-row select{background:var(--bg2);border:1px solid var(--line2);color:var(--tx);
   padding:5px 7px;border-radius:6px;font-size:12.5px;width:100%;font-family:inherit}
 .ev-row input[type=range]{padding:0}
@@ -187,20 +193,25 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 
 /* ---------- 卦象 ---------- */
 .gua-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.gua-main{grid-column:1 / -1;display:grid;grid-template-columns:170px 1fr;gap:26px;align-items:start}
+@media(max-width:760px){.gua-main{grid-template-columns:1fr}}
 .gua-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
 .gua-box h4{margin:0 0 8px;font-size:11px;color:var(--tx3);letter-spacing:.12em;font-weight:500}
-.gua-fig{display:flex;flex:none;flex-direction:column-reverse;gap:7px;margin:10px 0 12px;width:118px}
-.gua-line{height:12px;border-radius:2px;background:#b9b6ae;position:relative}
+.gua-fig{display:flex;flex:none;flex-direction:column-reverse;gap:9px;margin:4px 0 0;width:150px}
+.gua-line{height:14px;border-radius:2px;background:#c6c3ba;position:relative}
 .gua-line.yin{background:transparent}
-.gua-line.yin:before,.gua-line.yin:after{content:"";position:absolute;top:0;height:100%;width:41%;
-  background:#b9b6ae;border-radius:2px}
+.gua-line.yin:before,.gua-line.yin:after{content:"";position:absolute;top:0;height:100%;width:40%;
+  background:#c6c3ba;border-radius:2px}
 .gua-line.yin:before{left:0}.gua-line.yin:after{right:0}
 .gua-line.mv{background:var(--amber);box-shadow:0 0 10px rgba(232,163,61,.55)}
+.gua-line.yin.mv{background:transparent;box-shadow:none}
 .gua-line.yin.mv:before,.gua-line.yin.mv:after{background:var(--amber);box-shadow:0 0 10px rgba(232,163,61,.55)}
-.gua-name{font-family:var(--serif);font-size:21px;color:var(--amber2);letter-spacing:.1em}
-.gua-tr{font-family:var(--serif);font-size:15px;color:var(--tx3);margin-left:8px;letter-spacing:.14em}
-.gua-text{font-size:12.5px;color:var(--tx2);line-height:1.8;margin-top:6px}
-.gua-nums{font-size:11px;color:var(--tx3);margin-top:8px;font-variant-numeric:tabular-nums}
+.gua-name{font-family:var(--serif);font-size:26px;color:var(--amber2);letter-spacing:.1em}
+.gua-tr{font-family:var(--serif);font-size:17px;color:var(--tx3);margin-left:10px;letter-spacing:.16em}
+.gua-text{font-size:13.5px;color:var(--tx2);line-height:1.85;margin-top:8px}
+.gua-nums{font-size:11.5px;color:var(--tx3);margin-top:10px;font-variant-numeric:tabular-nums;
+  padding-top:8px;border-top:1px dashed #262a33}
+.gua-box .gua-name{font-size:19px;margin-top:4px}
 
 /* ---------- 合盘 ---------- */
 .syn-head{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center}
@@ -214,6 +225,32 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 .syn-item .top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--tx2);margin-bottom:3px}
 .syn-item .why{font-size:11.5px;color:var(--tx3);line-height:1.7;margin-top:3px}
 
+/* ---------- 问答 ---------- */
+.chat-wrap{display:grid;grid-template-columns:290px 1fr;gap:12px;align-items:start}
+.chat-side{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 14px}
+.chat-side .field{margin-bottom:9px}
+.chat-side label{font-size:10.5px;color:var(--tx3);letter-spacing:.1em}
+.chat-side input,.chat-side select{background:var(--bg2);border:1px solid var(--line2);color:var(--tx);
+  padding:6px 8px;border-radius:6px;font-size:12.5px;width:100%;font-family:inherit}
+.chat-side input:focus,.chat-side select:focus{outline:none;border-color:var(--amber)}
+.chat-main{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  display:flex;flex-direction:column;height:640px;overflow:hidden}
+.chat-log{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:88%;font-size:13px;line-height:1.85;padding:9px 13px;border-radius:10px;white-space:pre-wrap;word-break:break-word}
+.msg.me{align-self:flex-end;background:#2b2418;border:1px solid #4a3c22;color:#f0e3cc}
+.msg.ai{align-self:flex-start;background:#1a1d25;border:1px solid #262a33;color:var(--tx2)}
+.msg.sys{align-self:center;background:transparent;color:var(--tx3);font-size:11.5px;text-align:center;max-width:100%}
+.msg .who{display:block;font-size:10px;letter-spacing:.1em;color:var(--tx3);margin-bottom:3px}
+.chat-input{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:#14161c}
+.chat-input textarea{flex:1;resize:none;height:44px;background:var(--bg2);border:1px solid var(--line2);
+  color:var(--tx);border-radius:8px;padding:8px 10px;font:13px/1.6 inherit}
+.chat-input textarea:focus{outline:none;border-color:var(--amber)}
+.chat-tip{font-size:11px;color:var(--tx3);line-height:1.7;margin-top:8px}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.quick button{background:#21242c;border:1px solid #2c3139;color:var(--tx2);border-radius:14px;
+  padding:3px 10px;font-size:11.5px;cursor:pointer}
+.quick button:hover{border-color:var(--amber);color:var(--amber2)}
+
 /* ---------- 日主形象 ---------- */
 .avatar-wrap{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
 .avatar{position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;
@@ -226,6 +263,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 
 @media(max-width:900px){
   .two{grid-template-columns:1fr}
+  .chat-wrap{grid-template-columns:1fr}
+  .chat-main{height:520px}
   .bz .gz{font-size:24px}
   .board{grid-template-rows:repeat(4,minmax(136px,auto))}
   .cell{font-size:10.5px}
@@ -402,6 +441,38 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     <div id="synOut"></div>
   </section>
 
+  <section class="view" id="v-chat">
+    <h2 class="sec" id="h-chat">大模型问答 <small>Ask the model</small></h2>
+    <p class="note" style="margin:0 0 10px" id="chatHint"></p>
+    <div class="chat-wrap">
+      <div class="chat-side">
+        <div class="field"><label>服务商 / Provider</label>
+          <select id="c-provider">
+            <option value="https://api.deepseek.com/v1|deepseek-chat">DeepSeek</option>
+            <option value="https://open.bigmodel.cn/api/paas/v4|glm-4-flash">智谱 GLM</option>
+            <option value="https://dashscope.aliyuncs.com/compatible-mode/v1|qwen-plus">通义千问</option>
+            <option value="https://api.moonshot.cn/v1|moonshot-v1-8k">Kimi</option>
+            <option value="https://api.openai.com/v1|gpt-4o-mini">OpenAI</option>
+            <option value="custom">自定义 / Custom</option>
+          </select></div>
+        <div class="field"><label>API Base</label><input id="c-base" placeholder="https://api.deepseek.com/v1"></div>
+        <div class="field"><label>Model</label><input id="c-model" placeholder="deepseek-chat"></div>
+        <div class="field"><label>API Key</label><input id="c-key" type="password" placeholder="sk-..."></div>
+        <div class="field"><label>温度 / Temperature</label><input id="c-temp" type="number" step="0.1" min="0" max="1.5" value="0.5"></div>
+        <button class="btn primary" id="c-save" style="width:100%">保存设置</button>
+        <div class="chat-tip" id="chatTip"></div>
+        <div class="quick" id="cQuick"></div>
+      </div>
+      <div class="chat-main">
+        <div class="chat-log" id="cLog"></div>
+        <div class="chat-input">
+          <textarea id="cInput" placeholder="就这张命盘提问…"></textarea>
+          <button class="btn primary" id="cSend" style="height:44px;padding:0 18px">发送</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="view" id="v-event">
     <h2 class="sec" id="h-event">经历对照</h2>
     <p class="note" id="evHint" style="margin:0 0 10px"></p>
@@ -437,9 +508,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=5"></script>
-<script src="engine.js?v=5"></script>
-<script src="extra.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="data.js?v=6"></script>
+<script src="engine.js?v=6"></script>
+<script src="extra.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

@@ -78,9 +78,11 @@ or just open the hosted demo: **https://weiwei0614.github.io/bazi-ziwei/**
 | **Back-test** | Hit rate, Pearson correlation, ridge-refitted weights, per-event disagreement list |
 | **Grade (new)** | Per-rule audit of 成格 / 破格 / 救应 for BaZi, strict "auxiliary stars present **and** no malefic" test for 16 Zi Wei patterns, then a combined rank |
 | **Schools (new)** | Eight schools read side by side: Ziping structure, climate (Qiong Tong Bao Jian), modern quantified strength, blind school (guest–host, work), sound-element/stars, Zi Wei Sanhe, Zi Wei flying star, Hetu-Luoshu palace trigrams |
-| **Hexagram (new)** | Plum Blossom time casting: primary / nuclear / resulting hexagram, moving line, body–matter relation, all 64 hexagrams |
+| **Hexagram (new)** | Plum Blossom time casting: primary / nuclear / resulting hexagram, moving line, body–matter relation, all 64 hexagrams drawn line by line |
 | **Synastry (new)** | Two charts, six relationship types (couple, romance, friend, partner, parent–child, boss–report), six weighted layers with per-item reasoning |
 | **Day-master portrait (new)** | 20 illustrations (ten stems × two genders), chroma-keyed from green screen, one per day master |
+| **Ask the model (new)** | Bring your own key (any OpenAI-compatible endpoint). The chart summary is composed into the prompt; the key never leaves your browser |
+| **Strictly one language per UI** | Chinese mode contains no English and English mode contains no Chinese — including placeholders, tooltips and chart labels |
 | **Reading** | Per-chart prose in Chinese and English: structure & useful god, ten-god distribution, four-pillar palatial reading, shensha reading, and all twelve Zi Wei palaces |
 
 ![score](docs/img/score.png)

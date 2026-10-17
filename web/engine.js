@@ -578,15 +578,20 @@
     const strong = c.strength >= 50;
     let favor = strong ? [shi, cai, guan] : [yin, dmwx];
     const avoid = strong ? [dmwx, yin] : [cai, guan, shi];
-    [...(c.tiaohou.sequence || "")].forEach((ch) => {
-      const w = D.GAN_WUXING[gi(ch)];
-      if (!favor.includes(w)) favor.push(w);
-    });
+    // 调候只取主用（sequence 第一位），且必须从忌神里剔除；
+    // 否则戊土这类佐神会同时出现在喜与忌中，favor 膨胀到四个五行。
+    const seq = c.tiaohou.sequence || "";
+    if (seq.length) {
+      const w = D.GAN_WUXING[gi(seq[0])];
+      const i = avoid.indexOf(w);
+      if (i >= 0) avoid.splice(i, 1);
+      if (!favor.includes(w)) favor.unshift(w);
+    }
     return { favor, avoid, yin, shi, cai, guan, strong };
   }
   function band(s) {
-    return s >= 78 ? "大吉" : s >= 65 ? "吉" : s >= 55 ? "小吉" : s >= 45 ? "平"
-      : s >= 35 ? "小凶" : s >= 22 ? "凶" : "大凶";
+    return s >= 80 ? "大吉" : s >= 68 ? "吉" : s >= 58 ? "小吉" : s >= 46 ? "平"
+      : s >= 42 ? "小凶" : s >= 38 ? "偏弱" : "凶";
   }
   const THEME_MAP = D.THEME_MAP;
   const T = (zh, en) => ({ zh, en });
@@ -627,7 +632,9 @@
         loss += v * (checked >= 8 ? 0.55 : 1.10);
       }
     });
-    comp["用神"] = Math.round(Math.max(-22, Math.min(26, (gain - loss) * 40)) * 10) / 10;
+    // 上限收到 ±18/−16：原来的 ±26 只要干支都落在喜用就顶格，
+    // 于是同一张盘在 80 与 25 之间反复跳。
+    comp["用神"] = Math.round(Math.max(-16, Math.min(18, (gain - loss) * 40)) * 10) / 10;
     comp["忌神有制"] = loss < Object.keys(add).filter((e) => avoid.includes(e))
       .reduce((n, e) => n + add[e] * 1.10, 0) ? 1 : 0;
 
@@ -700,7 +707,9 @@
     if (tone > 0 && raw < 50) raw = 50 - (50 - raw) * (1 - 0.42 * tone);
     else if (tone < 0 && raw > 50) raw = 50 + (raw - 50) * (1 - 0.42 * Math.abs(tone));
 
-    const score = 50 + 41 * Math.tanh((Math.max(0, Math.min(100, raw)) - 50) / 34);
+    // 收窄到 40–86：单年读数是「倾向」不是「判决」
+    let score = 50 + (Math.max(0, Math.min(100, raw)) - 50) * 0.72;
+    score = Math.max(40, Math.min(88, score));
     comp["base"] = 50;
     comp["raw"] = Math.round(raw * 10) / 10;
     comp["大运基调"] = Math.round(tone * 100) / 100;
@@ -728,9 +737,18 @@
     if (comp["用神"] >= 12) opps.push(T(`喜用${favor.join("")}当令，资源顺势而来，宜进取`, `Favourable elements in season: resources come with the flow`));
     if (joined.includes("三合") || joined.includes("半合")) opps.push(T("成合局：宜合作、宜结盟，借他人之力成事", "A combination forms: ally with others"));
 
+    // cautions 是 {zh,en} 对象，按引用去重不会生效，必须按中文文本去重
+    const uniq = (arr) => {
+      const seen = new Set(), o = [];
+      arr.forEach((x) => {
+        const k = typeof x === "string" ? x : x.zh;
+        if (!seen.has(k)) { seen.add(k); o.push(x); }
+      });
+      return o;
+    };
     return { shishenGan: ssG, shishenZhi: ssZ, score: Math.round(score * 10) / 10,
       band: band(score), components: comp, relations: rels,
-      themes, cautions, opportunities: opps };
+      themes, cautions: uniq(cautions), opportunities: uniq(opps) };
   }
 
   function yearPeriod(c, year, luckCyc) {
