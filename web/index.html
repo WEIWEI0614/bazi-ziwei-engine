@@ -284,6 +284,23 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 </main>
 <footer class="foot" id="foot"></footer>
 
+<script>
+/* 出错就说出来，而不是留一张白页 */
+window.__mlErr = function (msg) {
+  if (document.getElementById("ml-err")) return;
+  var d = document.createElement("div");
+  d.id = "ml-err";
+  d.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:9999;background:#3a2224;color:#f0b3ae;padding:9px 16px;font:13px/1.6 -apple-system,system-ui;display:flex;gap:12px;align-items:center;border-bottom:1px solid #5a3336";
+  d.innerHTML = '<span>脚本出错：' + msg + '</span>' +
+    '<button onclick="location.replace(location.pathname+'?v='+Date.now())" style="margin-left:auto;background:#e8a33d;color:#20180a;border:0;padding:3px 12px;border-radius:5px;cursor:pointer;font:12px system-ui">强制重新加载</button>';
+  document.body.appendChild(d);
+};
+window.addEventListener("error", function (e) {
+  var f = e.filename ? " @ " + e.filename.split("/").pop() : "";
+  window.__mlErr((e.message || "资源加载失败") + f);
+}, true);
+</script>
+<noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
 <script src="data.js?v=3"></script>
 <script src="engine.js?v=3"></script>
 <script src="app.js?v=3"></script>
