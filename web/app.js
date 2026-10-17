@@ -34,7 +34,7 @@
     liunian: { zh: "流年", en: "Annual" },
     zw: { zh: "紫微斗数命盘", en: "Zi Wei Dou Shu Board" },
     overall: { zh: "综合格局", en: "Overall Structure" },
-    radar: { zh: "六维", en: "Six Dimensions" },
+    radar: { zh: "七维", en: "Seven Dimensions" },
     dims: { zh: "评分拆解", en: "Score Breakdown" },
     areas: { zh: "六领域", en: "Six Life Areas" },
     read: { zh: "命局解读", en: "Interpretation" },
