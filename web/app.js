@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18j";
+  const BUILD = "2026-10-18k";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -1709,7 +1709,7 @@
       ["BaZi components",
         "Ten gods, hidden stems (primary / middle / residual weighted), nayin, twelve stages, void branches, seasonal states, quantified element shares, day-master strength, structure, climate god (120 rules from Qiong Tong Bao Jian), and every clash / combination / punishment / harm."],
       ["Shensha",
-        "45 stars in three grades. Each reports where it lands and which rule produced it — auditable, not a black box."],
+        "47 stars in three grades. Each reports where it lands and which rule produced it — auditable, not a black box."],
       ["Grade vs strength",
         "Two separate numbers. Rank is judged by the classical audit: 12 setup conditions, 7 break conditions, 5 rescue conditions, with rescues weighted 1.35x. Zi Wei patterns require auxiliary stars present and no malefic in the life palace. Strength is a seven-dimension weighted score. They are never averaged together."],
       ["Zi Wei",

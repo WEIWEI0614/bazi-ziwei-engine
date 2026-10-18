@@ -38,7 +38,7 @@ drawing the chart. This one is built around five ideas the others skip:
    test — does the structure hold, what breaks it, what rescues it — not by averaging seven
    dimensions. A "following" structure can be physically weak and still upper-grade; a strong
    chart can be structurally low. Averaging the two is the most common mistake in this space.
-5. **Every term is explained in place.** 126 terms (stems, ten gods, structures, all 45 stars,
+5. **Every term is explained in place.** 126 terms (stems, ten gods, structures, all 47 stars,
    the twelve palaces, 64 hexagram vocabulary) carry a hover/click definition in both languages,
    annotated automatically across the whole page.
 
@@ -89,7 +89,7 @@ The skill instructs the model to run the back-test **before** interpreting, and 
 
 | tool | returns |
 |---|---|
-| `chart` | four pillars, structure, grade audit, element shares, 45 shensha, twelve palaces |
+| `chart` | four pillars, structure, grade audit, element shares, 47 shensha, twelve palaces |
 | `annual` | year and month scores with the components that produced them |
 | `backtest` | hit rate, Pearson, the years it got wrong, refitted weights |
 | `synastry` | two charts across six relationship types |
@@ -137,7 +137,7 @@ every disagreement was chased down.
 | Zi Wei vs `iztro` (14 majors + 13 auxiliaries) | 700 charts | **1 chart** differs by one major star (new-moon knife edge) |
 | Zi Wei vs `iztro` (38 adjective stars) | 700 charts | **1 chart** (same knife edge) |
 | Zi Wei vs `iztro` (长生/博士/将前/岁前, 小限, 大限) | 700 charts | **0 errors** |
-| Shensha (45 stars) JS vs Python | 440 charts | identical name set, positions and grades |
+| Shensha (47 stars) JS vs Python | 440 charts | identical name set, positions and grades |
 | Full-field JS vs Python parity | 440 charts × 35 fields | **zero mismatches** (`tools/parity_ext.js` + `tools/parity_check.py`) |
 | Grade engine JS vs Python | sample chart | identical rank and score (81.3 / upper grade) |
 | Unit tests | 58 | globals: 64 hexagrams present, weights sum to 1, rescue coefficient > 1, band monotonic in score |

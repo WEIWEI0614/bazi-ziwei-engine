@@ -85,7 +85,7 @@ def _shensha_tables():
              "JINYU", "HONGYAN", "LIUXIA", "XUETANG", "YIMA", "TAOHUA", "HUAGAI",
              "JIANGXING", "JIESHA", "ZAISHA", "WANGSHEN", "GUSHEN", "GUASU",
              "POSUI", "FEILIAN", "TIANDE", "YUEDE",
-             "TIANGUAN", "TIANCHU", "GAN_HE_MAP", "ZHI_HE_MAP"]
+             "TIANGUAN", "TIANCHU", "GAN_HE_MAP", "ZHI_HE_MAP", "DESHOW"]
     out = {n: getattr(S, n) for n in names}
     out["TIANSHU_HIT"] = {k: list(v) for k, v in S.TIANSHU_HIT.items()}
     out["SIFEI"] = {k: list(v) for k, v in S.SIFEI.items()}

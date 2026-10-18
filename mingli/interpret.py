@@ -438,6 +438,7 @@ SHENSHA_EN = {
     "天厨贵人": "Tian Chu (kitchen)", "金神": "Metal Spirit",
     "飞刃": "Flying Blade", "六秀日": "Six Elegance Day",
     "十灵日": "Ten Spirits Day", "孤鸾煞": "Lone Phoenix", "日德": "Day Virtue",
+    "龙德": "Dragon Virtue", "德秀贵人": "Virtue and Grace",
 }
 
 STRUCTURE_EN = {

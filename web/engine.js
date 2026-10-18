@@ -439,21 +439,46 @@
       c.pillars.forEach((p, i) => { if (chars.includes(p.zhi)) a.push(POSN[i]); if (chars.includes(p.gan)) b.push(POSN[i]); });
       return a.concat(b);
     };
+    // 年干与日干双查：口诀是「以年干或日干起贵人」，只查日干会漏一半
+    const yg = c.year.gan;
     [["天乙贵人", SS.TIANYI], ["太极贵人", SS.TAIJI], ["文昌贵人", SS.WENCHANG],
      ["国印贵人", SS.GUOYIN], ["福星贵人", SS.FUXING], ["金舆", SS.JINYU],
      ["红艳", SS.HONGYAN], ["流霞", SS.LIUXIA], ["学堂", SS.XUETANG],
      ["禄神", SS.LU], ["羊刃", SS.YANGREN]].forEach(([nm, tbl]) => {
-      put(nm, find(tbl[dm]), `日干${dm}查${nm}`);
+      let hits = find(tbl[dm]);
+      let basis = `日干${dm}查${nm}`;
+      if (yg !== dm) {
+        const more = find(tbl[yg] || "");
+        if (more.length) { hits = hits.concat(more); basis += `；年干${yg}查${nm}`; }
+      }
+      put(nm, hits, basis);
     });
     [["驿马", SS.YIMA], ["桃花", SS.TAOHUA], ["华盖", SS.HUAGAI], ["将星", SS.JIANGXING],
      ["劫煞", SS.JIESHA], ["灾煞", SS.ZAISHA], ["亡神", SS.WANGSHEN]].forEach(([nm, tbl]) => {
       put(nm, find(tbl[yz]).concat(find(tbl[dz])), `年支/日支三合局查${nm}`);
     });
     // 日干系（续）：天官 / 天厨 / 飞刃
-    put("天官贵人", find(SS.TIANGUAN[dm] || ""), `日干${dm}查天官`);
-    put("天厨贵人", find(SS.TIANCHU[dm] || ""), `日干${dm}查天厨`);
+    [["天官贵人", SS.TIANGUAN], ["天厨贵人", SS.TIANCHU]].forEach(([nm, tbl]) => {
+      let hits = find(tbl[dm] || "");
+      let basis = `日干${dm}查${nm.slice(0, 2)}`;
+      if (yg !== dm) {
+        const more = find(tbl[yg] || "");
+        if (more.length) { hits = hits.concat(more); basis += `；年干${yg}查${nm.slice(0, 2)}`; }
+      }
+      put(nm, hits, basis);
+    });
     const blade = SS.YANGREN[dm];
     if (blade) put("飞刃", find(ZHI[mod(zi(blade) + 6, 12)]), `羊刃${blade}之冲为飞刃`);
+
+    // 月令德气：德干透出为龙德，德秀俱透为德秀贵人
+    const ds = SS.DESHOW[mz] || ["", ""];
+    const de = ds[0] || "", xiu = ds[1] || "";
+    const deHit = POSN.filter((_, i) => de.includes(c.pillars[i].gan));
+    const xiuHit = POSN.filter((_, i) => xiu.includes(c.pillars[i].gan));
+    put("龙德", deHit, `月支${mz}德干${de}透出`);
+    if (deHit.length && xiuHit.length) {
+      put("德秀贵人", deHit.concat(xiuHit), `月支${mz}德${de}、秀${xiu}俱透`);
+    }
 
     // 天德合 / 月德合：天德为干取合干，为支取六合支
     const td = SS.TIANDE[mz];

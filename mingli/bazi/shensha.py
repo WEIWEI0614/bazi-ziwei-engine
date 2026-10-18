@@ -103,6 +103,17 @@ SHILING = {"甲辰", "乙亥", "丙辰", "丁酉", "戊午", "庚戌", "庚寅",
 GULUAN = {"乙巳", "丁巳", "辛亥", "戊申", "甲寅", "丙午", "戊午", "壬子"}
 RIDE = {"甲寅", "丙辰", "戊辰", "庚辰", "壬戌"}
 
+# 月支三合局 → (德干, 秀干)。德干透出为「龙德」，德秀俱透为「德秀贵人」。
+# 口诀：寅午戌月丙丁为德、戊癸为秀；申子辰月壬癸戊己为德、丙辛甲己为秀；
+#       巳酉丑月庚辛为德、乙庚为秀；亥卯未月甲乙为德、丁壬为秀。
+DESHOW = {
+    "寅": ("丙丁", "戊癸"), "午": ("丙丁", "戊癸"), "戌": ("丙丁", "戊癸"),
+    "申": ("壬癸戊己", "丙辛甲己"), "子": ("壬癸戊己", "丙辛甲己"),
+    "辰": ("壬癸戊己", "丙辛甲己"),
+    "巳": ("庚辛", "乙庚"), "酉": ("庚辛", "乙庚"), "丑": ("庚辛", "乙庚"),
+    "亥": ("甲乙", "丁壬"), "卯": ("甲乙", "丁壬"), "未": ("甲乙", "丁壬"),
+}
+
 DEFS = {
     # name: (nature, short description)
     "天乙贵人": ("吉", "第一吉神，解厄消灾，逢凶化吉，一生多得贵人相助"),
@@ -150,6 +161,8 @@ DEFS = {
     "十灵日": ("吉", "主灵慧、直觉强，利术数、艺术、研究"),
     "孤鸾煞": ("凶", "主婚姻多阻，宜晚婚或聚少离多"),
     "日德": ("吉", "主性情慈善、逢难得解"),
+    "龙德": ("吉", "月令之德气透干，主逢凶化吉、德望崇高，与天德月德并称三德"),
+    "德秀贵人": ("吉", "月令德气与秀气俱透，主禀性聪秀、才德兼备"),
 }
 
 
@@ -188,20 +201,30 @@ def compute(chart) -> dict:
             if p not in e["positions"]:
                 e["positions"].append(p)
 
-    # 日干系
-    for name, table, basis in (
-            ("天乙贵人", TIANYI, f"日干{dm}查天乙"),
-            ("太极贵人", TAIJI, f"日干{dm}查太极"),
-            ("文昌贵人", WENCHANG, f"日干{dm}查文昌"),
-            ("国印贵人", GUOYIN, f"日干{dm}查国印"),
-            ("福星贵人", FUXING, f"日干{dm}查福星"),
-            ("金舆", JINYU, f"日干{dm}查金舆"),
-            ("红艳", HONGYAN, f"日干{dm}查红艳"),
-            ("流霞", LIUXIA, f"日干{dm}查流霞"),
-            ("学堂", XUETANG, f"日干{dm}长生之位"),
-            ("禄神", LU, f"日干{dm}临官之位"),
-            ("羊刃", YANGREN, f"日干{dm}帝旺之位")):
-        put(name, _find(zhis, table[dm]), basis)
+    # 日干系：年干与日干双查。
+    # 古法口诀「以年干或日干起贵人」——只查日干会漏掉一半，例如年干癸日干丙者，
+    # 金舆在癸为寅、在丙为未，两种查法都要算，basis 里注明是哪一干查出来的。
+    yg = chart.year.gan
+    for name, table, label in (
+            ("天乙贵人", TIANYI, "查天乙"),
+            ("太极贵人", TAIJI, "查太极"),
+            ("文昌贵人", WENCHANG, "查文昌"),
+            ("国印贵人", GUOYIN, "查国印"),
+            ("福星贵人", FUXING, "查福星"),
+            ("金舆", JINYU, "查金舆"),
+            ("红艳", HONGYAN, "查红艳"),
+            ("流霞", LIUXIA, "查流霞"),
+            ("学堂", XUETANG, "长生之位"),
+            ("禄神", LU, "临官之位"),
+            ("羊刃", YANGREN, "帝旺之位")):
+        hits = _find(zhis, table[dm])
+        basis = f"日干{dm}{label}"
+        if yg != dm:
+            more = _find(zhis, table[yg])
+            if more:
+                hits = hits + more
+                basis += f"；年干{yg}{label}"
+        put(name, hits, basis)
 
     # 三合系（年支、日支双查）
     for name, table, basis in (
@@ -236,6 +259,14 @@ def compute(chart) -> dict:
     tianyi_branch = ZHI[(ZHI.index(mz) - 1) % 12]
     put("天医", _find(zhis, tianyi_branch), f"月支{mz}前一位为天医")
 
+    # 月令德气：德干透出为龙德，德秀俱透为德秀贵人
+    de, xiu = DESHOW[mz]
+    de_hit = [POS[i] for i, (g, _z) in enumerate(pairs) if g in de]
+    xiu_hit = [POS[i] for i, (g, _z) in enumerate(pairs) if g in xiu]
+    put("龙德", de_hit, f"月支{mz}德干{de}透出")
+    if de_hit and xiu_hit:
+        put("德秀贵人", de_hit + xiu_hit, f"月支{mz}德{de}、秀{xiu}俱透")
+
     season = next(k for k in TIANSHU_HIT if mz in k)
     sg, sz = TIANSHU_HIT[season]
     if chart.day.gan == sg and chart.day.zhi == sz:
@@ -256,8 +287,15 @@ def compute(chart) -> dict:
         "按日柱旬空")
 
     # 新增：日干系续
-    put("天官贵人", _find(zhis, TIANGUAN[dm]), f"日干{dm}查天官")
-    put("天厨贵人", _find(zhis, TIANCHU[dm]), f"日干{dm}查天厨")
+    for nm, tb, lb in (("天官贵人", TIANGUAN, "查天官"), ("天厨贵人", TIANCHU, "查天厨")):
+        hits = _find(zhis, tb[dm])
+        basis = f"日干{dm}{lb}"
+        if yg != dm:
+            more = _find(zhis, tb[yg])
+            if more:
+                hits = hits + more
+                basis += f"；年干{yg}{lb}"
+        put(nm, hits, basis)
     blade = YANGREN[dm]
     put("飞刃", _find(zhis, ZHI[(ZHI.index(blade) + 6) % 12]),
         f"羊刃{blade}之冲为飞刃")
