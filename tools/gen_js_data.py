@@ -49,6 +49,8 @@ def _percentiles():
     return {"quantiles": scoring.QUANTILES,
             "yearQuantiles": scoring.YEAR_QUANTILES,
             "dimStats": scoring.DIM_STATS,
+            "gradeStats": getattr(scoring, "GRADE_STATS", {}),
+            "palaceStats": getattr(scoring, "PALACE_STATS", {}),
             "weights": scoring.WEIGHTS,
             "dims": scoring.DIMS}
 

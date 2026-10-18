@@ -347,8 +347,10 @@
   const REL_BASE = { "三会": 1.0, "三合": 0.95, "半合": 0.55, "拱合": 0.3,
     "六合": 0.4, "三刑": 0.9, "相刑": 0.5, "自刑": 0.45,
     "六冲": 0.85, "六害": 0.35, "六破": 0.3, "干合": 0.45, "干冲": 0.55 };
-  const REL_SHARE_CAP = { "三会": 1, "三合": 1, "半合": 0.65, "拱合": 0.35,
-    "六合": 0.5, "干合": 0.8 };
+  // 半合只算牵动（0.35），不算化。旧值 0.65 会把原局印星直接抹掉：
+  // 寅午两支就断定寅变成火，于是五行分布说寅是火、格位判定说寅是木
+  const REL_SHARE_CAP = { "三会": 1, "三合": 1, "半合": 0.35, "拱合": 0.15,
+    "六合": 0.35, "干合": 0.8 };
   const REL_SEASON = { 旺: 1.25, 相: 1.12, 休: 0.9, 囚: 0.8, 死: 0.7 };
   const REL_BRANCH_COMBINING = ["三会", "三合", "半合", "拱合", "六合"];
   const REL_TRANSFORM_AT = 0.55;
@@ -1076,6 +1078,8 @@
   };
   // 占到全局这个比例的五行已经是「病」不是「药」，不能再取为用神
   const DOMINANT_SHARE = 34.0;
+  // 用神要「用得上」：低于这个比例，方向再对也没有力量
+  const MIN_ROOT_SHARE = 3.0;
 
   //: favor 内部的分量：用神 1.0、第一相神 0.65、次喜 0.40
   const FAVOR_W = [1.0, 0.65, 0.40];
@@ -1130,9 +1134,10 @@
         seen.add(el);
         cands.push({ god, cls, el, rank: pref.like.includes(god) ? 0 : 1, share: es[el] || 0 });
       }
-      // 已经当令的五行不能当用神：占四成的官杀是病，不是药
+      // 过旺的不能当用神（那是病），太弱的也当不了（用不上）
       const fit = cands.filter((x) => x.share <= DOMINANT_SHARE);
-      const pool = (fit.length ? fit : cands).slice()
+      const rooted = fit.filter((x) => x.share >= MIN_ROOT_SHARE);
+      const pool = (rooted.length ? rooted : (fit.length ? fit : cands)).slice()
         .sort((a, b) => (a.rank - b.rank) || (a.share - b.share));
       if (pool.length) {
         primary = pool[0].el; primaryCls = pool[0].cls;
@@ -2337,7 +2342,7 @@
     const social = 0.35 * shareScore(share(dmwx)) + 0.65 * puPal;
     const clamp = (v) => Math.round(Math.max(6, Math.min(94, v)) * 10) / 10;
     return { overall: Math.round(overall * 10) / 10, percentile: pct, tier: tierOf(pct),
-      dimensions: dims, weights: W,
+      dimensions: dims, dimPercentiles: pctOf, weights: W,
       areas: { career: clamp(career), wealth: clamp(wealth), love: clamp(love),
         health: clamp(health), study: clamp(study), social: clamp(social) },
       highlights: sPlus.concat(fNotes, cNotes, rNotes).filter((n) => !IS_WEAK(n)),
@@ -2605,8 +2610,13 @@
       ziweiYear: yearlyPalace(ziwei, focus) };
   }
 
+  function pctFromStats(stats, v) {
+    const mu = stats ? stats[0] : 60, sd = stats ? (stats[1] || 1) : 8;
+    return Math.round((0.5 + 0.5 * erf(((v - mu) / sd) / Math.SQRT2)) * 1000) / 10;
+  }
+
   window.ML = { toJD, fromJD, lunarFromJD, lunarToJD,
-    percentileOf, tierOf, interpretBazi, interpretZiwei, termLocal, buildBazi, buildZiwei,
+    percentileOf, tierOf, pctFromStats, interpretBazi, interpretZiwei, termLocal, buildBazi, buildZiwei,
     luckCycles, startLuck, luckDirection, yearPeriod, monthPeriods, evaluatePeriod,
     palaceScore, detectPatterns, ziweiSummary, decades, yearlyPalace,
     scoreOverall, compareEvents, buildReading, usefulElements, strengthUseful, shishen, zhiRels,

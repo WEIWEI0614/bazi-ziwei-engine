@@ -16,13 +16,18 @@ sys.path.insert(0, ROOT)
 
 from mingli.bazi.chart import build_chart          # noqa: E402
 from mingli.ziwei.chart import build_ziwei         # noqa: E402
+from mingli.ziwei.chart import PALACE_NAMES        # noqa: E402
+from mingli.ziwei.analysis import palace_score     # noqa: E402
 from mingli.bazi.luck import timeline              # noqa: E402
+from mingli import pattern                         # noqa: E402
 from mingli import scoring                          # noqa: E402
 
 
 def sample(n=2000, seed=20261018):
     random.seed(seed)
     vals, dims, years = [], [], []
+    grades = {"bazi": [], "ziwei": [], "combined": []}
+    pal = {nm: [] for nm in PALACE_NAMES}
     for _ in range(n):
         y = random.randint(1905, 2030)
         m = random.randint(1, 12)
@@ -41,10 +46,22 @@ def sample(n=2000, seed=20261018):
         start = random.randint(1990, 2035)
         for p in timeline(c, from_year=start, years=20):
             years.append(p["score"])
+        # 格位与单宫分同样要标定：硬编码的 88/74/60 切点从来没跟实际分布对过，
+        # 结果「上格」占了随机盘的 42%。这里存下均值和标准差，档位改由百分位决定。
+        _b, _z = pattern.bazi_grade(c), pattern.ziwei_grade(z)
+        grades["bazi"].append(_b["score"])
+        grades["ziwei"].append(_z["score"])
+        grades["combined"].append(pattern.combined_grade(_b, _z)["score"])
+        for _p in z.palaces:
+            pal[_p.name].append(palace_score(z, _p)[0])
     stats = {k: [round(statistics.mean([r[k] for r in dims]), 2),
                  round(statistics.pstdev([r[k] for r in dims]), 2)]
              for k in scoring.DIMS}
-    return sorted(vals), stats, sorted(years)
+    gstats = {k: [round(statistics.mean(v), 2), round(statistics.pstdev(v), 2)]
+              for k, v in grades.items()}
+    pstats = {k: [round(statistics.mean(v), 2), round(statistics.pstdev(v), 2)]
+              for k, v in pal.items()}
+    return sorted(vals), stats, sorted(years), gstats, pstats
 
 
 def _quantiles(sorted_vals):
@@ -57,7 +74,7 @@ def _quantiles(sorted_vals):
 
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
-    vals, stats, years = sample(n)
+    vals, stats, years, gstats, pstats = sample(n)
     q = _quantiles(vals)
     yq = _quantiles(years)
     body = (
@@ -70,6 +87,14 @@ def main():
     )
     for k in scoring.DIMS:
         body += f'    "{k}": {stats[k]},\n'
+    body += "}\n\n#: 格位分的分布（mean, sd）。档位由百分位决定，不由分数本身决定。\n"
+    body += "GRADE_STATS = {\n"
+    for k in ("bazi", "ziwei", "combined"):
+        body += f'    "{k}": {gstats[k]},\n'
+    body += "}\n\n#: 十二宫单宫强度分的分布，用来说明「宫位分 92」在人群里到底在哪。\n"
+    body += "PALACE_STATS = {\n"
+    for k, v in pstats.items():
+        body += f'    "{k}": {v},\n'
     body += "}\n\nQUANTILES = [\n"
     for i in range(0, 101, 10):
         body += "    " + ", ".join(f"{v:.2f}" for v in q[i:i + 10]) + ",\n"

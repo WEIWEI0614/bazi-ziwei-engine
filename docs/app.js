@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18s";
+  const BUILD = "2026-10-18t";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -655,19 +655,27 @@
     const g = R.grade || {};
     const bz = g.bazi || {}, zw = g.ziwei || {};
     $("gradeName").textContent = LANG === "zh" ? (g.grade || "—") : (g.gradeEn || "—");
-    $("gradeScore").textContent = g.score ? `${g.score.toFixed(1)} / 100` : "";
+    // 标题数改成「位置」，不再摆一个 75.7/100 —— 那个分数只在这张清单内部有意义，
+    // 和「紫微命宫 92」并排放，谁都会以为前者低一档。
+    $("gradeScore").textContent = g.percentile === undefined
+      ? (g.score ? `${g.score.toFixed(1)} / 100` : "")
+      : (LANG === "zh" ? `胜过 ${g.percentile.toFixed(0)}% 的随机命盘`
+                       : `ahead of ${g.percentile.toFixed(0)}% of charts`);
     $("intVal").textContent = `${s.overall.toFixed(1)} · ${LANG === "zh" ? "超过 " + s.percentile.toFixed(0) + "%" : "P" + s.percentile.toFixed(0)}`;
     $("intBar").style.width = s.overall + "%";
     $("intBar").style.background = bandColor(s.overall);
-    const gcol = (v) => v >= 74 ? "var(--amber2)" : v >= 60 ? "var(--teal)" : "var(--tx2)";
-    $("gradeName").style.color = gcol(g.score || 0);
+    const gcol = (v) => v >= 88 ? "var(--amber2)" : v >= 40 ? "var(--teal)" : "var(--tx2)";
+    $("gradeName").style.color = gcol(g.percentile === undefined ? 50 : g.percentile);
+    const beat = (v) => LANG === "zh" ? `胜 ${(+v).toFixed(0)}%` : `ahead of ${(+v).toFixed(0)}%`;
     $("tierNote").innerHTML = LANG === "zh"
       ? `${g.basis || ""}<br>
          <span style="color:var(--tx3)">格位判「贵贱」（成格 / 破格 / 救应），强度判「力量」（五行、调候、流通）。二者不互相折算——
-         从格可以身弱而格高，身强之造也可以格低。</span><br>
-         八字 <b style="color:${gcol(bz.score || 0)}">${bz.grade || "—"} ${(bz.score || 0).toFixed(1)}</b>
-         · 紫微 <b style="color:${gcol(zw.score || 0)}">${zw.grade || "—"} ${(zw.score || 0).toFixed(1)}</b>
-         · 高于随机命盘 <b>${s.percentile.toFixed(0)}%</b>`
+         从格可以身弱而格高，身强之造也可以格低。<b>分档一律按百分位，不按分数</b>：上格＝前 12%，中上格＝前 28%，
+         中格＝中间三成。所以「八字 72、紫微 80」不一定是两个档次：同一个 80 分，在紫微格里是第 76 百分位，放进八字格里只有第 67——分数本身不能横比，位置才能。</span><br>
+         八字 <b style="color:${gcol(bz.percentile || 0)}">${bz.grade || "—"} ${(bz.score || 0).toFixed(1)}</b>（${bz.percentile !== undefined ? beat(bz.percentile) : "—"}）
+         · 紫微 <b style="color:${gcol(zw.percentile || 0)}">${zw.grade || "—"} ${(zw.score || 0).toFixed(1)}</b>（${zw.percentile !== undefined ? beat(zw.percentile) : "—"}）
+         · 合计 <b>${g.percentile !== undefined ? beat(g.percentile) : "—"}</b>
+         · 强度 ${s.overall.toFixed(1)}（${LANG === "zh" ? "超过 " + s.percentile.toFixed(0) + "%" : "P" + s.percentile.toFixed(0)}）`
       : `${g.basisEn || ""}`;
 
     // 成格 / 破格 / 救应 明细
@@ -725,11 +733,22 @@
         })()
         + `</div>` : "");
 
-    $("dims").innerHTML = Object.keys(s.dimensions).map((k) =>
-      `<div class="dimrow"><span class="nm">${dimName(k)}</span>
-       <span class="bar"><i style="width:${s.dimensions[k]}%;background:${bandColor(s.dimensions[k])}"></i></span>
-       <span class="vl">${s.dimensions[k].toFixed(0)}</span></div>`).join("") +
-      `<div class="note" style="margin-top:6px">${LANG === "zh" ? "权重：" : "Weights: "}${Object.keys(s.weights).map((k) => `${dimName(k)} ${(s.weights[k] * 100).toFixed(0)}%`).join(" · ")}</div>`;
+    // 八项分数各自 0-100，但**均值并不相同**（紫微命宫均值 74、合冲刑害 52），
+    // 直接摆在一起看，「92 分」会被读成比「75 分」高一个档，其实 92 只是前 22%。
+    // 所以横条与数字一律用「在同批命盘中的百分位」，原始分放进 tooltip。
+    const dp = s.dimPercentiles || {};
+    $("dims").innerHTML = Object.keys(s.dimensions).map((k) => {
+      const pv = dp[k] === undefined ? s.dimensions[k] : dp[k];
+      return `<div class="dimrow"><span class="nm" title="${LANG === "zh"
+        ? `原始分 ${s.dimensions[k].toFixed(1)}／100，同批均值见方法页`
+        : `raw ${s.dimensions[k].toFixed(1)}/100`}">${dimName(k)}</span>
+       <span class="bar"><i style="width:${pv}%;background:${bandColor(pv)}"></i></span>
+       <span class="vl">${pv.toFixed(0)}</span></div>`;
+    }).join("") +
+      `<div class="note" style="margin-top:6px">${LANG === "zh"
+        ? "数字是「位置」不是「分数」：50 表示与随机命盘的中位持平，80 表示高于八成随机命盘。八项各自标定过，可直接横比。"
+        : "The number is a position, not a score: 50 is the median chart. All eight are calibrated separately, so they compare directly."}</div>
+      <div class="note" style="margin-top:2px">${LANG === "zh" ? "权重：" : "Weights: "}${Object.keys(s.weights).map((k) => `${dimName(k)} ${(s.weights[k] * 100).toFixed(0)}%`).join(" · ")}</div>`;
 
     const az = { career: ["事业", "Career"], wealth: ["财富", "Wealth"], love: ["感情", "Love"],
       health: ["健康", "Health"], study: ["学业", "Study"], social: ["人脉", "Network"] };
@@ -764,7 +783,14 @@
       <dt>${LANG === "zh" ? "格局" : "Patterns"}</dt><dd>${(R.zsummary.patternHits || []).map((n) => tr(n)).join(LANG === "zh" ? "、" : ", ") || "—"}</dd>
       <dt></dt><dd class="note">${LANG === "zh" ? R.zsummary.patterns.filter((p) => p.status === "成立").map((p) => p.desc).join("；") : ""}</dd>
       <dt>${LANG === "zh" ? "大限" : "Decade"}</dt><dd>${dec ? `${dec.startAge}–${dec.endAge} · ${tr(dec.palace)} · ${LANG === "zh" ? dec.theme : ""}` : "—"}</dd>
-      <dt>${LANG === "zh" ? "宫位分" : "Palace scores"}</dt><dd>${R.zsummary.mingScore.toFixed(0)} / ${R.zsummary.careerScore.toFixed(0)} / ${R.zsummary.wealthScore.toFixed(0)}</dd>`;
+      <dt>${LANG === "zh" ? "宫位分" : "Palace scores"}</dt><dd>${[
+        ["命宫", R.zsummary.mingScore], ["官禄", R.zsummary.careerScore], ["财帛", R.zsummary.wealthScore],
+      ].map(([nm, v]) => {
+        const st = ((window.ML_DATA.PERCENTILES || {}).palaceStats || {})[nm];
+        const pv = window.ML.pctFromStats ? window.ML.pctFromStats(st, v) : null;
+        const lb = LANG === "zh" ? { 命宫: "命", 官禄: "官", 财帛: "财" }[nm] : { 命宫: "Life", 官禄: "Career", 财帛: "Wealth" }[nm];
+        return `${lb} ${v.toFixed(0)}<span class="note" style="color:var(--tx3)">${pv === null ? "" : (LANG === "zh" ? `（胜 ${pv.toFixed(0)}%）` : ` (P${pv.toFixed(0)})`)}</span>`;
+      }).join(" / ")}</dd>`;
 
     $("hlBox").innerHTML = (s.highlights || []).map((x) => `<div class="note" style="color:var(--tx2);margin:3px 0">＋ ${bi(x)}</div>`).join("") || "—";
     $("wkBox").innerHTML = (s.weaknesses || []).map((x) => `<div class="note" style="color:var(--tx2);margin:3px 0">－ ${bi(x)}</div>`).join("") || "—";
@@ -1751,7 +1777,7 @@
       ["神煞",
         "52 颗，分吉 / 中 / 凶三组。每颗都给出「落宫 + 依据」，例如「日干丙帝旺之位」「年支酉查红鸾」「年支酉，阳男阴女查元辰」，可逐条复核，不是黑箱。三合系八颗（驿马 / 桃花 / 华盖 / 将星 / 劫煞 / 灾煞 / 亡神 / 六厄）各自固定在十二长生的一个位置上——这既是查法的来源，也是自检：八张表必须分别落在 病 / 沐浴 / 墓 / 帝旺 / 绝 / 胎 / 临官 / 死，一张不错才算过。元辰与勾绞是全表仅有的两颗分性别神煞（阳男阴女进一位、阴男阳女退一位），走了哪一支会直接写在依据里。"],
       ["格位判定",
-        "格位与强度分成两个数，互不折算。\n格位从 50 起算：取格清晰 +10（月令藏干透出）、以本气论 +4、特殊格 +12；调候用神透干 +10、藏支 +5、得同类替代 +2、全无 −6；用神方向对得上 +6（身强用财官 / 身弱用印比），方向相反 −4；命带天乙、天德、月德最多 +8。\n破格三项：月令被冲 −6、日主被合 −5、月刃而无官杀制 −6。\n强度是另一回事：同党（印 + 比劫）占比，超过 62% 为极强、52–62 偏强、45–52 中和、37–45 偏弱、低于 37 极弱。两个数并列，因为「格高而身弱」与「格低而身旺」是两种完全不同的人生结构，折算成一个数就看不出来了。"],
+        "格位与强度分成两个数，互不折算。\n格位是一份**成格清单**，不是加权平均：满分 67.4，逐条给分——取格有据 6、格清气透 8、官 / 财 / 印三者有根各 5、日主得地 5、「官财印身俱备」10、身强能任财官 7、命带天乙天德月德文昌学堂国印 ≤12、五行相生链 ≤8。\n破格逐条扣：官星被合 7、伤官见官 5、羊刃无官杀制 5、比劫争财 4、月令被冲 6、日主被合 4、调候全缺 5（得同类替代减半）。\n救应按 1.35 倍回补——《五言独步》「有病方为贵」：食伤反制 7、财旺生官 6、食伤通关化劫 5、冲而得合 5、忌神有制 4。\n分数 = 26 + 62 × 成格度 − 破格 + 1.35 × 救应。\n**档位不看分数，看百分位。** 3000 张随机盘标定后，八字格均值 75.3（标准差 11.0）、紫微格 69.7（标准差 14.8）。旧版把切点硬写成 88 / 74 / 60，却没人核对分数本身的分布，结果「上格」占了随机盘的四成、「中上格」成了众数——同一个词在不同人嘴里指的是两个位置。现在与整体强度共用一套切点：上上格＝前 3%、上格＝前 12%、中上格＝前 28%、中格＝中间三成、中下格＝后 25%、下格＝后 15%。所以「八字 72、紫微 80」不是两个档次，是两个零点：72 在八字格里是第 38 百分位（中下），80 在紫微格里是第 76 百分位（中上）。\n合成时也不按分数平均：两边零点不同，直接 0.55 / 0.45 加权会让八字悄悄多占份额；现在先各自换成百分位再加权。\n八字格看「官财印身是否俱备」，天生偏爱中和盘，偏枯或专旺的盘在这把尺子上吃亏——这是清单的局限，不是结论；紫微一侧只计命宫吉格成立与否，成立与成色受损分两个字段。"],
       ["紫微斗数",
         "寅首五虎遁定宫干、纳音定五行局、起紫微诀（商数宫前走，借数偶顺奇逆）安十四主星；六吉六煞、38 杂曜、长生 / 博士 / 将前 / 岁前四套十二神、小限、命主身主、斗君、生年四化与宫干自化全部入盘。"],
       ["流年与流月",
@@ -1782,7 +1808,7 @@
       ["Shensha",
         "52 stars in three grades. Every entry carries the palace it lands in and the rule that put it there, so each one can be verified rather than taken on faith. The eight trine-based stars each sit at a fixed position of the twelve-stage cycle; that is both where the lookup comes from and how it is checked -- all eight must land on illness, bath, tomb, peak, severance, embryo, office and death respectively. Yuan Chen and Gou Jiao are the only two that depend on gender, and the branch actually used is printed."],
       ["Grade vs strength",
-        "Grade and strength are two separate numbers and are never converted into each other.\nGrade starts at 50: a cleanly identified structure +10 (the month branch hidden stem is transparent), root qi +4, a special structure +12; the climate stem transparent +10, hidden in a branch +5, a substitute of the same kind +2, absent entirely -6; a useful god pointing the right way +6 and the wrong way -4; Tian Yi, Tian De and Yue De up to +8 together.\nThree ways to break it: month branch clashed -6, day master combined away -5, a blade structure with no officer to control it -6.\nStrength is a different axis: the share held by resource plus peers -- above 62% very strong, 52-62 strong, 45-52 balanced, 37-45 weak, below 37 very weak. Both are shown side by side, because a high structure on a weak day master and a low structure on a strong one are two entirely different lives."],
+        "Grade and strength are two separate numbers and are never converted into each other.\nGrade is a **checklist of what makes a structure stand**, not a weighted average: 67.4 points available -- a documented structure 6, a clean one (month hidden stem transparent) 8, officer / wealth / resource each rooted 5, day master rooted 5, all four present 10, a strong master able to carry wealth and officer 7, noble stars up to 12, an unbroken generating chain up to 8.\nBreaks are subtracted item by item: officer combined away 7, hurting officer meeting officer 5, a blade with no officer to control it 5, rivals contesting wealth 4, month clashed 6, day master combined away 4, no climate god at all 5 (halved when a substitute of the same kind is present).\nRescues come back at 1.35x -- 'the chart that is ill is the valuable one': hurting officer controlled 7, wealth feeding officer 6, output bridging rivals to wealth 5, a clash dissolved by a combination 5, the avoid element held in check 4.\nScore = 26 + 62 x setup ratio - breaks + 1.35 x rescues.\n**The tier is a percentile, not a score.** Calibrated on 3000 random charts, the BaZi grade averages 75.3 (sd 11.0) and the Zi Wei grade 69.7 (sd 14.8). The old cut-offs were hard-coded at 88 / 74 / 60 without ever checking that distribution, so 'upper grade' covered two fifths of all charts and 'upper-middle' was the mode -- the same word meant two different positions. Tiers now share one ladder with overall strength: top 3%, upper 12%, upper-middle 28%, middle the central 30%, lower-middle the next 25%, low the last 15%. So 'BaZi 72, Zi Wei 80' is not necessarily two tiers: the same 80 sits at the 76th percentile of Zi Wei grades and only the 67th of BaZi grades -- a score cannot be compared across rulers, a position can.\nThe two are also not averaged as scores -- different zero points mean a 0.55 / 0.45 blend quietly gives BaZi extra weight, so each is converted to a percentile first.\nThe BaZi checklist rewards charts where officer, wealth, resource and master are all rooted, which favours balanced charts; a lopsided or dominant-element chart loses on this ruler. That is a limit of the checklist, not a verdict."],
       ["Zi Wei",
         "Palace stems by the Five Tiger rule, bureau by sound-element, Purple Star by the quotient/borrow method; 14 majors, 6+6 auxiliaries, 38 adjective stars, four sets of twelve gods, minor limits, life/body rulers, Dou Jun, birth-year and self transformations."],
       ["Annual & monthly",

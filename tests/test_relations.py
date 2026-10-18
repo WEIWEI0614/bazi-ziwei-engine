@@ -34,7 +34,11 @@ class CombinationChangesTheElement(unittest.TestCase):
         c = _chart(1993, 6, 14, 17, 31)   # 癸酉 戊午 丙寅 丁酉
         element, _note, share = zhi_effective(c, "寅")
         self.assertEqual(element, "火")
-        self.assertGreater(share, 0.4)
+        # 半合是「牵动」不是「化」：0.35 表示这一支有三成多向化神倾斜，
+        # 本气仍占大头。旧值 0.65 会把原局的印星直接抹掉，导致
+        # 「五行分布说寅是火、格位判定说寅是木」。
+        self.assertGreater(share, 0.2)
+        self.assertLess(share, 0.5)
         self.assertLess(share, 1.0)       # 半合有上限，不能整支抹掉
 
     def test_full_trine_transforms_completely(self):

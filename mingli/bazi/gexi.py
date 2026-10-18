@@ -89,6 +89,11 @@ SAME_DIRECTION = {
     "比劫": ("印",),
 }
 
+#: 用神要「用得上」：占全局不到这个比例的五行，即使方向对，也没有力量。
+#: 旧版按「局中谁最缺」挑，结果丙火 83% 的盘取了一个只占 1.3% 的水当用神——
+#: 让一个几乎不存在的东西去制八成的火，用神形同虚设，流年一到就判凶。
+MIN_ROOT_SHARE = 3.0
+
 #: 一个五行占到全局这个比例，就已经是「病」而不是「药」，不能再取为用神。
 #: 旧版没有这一条，于是 42% 的官杀照样被取为用神，流年再加官杀反而加分。
 DOMINANT_SHARE = 34.0
@@ -177,9 +182,10 @@ def useful_system(chart) -> dict:
             seen.add(el)
             cands.append((god, cls, el, 0 if god in pref["like"] else 1,
                           es.get(el, 0.0)))
-        # 已经当令的五行不能当用神：占四成的官杀是病，不是药。
+        # 过旺的不能当用神（那是病），太弱的也当不了（用不上）。
         fit = [c for c in cands if c[4] <= DOMINANT_SHARE]
-        pool = fit or cands
+        rooted = [c for c in fit if c[4] >= MIN_ROOT_SHARE]
+        pool = rooted or fit or cands
         pool.sort(key=lambda c: (c[3], c[4]))
         if pool:
             god, primary_cls, primary, _rank, share = pool[0]
@@ -189,6 +195,10 @@ def useful_system(chart) -> dict:
                 dropped = [c[2] for c in cands if c[4] > DOMINANT_SHARE]
                 why.append(f"{''.join(dropped)}已过旺（> {DOMINANT_SHARE:.0f}%），"
                            f"不作用神")
+            thin = [c for c in fit if c[4] < MIN_ROOT_SHARE]
+            if thin:
+                why.append("、".join(f"{c[2]}仅 {c[4]:.1f}%" for c in thin)
+                           + f"，无根不取（< {MIN_ROOT_SHARE:.0f}%）")
         else:
             primary = _strongest_element(chart, exclude="")
             primary_cls = EL_CLASS[dm_wx][primary]

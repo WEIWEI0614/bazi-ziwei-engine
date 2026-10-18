@@ -399,9 +399,7 @@ def score_overall(chart, zc) -> dict:
         "social": round(min(CL, max(6, social)), 1),
     }
     # 低于人群的维度自动进入「短板」，不只靠破格判断
-    pct_of = {k: (0.5 + 0.5 * math.erf(((dims[k] - DIM_STATS.get(k, [60, 8])[0])
-                 / (DIM_STATS.get(k, [60, 8])[1] or 1)) / math.sqrt(2))) * 100
-              for k in DIMS}
+    pct_of = {k: pct_from_stats(dims[k], DIM_STATS.get(k, [60, 8])) for k in DIMS}
     for k, pv in sorted(pct_of.items(), key=lambda kv: kv[1]):
         if pv >= 35:
             break
@@ -420,6 +418,7 @@ def score_overall(chart, zc) -> dict:
         "zscores": {k: round((dims[k] - DIM_STATS.get(k, [60, 8])[0]) /
                              (DIM_STATS.get(k, [60, 8])[1] or 1), 2) for k in DIMS},
         "tier": tier_of(pct), "dimensions": dims, "areas": areas,
+        "dimPercentiles": pct_of,
         "weights": WEIGHTS,
         "highlights": hl,
         "weaknesses": wk + s_minus,
@@ -438,11 +437,14 @@ def _zhi_health(chart, zhi: str) -> float:
 # ---------------------------------------------------------------------------
 
 try:                                   # pragma: no cover
-    from .data_percentiles import QUANTILES, DIM_STATS, YEAR_QUANTILES  # noqa: F401
+    from .data_percentiles import (QUANTILES, DIM_STATS, YEAR_QUANTILES,  # noqa: F401
+                                   GRADE_STATS, PALACE_STATS)
 except Exception:                      # pragma: no cover
     QUANTILES = [0.0] * 101
     YEAR_QUANTILES = [0.0] * 101
     DIM_STATS = {k: [60.0, 8.0] for k in DIMS}
+    GRADE_STATS = {}
+    PALACE_STATS = {}
 
 
 def _lookup(q: list, score: float) -> float:
@@ -473,15 +475,35 @@ def year_percentile_of(score: float) -> float:
     return _lookup(YEAR_QUANTILES, score)
 
 
+#: 分档的百分位切点。**唯一真源**：整体强度、八字格、紫微格、单宫分都用这一张表，
+#: 于是「上格」在任何地方都表示「前 12%」，不会出现同一个词指两种位置。
+TIER_CUTS = ((97, "上上格"), (88, "上格"), (72, "中上格"), (40, "中格"),
+             (15, "中下格"), (0, "下格"))
+
+
 def tier_of(pct: float) -> str:
-    if pct >= 97:
-        return "上上格"
-    if pct >= 88:
-        return "上格"
-    if pct >= 72:
-        return "中上格"
-    if pct >= 40:
-        return "中格"
-    if pct >= 15:
-        return "中下格"
+    for cut, name in TIER_CUTS:
+        if pct >= cut:
+            return name
     return "下格"
+
+
+def pct_from_stats(value: float, stats: list | tuple) -> float:
+    """把任意一个「人为 0-100 分」换算成它在同批命盘里的位置（0-100）。
+
+    这些分数是若干条目的加权和，近似正态；用 mean/sd 做正态近似，
+    比再存一张 101 格的分位表更省事，实测 p10/p50/p90 与经验分位差在 1 分内。
+    """
+    mu, sd = (stats[0], stats[1]) if stats else (60.0, 8.0)
+    z = (value - mu) / (sd or 1.0)
+    return round((0.5 + 0.5 * math.erf(z / math.sqrt(2))) * 100, 1)
+
+
+def grade_percentile_of(score: float, kind: str = "bazi") -> float:
+    """格位分 → 百分位。`kind` 取 bazi / ziwei / combined。"""
+    return pct_from_stats(score, GRADE_STATS.get(kind, [60.0, 10.0]))
+
+
+def palace_percentile_of(score: float, palace: str) -> float:
+    """单宫强度分 → 百分位（十二宫各有自己的均值，不能互相比）。"""
+    return pct_from_stats(score, PALACE_STATS.get(palace, [70.0, 18.0]))

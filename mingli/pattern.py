@@ -49,12 +49,26 @@ GRADE_EN = {
     "中格": "middle grade", "中下格": "lower-middle grade", "下格": "low grade",
 }
 
+#: 旧的硬编码切点（保留只为兼容外部调用，不再用于分档）。
+#: 它假定「中格」落在 44–60，可实测八字格 3000 盘均值 75.8、紫微格 70.2，
+#: 于是「上格」占了随机盘的 42%，「中上格」成了众数——分档词彻底失效。
+_LEGACY_CUTS = GRADES
 
-def grade_of(score: float) -> str:
-    for cut, name, _ in GRADES:
-        if score >= cut:
-            return name
-    return "下格"
+
+def grade_of(score: float, kind: str = "bazi") -> str:
+    """格位分 → 档位。**按百分位分档，不按分数分档。**
+
+    同一个 72 分，在八字格里是前 36%（中下），在紫微格里是前 45%（中格）——
+    分数本身没有意义，位置才有。所以这里一律先换算成「在同批随机命盘中的
+    百分位」，再套 `scoring.TIER_CUTS`，与整体强度的分档合成同一把尺子。
+    """
+    from . import scoring as _sc
+    if not _sc.GRADE_STATS:            # 标定表还没生成时退回旧口径
+        for cut, name, _ in _LEGACY_CUTS:
+            if score >= cut:
+                return name
+        return "下格"
+    return _sc.tier_of(_sc.grade_percentile_of(score, kind))
 
 
 # ---------------------------------------------------------------------------
@@ -295,12 +309,20 @@ def bazi_grade(chart) -> dict:
     from .scoring import _useful
     _u = _useful(chart)
     favor, avoid = _u[0], _u[1]
+    # 忌神受制 = 有一个**不属于忌神**的五行在克它，而且那个五行有力量。
+    # 旧版查的是「忌神出现在某个地支里」——忌神落在自己的本气之地叫「得地」，
+    # 是加凶不是减凶；更不该叫「入墓」。丙火午月那张盘，火 77% 落在午，
+    # 被当成「受制」加了 4 分，方向完全反了。
+    es = chart.element_scores
     if avoid:
-        hit = [p for p in chart.pillars
-               if any(_GWX.get(h) in avoid for h in p.hidden)]
-        if hit:
-            add("rescue", "忌神入墓受制", True, 4,
-                f"忌神{''.join(avoid)}落于{_POS.get(hit[0].position, hit[0].position)}支{hit[0].zhi}，其势受制")
+        main = max(avoid, key=lambda e: es.get(e, 0))
+        ctrl = [k for k in KE if KE[k] == main][0]
+        if ctrl not in avoid and es.get(ctrl, 0) >= 5:
+            add("rescue", "忌神受制", True, 4,
+                f"忌神{main}（占 {es[main]:.1f}%）得{ctrl}克制（占 {es[ctrl]:.1f}%），其势有制")
+        else:
+            add("rescue", "忌神无制", False, 4,
+                f"忌神{main}（占 {es[main]:.1f}%）不见有力之克，其势肆行")
 
     # ---- 汇总 ------------------------------------------------------------
     setup = sum(i["weight"] for i in items if i["kind"] == "setup" and i["ok"])
@@ -316,7 +338,8 @@ def bazi_grade(chart) -> dict:
 
     return {
         "score": round(score, 1),
-        "grade": grade_of(score),
+        "grade": grade_of(score, "bazi"),
+        "percentile": _pct(score, "bazi"),
         "setup_ratio": round(ratio, 3),
         "setup_score": round(setup, 1), "setup_max": round(setup_max, 1),
         "broken": brk, "rescued": round(res, 1),
@@ -468,7 +491,8 @@ def ziwei_grade(z) -> dict:
 
     return {
         "score": round(score, 1),
-        "grade": grade_of(score),
+        "grade": grade_of(score, "ziwei"),
+        "percentile": _pct(score, "ziwei"),
         "patterns": found,
         "ming_aux": sorted(aux4), "ming_bad": sorted(bad4),
         "ji": [s.name for s in ji4],
@@ -479,17 +503,34 @@ def ziwei_grade(z) -> dict:
 # 综合
 # ---------------------------------------------------------------------------
 
+def _pct(score: float, kind: str) -> float:
+    from . import scoring as _sc
+    return _sc.grade_percentile_of(score, kind)
+
+
 def combined_grade(bazi: dict, ziwei: dict, bazi_weight: float = 0.55) -> dict:
-    """八字格为主、紫微格为辅。传统以子平立格论贵贱，斗数参其气象。"""
-    score = bazi_weight * bazi["score"] + (1 - bazi_weight) * ziwei["score"]
-    grade = grade_of(score)
+    """八字格为主、紫微格为辅。传统以子平立格论贵贱，斗数参其气象。
+
+    两项**不能直接加权平均**：八字格均值 75.8、紫微格 70.2，同一把 0-100 尺子
+    却各有各的零点。直接算 0.55×75.8+0.45×70.2 会让八字悄悄多占份额，
+    且 55/45 之名不副实。这里先各自换成 z 值（相对同批命盘），再加权，
+    最后按合计分布换回「百分位」——权重这才真的等于权重。
+    """
+    from . import scoring as _sc
+    _GS = _sc.GRADE_STATS or {"bazi": [60, 10], "ziwei": [60, 10]}
+    zb = _sc.pct_from_stats(bazi["score"], _GS.get("bazi", [60, 10]))
+    zz = _sc.pct_from_stats(ziwei["score"], _GS.get("ziwei", [60, 10]))
+    pct = round(bazi_weight * zb + (1 - bazi_weight) * zz, 1)
+    grade = _sc.tier_of(pct)
     return {
-        "score": round(score, 1),
+        "score": round(bazi_weight * bazi["score"] + (1 - bazi_weight) * ziwei["score"], 1),
         "grade": grade,
         "grade_en": GRADE_EN[grade],
+        "percentile": pct,
         "bazi": bazi, "ziwei": ziwei,
-        "basis": (f"八字格 {bazi['score']:.1f}（{bazi['grade']}，成格度 "
+        "basis": (f"八字格 {bazi['score']:.1f}（{bazi['grade']}，前 "
+                  f"{100 - bazi['percentile']:.0f}%区间，成格度 "
                   f"{bazi['setup_ratio'] * 100:.0f}%，破 {bazi['broken']} 分、"
                   f"救 {bazi['rescued']} 分）· 紫微格 {ziwei['score']:.1f}"
-                  f"（{ziwei['grade']}）"),
+                  f"（{ziwei['grade']}）· 合计胜过 {pct:.0f}% 的随机命盘"),
     }

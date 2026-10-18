@@ -20,12 +20,33 @@
     比劫格: "Rivals structure", 杂气格: "Mixed Qi structure",
     "从格（从势/从财杀）": "Following structure" };
   const stru = (n) => (D.I18N.structure && D.I18N.structure[n]) || STRU_EXTRA[n] || n;
-  const GRADES = [[88, "上上格"], [74, "上格"], [60, "中上格"], [44, "中格"], [28, "中下格"], [0, "下格"]];
   const GRADE_EN = { 上上格: "top grade", 上格: "upper grade", 中上格: "upper-middle grade", 中格: "middle grade", 中下格: "lower-middle grade", 下格: "low grade" };
   const LIUHE = D.HE6 || {};
   const SUBST = { 壬: "癸", 癸: "壬", 庚: "辛", 辛: "庚", 甲: "乙", 乙: "甲", 丙: "丁", 丁: "丙", 戊: "己", 己: "戊" };
 
-  function gradeOf(s) { for (const [cut, nm] of GRADES) { if (s >= cut) return nm; } return "下格"; }
+  /* 分档按「百分位」而不是「分数」。
+     旧版把切点硬写成 88/74/60/44/28，但没人核对过分数本身的分布：实测随机盘
+     八字格均值 75.3（sd 11.0）、紫微格 69.7（sd 14.8），于是「上格」吃掉四成，
+     「中上格」成了众数——分档词全部失去意义。现在与 engine 的 tierOf 共用一套
+     百分位切点（97/88/72/40/15），「上格」在任何地方都等于「前 12%」。 */
+  function erfJs(x) {
+    const s = x < 0 ? -1 : 1; x = Math.abs(x);
+    const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  function pctFrom(stats, v) {
+    const mu = stats ? stats[0] : 60, sd = stats ? (stats[1] || 1) : 8;
+    return Math.round((0.5 + 0.5 * erfJs(((v - mu) / sd) / Math.SQRT2)) * 1000) / 10;
+  }
+  function gradePct(score, kind) {
+    const g = (D.PERCENTILES && D.PERCENTILES.gradeStats) || {};
+    return pctFrom(g[kind || "bazi"] || [60, 10], score);
+  }
+  function gradeOf(score, kind) {
+    const tier = ML.tierOf ? ML.tierOf : (p) => (p >= 88 ? "上格" : p >= 40 ? "中格" : "中下格");
+    return tier(gradePct(score, kind));
+  }
   function branchWx(c, wx) {
     return c.pillars.reduce((n, p) => n + p.hidden.filter((h) => GWX[h] === wx).length, 0);
   }
@@ -196,10 +217,20 @@
     // 与整体评分同一口径（扶抑），不用流年的格局用神，否则格位分会漂
     const ue = ML.strengthUseful(c);
     if (ue.avoid.length) {
-      const hit = c.pillars.filter((p) => p.hidden.some((h) => ue.avoid.includes(GWX[h])));
-      if (hit.length) {
+      // 忌神受制 = 有一个**不属于忌神**的五行在克它，而且那个五行有力量。
+      // 旧版查的是「忌神出现在某个地支里」——忌神落在本气之地叫「得地」，
+      // 是加凶不是减凶。丙火 77% 落在午，被当成「受制」加了 4 分。
+      const es0 = c.elementScores;
+      const main = ue.avoid.slice().sort((a, b) => (es0[b] || 0) - (es0[a] || 0))[0];
+      const ctrl = Object.keys(D.KE).find((k) => D.KE[k] === main);
+      if (!ue.avoid.includes(ctrl) && (es0[ctrl] || 0) >= 5) {
         add("rescue", T("忌神受制", "Hostile element checked"), true, 4,
-          T(`忌神${ue.avoid.join("")}落于${POSN[hit[0].position]}支${hit[0].zhi}，其势受制`, `The hostile ${ue.avoid.map(wxe).join(", ")} lands in ${gz(hit[0].zhi)} and is checked`));
+          T(`忌神${main}（占 ${es0[main].toFixed(1)}%）得${ctrl}克制（占 ${es0[ctrl].toFixed(1)}%），其势有制`,
+            `The hostile ${wxe(main)} (${es0[main].toFixed(1)}%) is checked by ${wxe(ctrl)} (${es0[ctrl].toFixed(1)}%)`));
+      } else {
+        add("rescue", T("忌神无制", "Hostile element unchecked"), false, 4,
+          T(`忌神${main}（占 ${es0[main].toFixed(1)}%）不见有力之克，其势肆行`,
+            `The hostile ${wxe(main)} (${es0[main].toFixed(1)}%) has nothing to check it`));
       }
     }
 
@@ -212,7 +243,9 @@
     const score = Math.max(6, Math.min(99, 26 + 62 * ratio - brk + res * 1.35));
 
     return {
-      score: Math.round(score * 10) / 10, grade: gradeOf(score), gradeEn: GRADE_EN[gradeOf(score)],
+      score: Math.round(score * 10) / 10, grade: gradeOf(score, "bazi"),
+      percentile: gradePct(score, "bazi"),
+      gradeEn: GRADE_EN[gradeOf(score, "bazi")],
       setupRatio: Math.round(ratio * 1000) / 1000,
       setupScore: Math.round(setup * 10) / 10, setupMax: Math.round(setupMax * 10) / 10,
       broken: brk, rescued: Math.round(res * 10) / 10,
@@ -329,7 +362,9 @@
     });
     const score = Math.max(8, Math.min(99, base + Math.max(-8, Math.min(8, bonus))));
     return {
-      score: Math.round(score * 10) / 10, grade: gradeOf(score), gradeEn: GRADE_EN[gradeOf(score)],
+      score: Math.round(score * 10) / 10, grade: gradeOf(score, "ziwei"),
+      percentile: gradePct(score, "ziwei"),
+      gradeEn: GRADE_EN[gradeOf(score, "ziwei")],
       // 展示用全表（30 条，含未成立）；格位分仍按本文件的 found 算。
       // 两套并存是历史包袱：这里判「格位」，引擎判「贵气」，口径不同不能混。
       patterns: (typeof window !== "undefined" && window.ML && window.ML.detectPatterns)
@@ -341,12 +376,17 @@
   function combinedGrade(b, z, w) {
     const bw = w === undefined ? 0.55 : w;
     const score = bw * b.score + (1 - bw) * z.score;
-    const grade = gradeOf(score);
+    // 两项不能直接按分数加权：八字格均值 75.3、紫微格 69.7，同一把尺子各有各的零点，
+    // 直接平均会让八字悄悄多占份额。先各自换成百分位，再加权。
+    const pct = Math.round((bw * gradePct(b.score, "bazi")
+      + (1 - bw) * gradePct(z.score, "ziwei")) * 10) / 10;
+    const tier = ML.tierOf ? ML.tierOf : (p) => (p >= 88 ? "上格" : p >= 40 ? "中格" : "中下格");
+    const grade = tier(pct);
     return {
-      score: Math.round(score * 10) / 10, grade, gradeEn: GRADE_EN[grade],
+      score: Math.round(score * 10) / 10, grade, percentile: pct, gradeEn: GRADE_EN[grade],
       bazi: b, ziwei: z,
-      basis: `八字格 ${b.score.toFixed(1)}（${b.grade}，成格度 ${(b.setupRatio * 100).toFixed(0)}%，破 ${b.broken} 分、救 ${b.rescued} 分）· 紫微格 ${z.score.toFixed(1)}（${z.grade}）`,
-      basisEn: `BaZi ${b.score.toFixed(1)} (${GRADE_EN[b.grade]}, setup ${(b.setupRatio * 100).toFixed(0)}%, breaks −${b.broken}, rescues +${b.rescued}) · Zi Wei ${z.score.toFixed(1)} (${GRADE_EN[z.grade]})`,
+      basis: `八字格 ${b.score.toFixed(1)}（${b.grade}，胜过 ${b.percentile.toFixed(0)}% 的随机命盘，成格度 ${(b.setupRatio * 100).toFixed(0)}%，破 ${b.broken} 分、救 ${b.rescued} 分）· 紫微格 ${z.score.toFixed(1)}（${z.grade}，胜过 ${z.percentile.toFixed(0)}%）· 合计胜过 ${pct.toFixed(0)}%`,
+      basisEn: `BaZi ${b.score.toFixed(1)} (${GRADE_EN[b.grade]}, ahead of ${b.percentile.toFixed(0)}% of charts, setup ${(b.setupRatio * 100).toFixed(0)}%, breaks −${b.broken}, rescues +${b.rescued}) · Zi Wei ${z.score.toFixed(1)} (${GRADE_EN[z.grade]}, ahead of ${z.percentile.toFixed(0)}%) · overall ahead of ${pct.toFixed(0)}%`,
     };
   }
 
