@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18m";
+  const BUILD = "2026-10-18n";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -50,7 +50,7 @@
     liunian: { zh: "流年", en: "Annual" },
     zw: { zh: "紫微斗数命盘", en: "Zi Wei Dou Shu Board" },
     overall: { zh: "综合格局", en: "Overall Structure" },
-    radar: { zh: "七维", en: "Seven Dimensions" },
+    radar: { zh: "八维", en: "Eight Dimensions" },
     dims: { zh: "评分拆解", en: "Score Breakdown" },
     areas: { zh: "六领域", en: "Six Life Areas" },
     read: { zh: "命局解读", en: "Interpretation" },
@@ -99,9 +99,11 @@
   const bandTxt = (b) => LANG === "zh" ? b : (BAND_EN[b] || b);
   const dimName = (k) => LANG === "zh"
     ? { structure: "格局层次", flow: "五行流通", climate: "调候得宜", root: "年月根基",
-        ming: "紫微命宫", sanfang: "三方四正", shensha: "神煞吉凶" }[k]
+        ming: "紫微命宫", sanfang: "三方四正", shensha: "神煞吉凶",
+        relations: "合冲刑害" }[k]
     : { structure: "Structure", flow: "Element flow", climate: "Climate", root: "Foundations",
-        ming: "Life palace", sanfang: "Trine", shensha: "Stars" }[k];
+        ming: "Life palace", sanfang: "Trine", shensha: "Stars",
+        relations: "Interactions" }[k];
 
   /* ---------- 英文展示层：中文术语 → 英文 ----------
      数据层一律保留中文原名（干支、纳音、星名都是中文键），只在渲染时按语言
@@ -217,7 +219,7 @@
       if (sm) sm.textContent = LANG === "zh" ? "" : en;
     };
     sub("h-bazi", "Four Pillars"); sub("h-dayun", "Ten-year cycles"); sub("h-liunian", "Annual");
-    sub("h-zw", "Zi Wei Dou Shu"); sub("h-overall", "Overall"); sub("h-radar", "Seven Dimensions");
+    sub("h-zw", "Zi Wei Dou Shu"); sub("h-overall", "Overall"); sub("h-radar", "Eight Dimensions");
     sub("h-dims", "Breakdown"); sub("h-areas", "Life areas"); sub("h-read", "Reading");
     sub("h-school", "Schools"); sub("h-ss", "Stars & interactions"); sub("h-luck", "Cycles");
     sub("h-timeline", "Annual trend"); sub("h-month", "Monthly"); sub("h-event", "Back-test");
@@ -1141,9 +1143,10 @@
     if (!R) return;
     const d = R.scores.dimensions, keys = Object.keys(d);
     const zh = { structure: "结构", flow: "流通", climate: "调候", root: "根基",
-      ming: "命宫", sanfang: "三方", shensha: "神煞", yongshen: "用神" };
+      ming: "命宫", sanfang: "三方", shensha: "神煞", yongshen: "用神",
+      relations: "刑冲" };
     const zhEn = { structure: "Struct", flow: "Flow", climate: "Climate", root: "Root",
-      ming: "Palace", sanfang: "Trine", shensha: "Stars" };
+      ming: "Palace", sanfang: "Trine", shensha: "Stars", relations: "Inter." };
     const cx = 160, cy = 148, rad = 96, n = keys.length;
     let out = "";
     for (let ring = 1; ring <= 4; ring++) {
@@ -1708,10 +1711,14 @@
         "寅首五虎遁定宫干、纳音定五行局、起紫微诀（商数宫前走，借数偶顺奇逆）安十四主星；六吉六煞、38 杂曜、长生 / 博士 / 将前 / 岁前四套十二神、小限、命主身主、斗君、生年四化与宫干自化全部入盘。"],
       ["流年与流月",
         "按《子平真诠》顺序：用神专求月令，先看喜忌（地支为主）→ 再论十神吉凶（随格局而变）→ 再看会合刑冲（冲去忌神为去病，冲伤用神为凶，冲闲神则动而无咎）→ 最后叠大运基调。喜用一到两个五行、忌神一到两个，其余为闲神；闲神年份不作吉凶论，这才是「平年」的来处。分数压缩在 32–94 之间，单年读数是倾向而非判决。"],
+      ["合冲刑害怎么算",
+        "三会、三合、半合、拱合、六合、三刑、相刑、自刑、六冲、六害、六破、墓库，全部由一个模型判定（mingli/bazi/relations.py），命局五行分布和流年流月都从它取数。关键不是「记下这个关系」，而是**改掉地支的五行**：寅午戌成局，寅就不再是木。份额按类封顶——三会三合整体转化，半合 0.65，拱合 0.35，六合要月令支持且化神透干才化。争合与妒合双方各打 0.55 折。墓库按「旺为库、衰为墓」判：库只是封存（可被冲开），墓才打 0.72 折。"],
+      ["参考了哪些流派",
+        "都不公布公式，公布的是判断次序，次序可以折成权重。《子平真诠》定成败救应的先后（救应按 1.35 倍计回破格）；《滴天髓》定衰旺与通关（两神相战，能通关者才是用神）；倪海厦《天纪》定紫微的次序（先三方四正、次庙旺平陷、再四化三层），最有用的是他的**形状**——先找最弱的宫，再找哪一步运打上去，那是乘法不是加法；中州派定「星曜组合重于单颗庙旺」；盲派定宾主（日主是主，财官是客，冲合要看动的是谁的客）。"],
       ["流年分数是什么",
         "五条分项（用神、十神、会合刑冲、大运、神煞）按权重相加，再压到 32–94。带 * 的两项权重由本引擎自定，方向来自古法。它的用途是「同一张盘内排序」——看哪几年相对顺、哪几年相对滞，不是事件预测。「75.8」本身没有绝对含义，页面因此优先显示它在这张盘的年份里所处的位置（前 3% / 后 19%）。"],
       ["实测：它预测不了具体事件",
-        "三次测试，指向同一结论。（一）MingLi-Bench 的 160 道真实比赛题（全球算命师大赛 2022–2025，四选一）：可判定的 58 题答对 7 题，12.1%，随机是 25%。把选项文字换成人工标注（每项标出领域与吉凶）之后还是 7 题——问题不在选项映射，在引擎本身。（二）BaziQA 的 50 位名人、1163 条带年份事件：以「这一年发生过该类事件」为正例算 AUC，整体分数 0.502，冲合强度 0.488，五个领域全部落在 0.46–0.54；0.5 就是没有信号。（三）把付费紫微 App 自己讲的那套（流年命宫叠本命宫、流年四化落宫）实现出来，在同一批 50 人上测：十五格 AUC 全部落在 0.476–0.532，最常被引用的「流年命宫叠本命夫妻宫主结婚」也只有 0.497。真实产品分三档：付费 App 根本不给数字，只给定性句；开源平台给三个值（吉/平/凶），规则只有一条五行生克；AI 算命产品让模型自己填 0-100，提示词里除了「baseLevelScore: 75」没有任何规则——数字是叙述的副产品。（五）最后让模型自己学：十二个特征、留一人交叉验证，命理+年龄 0.601，只用年龄 0.595，把命理特征打乱后仍有 0.575——年龄是真信号，命理只值 0.006，换上事业/感情/财富三类则归零。这个结论留在页面上，不藏。复现：python tools/bench_mingli.py、bench_celebrity.py、bench_ziwei.py。"],
+        "三次测试，指向同一结论。（一）MingLi-Bench 的 160 道真实比赛题（全球算命师大赛 2022–2025，四选一）：可判定的 58 题答对 7 题，12.1%，随机是 25%。把选项文字换成人工标注（每项标出领域与吉凶）之后还是 7 题——问题不在选项映射，在引擎本身。（二）BaziQA 的 50 位名人、1163 条带年份事件：以「这一年发生过该类事件」为正例算 AUC，整体分数 0.505，冲合强度 0.510（改正合化与墓库之后从 0.488 挪过来的），五个领域落在 0.46–0.53；0.5 就是没有信号。（三）把付费紫微 App 自己讲的那套（流年命宫叠本命宫、流年四化落宫）实现出来，在同一批 50 人上测：十五格 AUC 全部落在 0.476–0.532，最常被引用的「流年命宫叠本命夫妻宫主结婚」也只有 0.497。真实产品分三档：付费 App 根本不给数字，只给定性句；开源平台给三个值（吉/平/凶），规则只有一条五行生克；AI 算命产品让模型自己填 0-100，提示词里除了「baseLevelScore: 75」没有任何规则——数字是叙述的副产品。（五）最后让模型自己学：十二个特征、留一人交叉验证，命理+年龄 0.601，只用年龄 0.595，把命理特征打乱后仍有 0.575——年龄是真信号，命理只值 0.006，换上事业/感情/财富三类则归零。这个结论留在页面上，不藏。复现：python tools/bench_mingli.py、bench_celebrity.py、bench_ziwei.py。"],
       ["校验",
         "历法与四柱：3,000 组随机时刻对 lunar-python，年月日时零误差。紫微：700 张盘对 iztro，命宫 / 五行局 / 宫干 / 十四主星 / 六吉六煞 / 38 杂曜 / 四套十二神 / 小限 / 大限全部一致（1 例主星差异源于朔日临界）。浏览器 JS 与 Python 逐字段比对，差异仅四舍五入。38 个单元测试。"],
       ["局限",
@@ -1731,10 +1738,14 @@
         "Palace stems by the Five Tiger rule, bureau by sound-element, Purple Star by the quotient/borrow method; 14 majors, 6+6 auxiliaries, 38 adjective stars, four sets of twelve gods, minor limits, life/body rulers, Dou Jun, birth-year and self transformations."],
       ["Annual & monthly",
         "Judged in the classical order: the useful god comes from the month command; favourable elements first (branch-weighted), then ten-god auspiciousness (which flips with the structure), then combinations and clashes (clashing away a hostile element is a cure, clashing the useful one is damage, clashing an idle one is mere motion), then the decade tone. One or two favourable elements, one or two hostile, the rest idle — idle years carry no verdict, which is where neutral years come from. Scores are compressed to 32–94: a tendency, not a verdict."],
+      ["How combinations and clashes are scored",
+        "Three-meetings, trines, half trines, arches, six-harmonies, the three punishments, self-punishment, the six clashes, harms, destructions and the tomb-storehouses are all decided by one model (mingli/bazi/relations.py); both the natal element distribution and the annual scores read from it. The point is not to record the interaction but to **change the branch's element**: once Yin, Wu and Xu combine, Yin is no longer wood. Transformation share is capped by kind — full trines convert entirely, half combinations 0.65, arches 0.35, six-harmonies only when the month command supports it and the transformed element is transparent. Contested and jealous combinations are halved on both sides. Tombs follow the rule that a strong element is stored and a weak one is buried: a storehouse merely seals (and can be opened by a clash), only a tomb costs 0.72x."],
+      ["Which schools this borrows from",
+        "None of them publish a formula; they publish an order of decision, and an order converts into weights. Zi Ping Zhen Quan fixes the order in which a structure is built, broken and rescued (a rescue counts 1.35x a break). Di Tian Sui fixes strength and mediation — when two elements fight, the one that mediates is the useful god. Ni Haixia's Tian Ji fixes the Zi Wei order (trine first, brightness second, four transformations in three layers third), and its most useful part is a **shape**: find the weakest palace, then find the period that hits it. That is a product, not a sum. The Zhongzhou school holds that combinations outrank single-star brightness. The blind school uses host-and-guest: the day master is host, wealth and office are guests, and an interaction is read by whose guest it moves."],
       ["What the annual score is",
         "Five components (useful god, ten gods, interactions, decade tone, stars) are weighted and summed, then compressed to 32-94. The two marked * carry weights we chose ourselves; their direction is classical. The score ranks years within one chart — which run easier, which run against you — it does not predict events. '75.8' has no absolute meaning, which is why the page leads with its position among that chart's years (top 3% / bottom 19%)."],
       ["Tested: it does not predict events",
-        "Two tests, one conclusion. (1) The 160 real competition questions in MingLi-Bench (four options each): the engine answers 7 of the 58 decidable items — 12.1%, where chance is 25%. Replacing the keyword mapping with hand-marked labels for every option (life area plus good/bad) still gives 7 — so the loss is not in the mapping, it is in the engine. (2) BaziQA's 50 public figures with 1163 dated life events: treating 'this category of event happened this year' as the positive class, AUC is 0.502 for the overall score, 0.488 for clash strength, and 0.46-0.54 across all five areas. 0.5 is no signal. (3) Implementing what the paid Zi Wei apps describe in their own guides — the year palace landing on a natal palace, the annual four transformations landing in one — gives fifteen AUC cells between 0.476 and 0.532 on the same 50 people; the most quoted rule of all — year palace on the natal spouse palace means marriage — scores 0.497. As for the products: paid apps give no number at all, open-source platforms give three values from a single five-element relation, and AI fortune tellers ask the model to fill in 0-100 with no rule beyond a base of 75 — the number is a by-product of the prose. (5) Finally, a fitted model: twelve features, leave-one-person-out, chart plus age reaches 0.601 while age alone reaches 0.595 and shuffled chart features still reach 0.575 — age is real, the chart is worth 0.006, and on career, romance and wealth it is worth nothing. The result stays on this page. Reproduce with: python tools/bench_mingli.py, bench_celebrity.py, bench_ziwei.py."],
+        "Two tests, one conclusion. (1) The 160 real competition questions in MingLi-Bench (four options each): the engine answers 7 of the 58 decidable items — 12.1%, where chance is 25%. Replacing the keyword mapping with hand-marked labels for every option (life area plus good/bad) still gives 7 — so the loss is not in the mapping, it is in the engine. (2) BaziQA's 50 public figures with 1163 dated life events: treating 'this category of event happened this year' as the positive class, AUC is 0.505 for the overall score, 0.510 for clash strength (it was 0.488 before combinations and tombs were modelled), and 0.46-0.53 across all five areas. 0.5 is no signal. (3) Implementing what the paid Zi Wei apps describe in their own guides — the year palace landing on a natal palace, the annual four transformations landing in one — gives fifteen AUC cells between 0.476 and 0.532 on the same 50 people; the most quoted rule of all — year palace on the natal spouse palace means marriage — scores 0.497. As for the products: paid apps give no number at all, open-source platforms give three values from a single five-element relation, and AI fortune tellers ask the model to fill in 0-100 with no rule beyond a base of 75 — the number is a by-product of the prose. (5) Finally, a fitted model: twelve features, leave-one-person-out, chart plus age reaches 0.601 while age alone reaches 0.595 and shuffled chart features still reach 0.575 — age is real, the chart is worth 0.006, and on career, romance and wealth it is worth nothing. The result stays on this page. Reproduce with: python tools/bench_mingli.py, bench_celebrity.py, bench_ziwei.py."],
       ["Validation",
         "Calendar and pillars: 3,000 random instants against lunar-python, zero mismatches on all four pillars. Zi Wei: 700 charts against iztro — palace, bureau, stems, 14 majors, 12 auxiliaries, 38 adjective stars, four sets of twelve gods, minor and decade limits all identical (one chart differs by a major star at a new-moon knife edge). Browser JS vs Python: field-by-field parity. 38 unit tests."],
       ["Limits",

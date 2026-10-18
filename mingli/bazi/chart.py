@@ -11,6 +11,7 @@ from ..calendar.ganzhi import (
     HUAGAI, JIANGXING, KE, LU, NAYIN, PO, SANHE, SANHUI, SHENG, TIANYI,
     TAOHUA, WENCHANG, WUXING_EN, YANGREN, YIMA, ZHI, ZHI_WUXING, CHONG,
     changsheng, ganzhi_index, nayin, shishen, xunkong,
+    SEASON_STATE, STATE_MULT,
 )
 
 # ---------------------------------------------------------------------------
@@ -21,22 +22,6 @@ from ..calendar.ganzhi import (
 STEM_W = {"year": 0.08, "month": 0.12, "day": 0.12, "hour": 0.12}
 BRANCH_W = {"year": 0.10, "month": 0.24, "day": 0.12, "hour": 0.10}
 
-SEASON_STATE = {
-    # month branch -> state of each element: 旺 相 休 囚 死
-    "寅": {"木": "旺", "火": "相", "水": "休", "金": "囚", "土": "死"},
-    "卯": {"木": "旺", "火": "相", "水": "休", "金": "囚", "土": "死"},
-    "辰": {"土": "旺", "金": "相", "火": "休", "木": "囚", "水": "死"},
-    "巳": {"火": "旺", "土": "相", "木": "休", "水": "囚", "金": "死"},
-    "午": {"火": "旺", "土": "相", "木": "休", "水": "囚", "金": "死"},
-    "未": {"土": "旺", "金": "相", "火": "休", "木": "囚", "水": "死"},
-    "申": {"金": "旺", "水": "相", "土": "休", "火": "囚", "木": "死"},
-    "酉": {"金": "旺", "水": "相", "土": "休", "火": "囚", "木": "死"},
-    "戌": {"土": "旺", "金": "相", "火": "休", "木": "囚", "水": "死"},
-    "亥": {"水": "旺", "木": "相", "金": "休", "土": "囚", "火": "死"},
-    "子": {"水": "旺", "木": "相", "金": "休", "土": "囚", "火": "死"},
-    "丑": {"土": "旺", "金": "相", "火": "休", "木": "囚", "水": "死"},
-}
-STATE_MULT = {"旺": 1.45, "相": 1.20, "休": 0.85, "囚": 0.70, "死": 0.55}
 
 # 調候用神 (窮通寶鑑, 徐樂吾注本通行表).  key: day stem -> month branch
 TIAOHOU = {
@@ -254,29 +239,41 @@ def _surrounding_jie(jd: float, gy: int):
 
 
 def _score_elements(chart: BaziChart) -> None:
+    """Element distribution, after the chart's own interactions have acted.
+
+    The old version added a flat +0.18 for a 三合 and +0.20 for a 三会 and then
+    scored every branch by its own hidden stems. That is not what a combination
+    does: a 寅午戌 does not *add* fire, it *converts* 寅 and 戌 into fire, and the
+    difference shows the moment the chart is read (寅 as wood is 偏财, 寅 as fire
+    is 七杀). Everything here therefore comes from `relations`, which is the only
+    place that decides what a branch has become.
+    """
+    from . import relations as _rel
+
+    model = _rel.settle(_rel.analyse(chart))
+    chart.relations_model = model
+    vectors = _rel.element_vectors(model)
+
     scores = {w: 0.0 for w in ("木", "火", "土", "金", "水")}
-    for p in chart.pillars:
-        scores[p.gan_wx] += STEM_W[p.position]
-        weights = {1: (1.0,), 2: (0.7, 0.3), 3: (0.6, 0.28, 0.12)}[len(HIDDEN[p.zhi])]
-        for h, w in zip(HIDDEN[p.zhi], weights):
-            scores[GAN_WUXING[GAN.index(h)]] += BRANCH_W[p.position] * w
+    for i, p in enumerate(chart.pillars):
+        merged_stem = model.stem_merged.get(i)
+        if merged_stem:
+            element, share = merged_stem
+            scores[p.gan_wx] += STEM_W[p.position] * (1 - share)
+            scores[element] += STEM_W[p.position] * share
+        else:
+            scores[p.gan_wx] += STEM_W[p.position]
+        for el, w in vectors[i].items():
+            scores[el] += BRANCH_W[p.position] * w
+
+    # 入墓则失其用，入库只封存（冲开可发），所以只有「墓」打折
+    for element, mult in model.tomb_mult.items():
+        scores[element] *= mult
 
     state = SEASON_STATE[chart.month.zhi]
     chart.seasonal_state = state
     for el, st in state.items():
         scores[el] *= STATE_MULT[st]
-
-    # 三合 / 三會 / 半合 加成
-    zhis = chart.all_zhi()
-    for group in SANHE:
-        hits = [z for z in group[:3] if z in zhis]
-        if len(hits) == 3:
-            scores[group[3]] += 0.18
-        elif len(hits) == 2:
-            scores[group[3]] += 0.06
-    for group in SANHUI:
-        if all(z in zhis for z in group[:3]):
-            scores[group[3]] += 0.20
 
     total = sum(scores.values()) or 1.0
     chart.element_scores = {k: round(v / total * 100, 2) for k, v in scores.items()}

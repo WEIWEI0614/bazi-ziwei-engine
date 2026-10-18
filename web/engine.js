@@ -337,24 +337,352 @@
     return chart;
   }
 
-  function scoreElements(c) {
-    const sc = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
-    c.pillars.forEach((p) => {
-      sc[p.ganWx] += D.STEM_W[p.position];
-      const h = p.hidden, w = h.length === 1 ? [1] : h.length === 2 ? [0.7, 0.3] : [0.6, 0.28, 0.12];
-      h.forEach((s, i) => { sc[D.GAN_WUXING[gi(s)]] += D.BRANCH_W[p.position] * w[i]; });
+  /* ---------------- relations -------------------------------------------
+     Line-for-line port of mingli/bazi/relations.py. Change one, change the
+     other: the 440-chart parity run is the only thing keeping the two engines
+     from drifting, and it compares `strength` and `elementScores` numerically.
+  */
+  const REL_POSN = ["年", "月", "日", "时"];
+  const REL_DIST = { 1: 1.0, 2: 0.72, 3: 0.5 };
+  const REL_BASE = { "三会": 1.0, "三合": 0.95, "半合": 0.55, "拱合": 0.3,
+    "六合": 0.4, "三刑": 0.9, "相刑": 0.5, "自刑": 0.45,
+    "六冲": 0.85, "六害": 0.35, "六破": 0.3, "干合": 0.45, "干冲": 0.55 };
+  const REL_SHARE_CAP = { "三会": 1, "三合": 1, "半合": 0.65, "拱合": 0.35,
+    "六合": 0.5, "干合": 0.8 };
+  const REL_SEASON = { 旺: 1.25, 相: 1.12, 休: 0.9, 囚: 0.8, 死: 0.7 };
+  const REL_BRANCH_COMBINING = ["三会", "三合", "半合", "拱合", "六合"];
+  const REL_TRANSFORM_AT = 0.55;
+
+  function relDist(a, b) { return (a >= 4 || b >= 4) ? 2 : Math.abs(a - b); }
+
+  function relPosWeight(pos) {
+    if (pos.length < 2) return 1;
+    let sum = 0, n = 0;
+    for (let i = 0; i < pos.length; i++) {
+      for (let j = i + 1; j < pos.length; j++) {
+        sum += REL_DIST[Math.min(relDist(pos[i], pos[j]), 3)]; n++;
+      }
+    }
+    return sum / n;
+  }
+
+  function relStrength(c, rel, stemEls) {
+    let s = REL_BASE[rel.kind];
+    if (rel.element) {
+      const st = (D.SEASON_STATE[c.month.zhi] || {})[rel.element] || "休";
+      s *= REL_SEASON[st];
+      if (stemEls.has(rel.element)) s *= 1.15;
+    }
+    s *= relPosWeight(rel.pos);
+    if (rel.pos.indexOf(1) >= 0) s *= 1.1;
+    return Math.min(1.25, s);
+  }
+
+  function relTransforms(kind, s) {
+    if (kind === "三会" || kind === "三合") return true;
+    if (kind === "半合" || kind === "六合" || kind === "干合") return s >= REL_TRANSFORM_AT;
+    return false;
+  }
+
+  // 同支去重：卯辰加一个辰只算两支。带外来支时，重复的字要落到外来支上，
+  // 否则「这个寅做了什么」会用命局里本来就有的那个寅来回答。
+  function relUnique(nodes, group) {
+    const seen = {};
+    nodes.forEach(([i, z]) => {
+      if (group.slice(0, 3).indexOf(z) >= 0 && !(z in seen)) seen[z] = i;
     });
+    const hasExtra = nodes.some(([i]) => i === 4);
+    if (hasExtra) {
+      Object.keys(seen).forEach((z) => {
+        if (seen[z] !== 4 && nodes.some(([i, z2]) => i === 4 && z2 === z)) seen[z] = 4;
+      });
+    }
+    return seen;
+  }
+
+  function relAnalyse(c, extra) {
+    const nodes = c.pillars.map((p, i) => [i, p.zhi]);
+    if (extra) nodes.push([4, extra]);
+    const model = { items: [], nodes: nodes, merged: {}, stemMerged: {},
+      suppressed: {}, tombstones: {}, tombMult: {}, extra: extra ? 4 : -1 };
+    const stemEls = new Set(c.pillars.map((p) => p.ganWx));
+
+    const claimed = {};
+    [["三会", D.SANHUI], ["三合", D.SANHE]].forEach((pair) => {
+      const kind = pair[0];
+      pair[1].forEach((grp) => {
+        const seen = relUnique(nodes, grp);
+        if (Object.keys(seen).length !== 3) return;
+        const rel = { kind: kind, pos: Object.values(seen), zhis: Object.keys(seen),
+          element: grp[3] };
+        rel.strength = relStrength(c, rel, stemEls);
+        rel.transforms = true;
+        rel.note = "";
+        model.items.push(rel);
+        rel.pos.forEach((i) => { claimed[i] = true; });
+      });
+    });
+
+    D.SANHE.forEach((grp) => {
+      const seen = relUnique(nodes, grp);
+      if (Object.keys(seen).length !== 2) return;
+      const pos = Object.values(seen);
+      if (pos.some((i) => claimed[i])) return;
+      const middle = grp[1] in seen;
+      const kind = middle ? "半合" : "拱合";
+      const rel = { kind: kind, pos: pos, zhis: Object.keys(seen), element: grp[3] };
+      rel.strength = relStrength(c, rel, stemEls);
+      rel.transforms = relTransforms(kind, rel.strength);
+      rel.note = middle ? "带中神" : "无中神，拱而不实";
+      model.items.push(rel);
+    });
+
+    const gans = c.pillars.map((p) => p.gan);
+    const push = (kind, pos, zhis, element) => {
+      const rel = { kind: kind, pos: pos, zhis: zhis, element: element || "", note: "" };
+      rel.strength = relStrength(c, rel, stemEls);
+      rel.transforms = relTransforms(kind, rel.strength);
+      model.items.push(rel);
+    };
+
+    for (let a = 0; a < nodes.length; a++) {
+      for (let b = a + 1; b < nodes.length; b++) {
+        const ia = nodes[a][0], za = nodes[a][1];
+        const ib = nodes[b][0], zb = nodes[b][1];
+        const pos = [ia, ib];
+        if (D.HE6[za] === zb) {
+          const key = [za, zb].slice().sort().join("");
+          push("六合", pos, [za, zb], D.HE6_ELEMENT[key] || "");
+        }
+        if (D.CHONG[za] === zb) push("六冲", pos, [za, zb]);
+        if (D.HAI6[za] === zb) push("六害", pos, [za, zb]);
+        if (D.PO[za] === zb) push("六破", pos, [za, zb]);
+        if (ia >= 4 || ib >= 4) continue;
+        const ga = gans[ia], gb = gans[ib];
+        if ((D.GAN_HE[ga] || [""])[0] === gb) push("干合", pos, [ga, gb], D.GAN_HE[ga][1]);
+        if (D.GAN_CHONG[ga] === gb) push("干冲", pos, [ga, gb]);
+      }
+    }
+
+    D.XING_FULL.forEach((grp) => {
+      const seen = relUnique(nodes, grp);
+      const n = Object.keys(seen).length;
+      if (n === 3) push("三刑", Object.values(seen), Object.keys(seen));
+      else if (n === 2) {
+        const rel = { kind: "相刑", pos: Object.values(seen), zhis: Object.keys(seen),
+          element: "", note: "" };
+        rel.strength = relStrength(c, rel, stemEls) * 0.7;
+        rel.transforms = false;
+        model.items.push(rel);
+      }
+    });
+
+    D.XING_PAIR.forEach((pair) => {
+      nodes.forEach(([ia, za]) => {
+        nodes.forEach(([ib, zb]) => {
+          if (za === pair[0] && zb === pair[1]) push("相刑", [ia, ib], [za, zb]);
+        });
+      });
+    });
+
+    D.SELF_XING.forEach((z) => {
+      const hits = nodes.filter(([i, zz]) => zz === z).map(([i]) => i);
+      if (hits.length >= 2) push("自刑", [hits[0], hits[1]], [z, z]);
+    });
+
+    relResolveCompetition(model);
+    return model;
+  }
+
+  function relResolveCompetition(model) {
+    const counts = {}, kinds = {};
+    model.items.forEach((r) => {
+      if (REL_BRANCH_COMBINING.indexOf(r.kind) < 0) return;
+      r.pos.forEach((i) => {
+        counts[i] = (counts[i] || 0) + 1;
+        (kinds[i] = kinds[i] || new Set()).add(r.kind);
+      });
+    });
+    model.items.forEach((r) => {
+      if (REL_BRANCH_COMBINING.indexOf(r.kind) < 0) return;
+      const hit = r.pos.filter((i) => (counts[i] || 0) > 1);
+      if (!hit.length) return;
+      const same = hit.some((i) => (kinds[i] || new Set()).size === 1);
+      r.strength *= same ? 0.55 : 0.75;
+      r.note = (r.note + "；争合").replace(/^；/, "");
+      r.transforms = relTransforms(r.kind, r.strength);
+    });
+    const stems = {};
+    model.items.forEach((r) => {
+      if (r.kind !== "干合") return;
+      r.pos.forEach((i) => { stems[i] = (stems[i] || 0) + 1; });
+    });
+    model.items.forEach((r) => {
+      if (r.kind !== "干合") return;
+      if (!r.pos.some((i) => (stems[i] || 0) > 1)) return;
+      r.strength *= 0.55;
+      r.note = (r.note + "；妒合").replace(/^；/, "");
+      r.transforms = relTransforms(r.kind, r.strength);
+    });
+  }
+
+  function relBaseVector(zhi) {
+    const h = D.HIDDEN[zhi];
+    const w = h.length === 1 ? [1] : h.length === 2 ? [0.7, 0.3] : [0.6, 0.28, 0.12];
+    const out = {};
+    h.forEach((s, i) => {
+      const el = D.GAN_WUXING[gi(s)];
+      out[el] = (out[el] || 0) + w[i];
+    });
+    return out;
+  }
+
+  function relMix(vec, element, share) {
+    const out = {};
+    Object.keys(vec).forEach((e) => { out[e] = vec[e] * (1 - share); });
+    out[element] = (out[element] || 0) + share;
+    return out;
+  }
+
+  function relVector(model, idx) {
+    const zhi = model.nodes.find(([i]) => i === idx)[1];
+    let vec = relBaseVector(zhi);
+    const m = model.merged[idx];
+    if (m) vec = relMix(vec, m[0], m[1]);
+    const f = model.suppressed[idx];
+    if (f !== undefined) {
+      Object.keys(vec).forEach((e) => { vec[e] *= f; });
+    }
+    return vec;
+  }
+
+  function relSettle(model, c) {
+    model.items.forEach((r) => {
+      if (REL_BRANCH_COMBINING.indexOf(r.kind) < 0 || !r.transforms) return;
+      const share = Math.min(REL_SHARE_CAP[r.kind] || 1, r.strength);
+      r.pos.forEach((i) => {
+        if (i >= 4) { model.merged[i] = [r.element, share]; return; }
+        if (model.merged[i] && model.merged[i][1] >= share) return;
+        model.merged[i] = [r.element, share];
+      });
+    });
+
+    model.items.forEach((r) => {
+      if (r.kind !== "干合" || !r.transforms) return;
+      const share = Math.min(REL_SHARE_CAP["干合"], r.strength);
+      r.pos.forEach((i) => {
+        if (i >= 4) return;
+        if (!model.stemMerged[i] || model.stemMerged[i][1] < share) {
+          model.stemMerged[i] = [r.element, share];
+        }
+      });
+    });
+
+    ["六冲", "三刑", "相刑", "自刑", "六害", "六破"].forEach((kind) => {
+      model.items.forEach((r) => {
+        if (r.kind !== kind) return;
+        let bite = kind === "六冲" ? 0.22 * r.strength
+          : (kind === "三刑" || kind === "相刑" || kind === "自刑")
+            ? 0.14 * r.strength : 0.08 * r.strength;
+        r.pos.forEach((i) => {
+          let local = bite * (i >= 4 ? 0.6 : 1.0);
+          if (i === 1) local *= 1.35;
+          model.suppressed[i] = (model.suppressed[i] === undefined ? 1 : model.suppressed[i])
+            * (1 - Math.min(0.5, local));
+        });
+      });
+    });
+
+    relSettleTombs(model);
+    return model;
+  }
+
+  function relSettleTombs(model) {
+    const totals = {};
+    model.nodes.forEach(([i]) => {
+      if (i >= 4) return;
+      const v = relVector(model, i);
+      Object.keys(v).forEach((e) => { totals[e] = (totals[e] || 0) + v[e]; });
+    });
+    const grand = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
+    model.nodes.forEach(([i, z]) => {
+      if (!(z in D.TOMB)) return;
+      const stored = D.TOMB[z];
+      const share = (totals[stored] || 0) / grand * 100;
+      if (share <= 0) return;
+      const kind = share >= 9.0 ? "库" : "墓";
+      if (i >= 4) return;
+      model.tombstones[i] = [kind, stored];
+      if (kind === "墓") {
+        model.tombMult[stored] = Math.min(model.tombMult[stored] === undefined ? 1 : model.tombMult[stored], 0.72);
+      }
+    });
+  }
+
+  function relVectors(model) {
+    return [0, 1, 2, 3].map((i) => relVector(model, i));
+  }
+
+  function relIncoming(model) {
+    if (model.extra < 0) return null;
+    const idx = model.extra;
+    const zhi = model.nodes.find(([i]) => i === idx)[1];
+    const m = model.merged[idx];
+    const element = m ? m[0] : D.ZHI_WUXING[D.ZHI.indexOf(zhi)];
+    const share = m ? m[1] : 0;
+    return { zhi: zhi, element: element, share: share, merged: !!m,
+      suppressed: model.suppressed[idx] === undefined ? 1 : model.suppressed[idx],
+      relations: model.items.filter((r) => r.pos.indexOf(idx) >= 0) };
+  }
+
+  function relLabel(r) {
+    const body = r.zhis.join("");
+    if (["三会", "三合", "半合", "拱合", "六合", "干合"].indexOf(r.kind) >= 0) {
+      return body + r.kind + (r.transforms ? "化" + r.element : "不化");
+    }
+    return body + r.kind;
+  }
+
+  function relTally(model) {
+    const out = { 三会: 0, 三合: 0, 半合: 0, 拱合: 0, 六合: 0, 三刑: 0,
+      相刑: 0, 自刑: 0, 六冲: 0, 六害: 0, 六破: 0, 干合: 0, 干冲: 0 };
+    let mergedShare = 0;
+    model.items.forEach((r) => {
+      out[r.kind] = (out[r.kind] || 0) + 1;
+      if (REL_BRANCH_COMBINING.indexOf(r.kind) >= 0 && r.transforms) {
+        mergedShare += r.strength * r.pos.length / 4;
+      }
+    });
+    out.total = model.items.length;
+    out.mergedShare = Math.round(mergedShare * 100) / 100;
+    out.tomb = Object.values(model.tombstones).filter((v) => v[0] === "墓").length;
+    out.store = Object.values(model.tombstones).filter((v) => v[0] === "库").length;
+    out.clashN = out["六冲"] + out["三刑"] + out["相刑"] + out["自刑"];
+    out.combineN = out["三会"] + out["三合"] + out["半合"] + out["六合"] + out["拱合"];
+    return out;
+  }
+
+  function scoreElements(c) {
+    const rel = relSettle(relAnalyse(c), c);
+    c.relationsModel = rel;
+    const vectors = relVectors(rel);
+
+    const sc = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
+    c.pillars.forEach((p, i) => {
+      const sm = rel.stemMerged[i];
+      if (sm) {
+        sc[p.ganWx] += D.STEM_W[p.position] * (1 - sm[1]);
+        sc[sm[0]] += D.STEM_W[p.position] * sm[1];
+      } else {
+        sc[p.ganWx] += D.STEM_W[p.position];
+      }
+      const v = vectors[i];
+      Object.keys(v).forEach((el) => { sc[el] += D.BRANCH_W[p.position] * v[el]; });
+    });
+    Object.keys(rel.tombMult).forEach((el) => { sc[el] *= rel.tombMult[el]; });
+
     const state = D.SEASON_STATE[c.month.zhi];
     Object.keys(state).forEach((el) => { sc[el] *= D.STATE_MULT[state[el]]; });
-    const zhis = c.pillars.map((p) => p.zhi);
-    D.SANHE.forEach((grp) => {
-      const uniq = [...new Set(grp.slice(0, 3).filter((z) => zhis.includes(z)))];
-      if (uniq.length === 3) sc[grp[3]] += 0.18;
-      else if (uniq.length === 2) sc[grp[3]] += 0.06;
-    });
-    D.SANHUI.forEach((grp) => {
-      if (grp.slice(0, 3).every((z) => zhis.includes(z))) sc[grp[3]] += 0.2;
-    });
     const total = Object.values(sc).reduce((a, b) => a + b, 0) || 1;
     c.elementScores = {};
     Object.keys(sc).forEach((k) => { c.elementScores[k] = Math.round(sc[k] / total * 10000) / 100; });
@@ -634,23 +962,24 @@
   // 流年/流月地支进入原局后的实际五行：三合/三会齐则化神完全生效，半合减半。
   // 旧版只把它记成一句「与命局成三合火局」并按 ±5.5 扣分，五行与十神仍按本气算，
   // 于是「寅」永远当木（偏财），哪怕寅午戌早已合成火局（七杀成群）。
+  // 流年/流月地支进入原局后的实际五行，全部交给 relations 判：
+  // 三会三合齐则整体转化，半合半化，六合要月令支持才化，争合与妒合各自减半。
+  // 旧版只认「三合齐 / 半合」两档、且不看月令与透干，于是寅午在冬天也算火局。
   function zhiEffective(c, zhi) {
-    const have = c.pillars.map((p) => p.zhi);
-    for (const grp of D.SANHE) {
-      if (grp.slice(0, 3).includes(zhi)) {
-        const others = new Set(have.filter((z) => grp.slice(0, 3).includes(z) && z !== zhi));
-        if (others.size >= 2) return [grp[3], `三合${grp[3]}`, 1];
-        if (others.size === 1) return [grp[3], `半合${grp[3]}`, 0.5];
+    const model = relSettle(relAnalyse(c, zhi), c);
+    const info = relIncoming(model);
+    let note = "";
+    if (info.merged) {
+      const cand = info.relations.filter((r) =>
+        ["三会", "三合", "半合", "六合"].indexOf(r.kind) >= 0 && r.transforms);
+      cand.sort((a, b) => b.strength - a.strength);
+      if (cand.length) {
+        const rel = cand[0];
+        note = `${zhi}与原局${rel.kind}成${rel.element}局`;
+        if (rel.note) note += `（${rel.note}）`;
       }
     }
-    for (const grp of D.SANHUI) {
-      if (grp.slice(0, 3).includes(zhi)) {
-        const others = new Set(have.filter((z) => grp.slice(0, 3).includes(z) && z !== zhi));
-        if (others.size >= 2) return [grp[3], `三会${grp[3]}`, 1];
-        if (others.size === 1) return [grp[3], `半会${grp[3]}`, 0.5];
-      }
-    }
-    return [D.ZHI_WUXING[D.ZHI.indexOf(zhi)], "", 0];
+    return [info.element, note, info.share];
   }
 
   function elementOf(g, z, mergedWx) {
@@ -921,23 +1250,100 @@
     let delta = 0;
     const POSW = { year: 0.9, month: 1.1, day: 1.4, hour: 0.8 };
     const POSN = { year: "年", month: "月", day: "日", hour: "时" };
+    const POS_OF = { 0: "year", 1: "month", 2: "day", 3: "hour" };
+    const REL_KIND_EN = { 三会: "three-meeting", 三合: "trine", 半合: "half trine",
+      拱合: "arch", 六合: "six-harmony", 三刑: "triple punishment",
+      相刑: "punishment", 自刑: "self-punishment", 六害: "harm",
+      六破: "destruction", 六冲: "clash" };
+
+    // 三会/半会、三刑、争合、入墓全部交给 relations 判，
+    // 这里只负责把「强度 × 柱位 × 喜忌」折成分数。
+    const relModel = relSettle(relAnalyse(c, zhi), c);
+    const nodeOf = {};
+    relModel.nodes.forEach(([i, z]) => { nodeOf[i] = z; });
+    const sideOf = (i) => {
+      const m = relModel.merged[i];
+      const el = m ? m[0] : D.ZHI_WUXING[D.ZHI.indexOf(nodeOf[i])];
+      return favor.indexOf(el) >= 0 ? 1 : (avoid.indexOf(el) >= 0 ? -1 : 0);
+    };
+
+    relModel.items.forEach((r) => {
+      if (r.pos.indexOf(4) < 0) return;
+      const others = r.pos.filter((i) => i < 4);
+      if (!others.length) return;
+      const w = Math.max.apply(null, others.map((i) => POSW[POS_OF[i]]));
+      const k = Math.min(1.6, r.strength / (REL_BASE[r.kind] || 1));
+      const sign = others.reduce((a, i) => a + sideOf(i), 0) / others.length;
+      const whereZh = others.map((i) => POSN[POS_OF[i]]).join("/");
+      const whereEn = others.map((i) => POSN_EN[POSN[POS_OF[i]]]).join("/");
+      const bodyZh = r.zhis.join("");
+      const bodyEn = r.zhis.map((z) => py(z)).join(" ");
+
+      if (r.kind === "六冲") {
+        const base = sign > 0 ? 4.5 : (sign < 0 ? -6.5 : -1.5);
+        delta += base * k * w;
+        rels.push(`${whereZh}支${bodyZh}六冲`);
+        relsEn.push(`${whereEn} branch ${bodyEn} clashes`);
+      } else if (r.kind === "六合") {
+        const base = sign > 0 ? 3.2 : (sign < 0 ? -3.0 : 0.6);
+        delta += base * k * w;
+        rels.push(`${whereZh}支${bodyZh}${r.transforms ? "六合化" + r.element : "六合不化"}`);
+        relsEn.push(`${whereEn} branch ${bodyEn} ${r.transforms
+          ? "combines into " + r.element : "combines without transforming"}`);
+      } else if (["三刑", "相刑", "自刑", "六害", "六破"].indexOf(r.kind) >= 0) {
+        const sev = { 三刑: 4.2, 相刑: 2.6, 自刑: 2.2, 六害: 1.6, 六破: 1.3 }[r.kind];
+        delta -= sev * k * w;
+        rels.push(`${whereZh}支${bodyZh}${r.kind}`);
+        relsEn.push(`${whereEn} branch ${bodyEn} — ${REL_KIND_EN[r.kind]}`);
+      } else if (["三会", "三合", "半合", "拱合"].indexOf(r.kind) >= 0) {
+        const sHua = favor.indexOf(r.element) >= 0 ? 1
+          : (avoid.indexOf(r.element) >= 0 ? -1 : 0);
+        const amt = sHua > 0 ? 2.0 : sHua < 0 ? -2.0 : 0.8;
+        delta += amt * k * (r.transforms ? 1.0 : 0.4);
+        rels.push(relLabel(r));
+        relsEn.push(`${bodyEn} ${REL_KIND_EN[r.kind]} ${r.transforms
+          ? "transforms into " + r.element : "does not transform"}`);
+      }
+    });
+
+    // 伏吟：流年支与命局某支相同（辰午酉亥的自刑已由 relations 给出）
+    c.pillars.forEach((p) => {
+      if (p.zhi === zhi && D.SELF_XING.indexOf(zhi) < 0) {
+        delta -= 2.0 * POSW[p.position];
+        rels.push(`流年${zhi}伏吟${POSN[p.position]}支`);
+        relsEn.push(`the year doubles the ${POSN_EN[POSN[p.position]]} branch`);
+      }
+    });
+
+    // 墓库：用神入墓则失其用，冲开库则所藏之物出得来
+    relModel.nodes.forEach((pair) => {
+      const i = pair[0], z = pair[1];
+      if (!(z in D.TOMB)) return;
+      const stored = D.TOMB[z];
+      if (i < 4 && D.CHONG[zhi] === z) {
+        if (favor.indexOf(stored) >= 0) {
+          delta += 3.2;
+          rels.push(`冲开${z}库，${stored}得出`);
+          relsEn.push(`the clash opens the ${z} storehouse, releasing ${stored}`);
+        } else if (avoid.indexOf(stored) >= 0) {
+          delta -= 2.4;
+          rels.push(`冲开${z}库，${stored}忌神出`);
+          relsEn.push(`the clash opens the ${z} storehouse, releasing a hostile ${stored}`);
+        }
+      } else if (i === 4 && favor.indexOf(stored) >= 0) {
+        delta -= 2.6;
+        rels.push(`流年${zhi}为${stored}之墓`);
+        relsEn.push(`${py(zhi)} is the tomb of ${stored}`);
+      } else if (i === 4 && avoid.indexOf(stored) >= 0) {
+        delta += 1.8;
+        rels.push(`流年${zhi}收${stored}入墓`);
+        relsEn.push(`${py(zhi)} buries the hostile ${stored}`);
+      }
+    });
+
+    // 天干：运/年干只与命局四干论，模型里没有它的位置
     c.pillars.forEach((p) => {
       const pos = POSN[p.position], w = POSW[p.position];
-      const zr = zhiRels(p.zhi, zhi);
-      const sign = relSign(ue, p.zhi);          // 命局此支的喜忌
-      const hasHe = zr.includes("六合");
-      zr.forEach((r) => {
-        rels.push(`${pos}支${p.zhi}与${zhi}${r}`);
-        relsEn.push(`${POSN_EN[pos]} branch ${py(p.zhi)} ${REL_EN[r] || r} ${py(zhi)}`);
-        if (r === "六合") delta += (sign > 0 ? 3.2 : sign < 0 ? -3.0 : 0.6) * w;
-        else if (r === "六冲") {
-          // 冲忌神为去病（吉），冲用神为伤用（凶），冲闲神动而无咎
-          const base = sign > 0 ? 4.5 : (sign < 0 ? -6.5 : -1.5);
-          delta += base * (hasHe ? 0.5 : 1.0) * w;
-        } else if (r === "相刑") delta -= 2.6 * w;
-        else if (r === "相害" || r === "相破") delta -= 1.6 * w;
-        else if (r === "伏吟") delta -= 2.0 * w;
-      });
       const elP = GWX_MAP[p.gan];
       const sGan = avoid.includes(elP) ? 1 : (favor.includes(elP) ? -1 : 0);
       ganRels(p.gan, gan).forEach((r) => {
@@ -949,26 +1355,10 @@
       if (D.GAN_CHONG[p.gan] === gan && D.CHONG[p.zhi] === zhi) {
         rels.push(`与${pos}柱天克地冲`);
         relsEn.push(`stem-and-branch clash with the ${POSN_EN[pos]} pillar`);
+        const sign = sideOf(c.pillars.indexOf(p));
         if (sign > 0 && sGan > 0) delta += 5.0 * w;
         else if (sign < 0 || sGan < 0) delta -= 8.0 * w;
         else delta -= 3.0 * w;
-      }
-    });
-    D.SANHE.forEach((grp) => {
-      if (!grp.slice(0, 3).includes(zhi)) return;
-      const have = [...new Set(c.pillars.map((p) => p.zhi)
-        .filter((z) => grp.slice(0, 3).includes(z) && z !== zhi))];
-      // 三合的吉凶看化神是否为喜用，不是「合了就吉」
-      const sHua = favor.includes(grp[3]) ? 1 : (avoid.includes(grp[3]) ? -1 : 0);
-      // 合局的力量已经在用神/十神里按化神算过了，这里只留「动」的余量
-      if (have.length >= 2) {
-        delta += sHua > 0 ? 2.0 : sHua < 0 ? -2.0 : 0.8;
-        rels.push(`${zhi}与命局成三合${grp[3]}局`);
-        relsEn.push(`${py(zhi)} completes a full ${grp[3]} trine with the chart`);
-      } else if (have.length === 1) {
-        delta += sHua > 0 ? 1.0 : sHua < 0 ? -1.0 : 0.4;
-        rels.push(`${zhi}与${have[0]}半合${grp[3]}局`);
-        relsEn.push(`${py(zhi)} half-combines with ${py(have[0])} into ${grp[3]}`);
       }
     });
     comp["冲合"] = Math.round(Math.max(-12, Math.min(12, delta)) * 10) / 10;
@@ -977,13 +1367,14 @@
     if (luckCyc) {
       // 天干主外、地支主内，四六开
       const eLg = GWX_MAP[luckCyc.gan];
-      const eLz = D.ZHI_WUXING[D.ZHI.indexOf(luckCyc.zhi)];
+      // 大运地支同样进原局论合化：一部运的寅，落在午戌俱全的局里是火不是木
+      const eLz = zhiEffective(c, luckCyc.zhi)[0];
       const sLg = favor.includes(eLg) ? 1 : (avoid.includes(eLg) ? -1 : 0);
       const sLz = favor.includes(eLz) ? 1 : (avoid.includes(eLz) ? -1 : 0);
       tone = Math.max(-1, Math.min(1, sLg * 0.4 + sLz * 0.6));
       big = tone * 9;
       const lGod = shishen(dm, luckCyc.gan);
-      const lZGod = shishen(dm, D.HIDDEN[luckCyc.zhi][0]);
+      const lZGod = shishen(dm, REP_GAN[eLz]);
       if (ue.dislikeG.includes(lGod) || ue.dislikeG.includes(lZGod)) {
         big -= 3;
         rels.push(`大运${lGod}/${lZGod}为格局所忌`);
@@ -1372,7 +1763,8 @@
     root: "年月根基一般，祖荫与早年环境帮助有限，弱于 {p}% 的命盘",
     ming: "紫微命宫力量偏弱，弱于 {p}% 的命盘",
     sanfang: "三方四正会照平淡，弱于 {p}% 的命盘",
-    shensha: "神煞偏凶，弱于 {p}% 的命盘"
+    shensha: "神煞偏凶，弱于 {p}% 的命盘",
+    relations: "合冲刑害偏杂：局中刑冲重叠或合多受绊，弱于 {p}% 的命盘"
   };
   const DIM_WEAK_EN = {
     structure: "Structurally weak: the pattern is unclear or broken — weaker than {p}% of charts",
@@ -1381,7 +1773,8 @@
     root: "Year/month foundations are ordinary — weaker than {p}% of charts",
     ming: "The life palace is underpowered — weaker than {p}% of charts",
     sanfang: "The trine and opposite are flat — weaker than {p}% of charts",
-    shensha: "Malefic stars outweigh the benefics — weaker than {p}% of charts"
+    shensha: "Malefic stars outweigh the benefics — weaker than {p}% of charts",
+    relations: "Interactions are tangled: punishments and clashes overlap, or too many combinations bind the chart — weaker than {p}% of charts"
   };
   function erf(x) {
     const s = x < 0 ? -1 : 1; x = Math.abs(x);
@@ -1511,6 +1904,52 @@
     return [Math.max(20, Math.min(94, 50 + 2.4 * good - 2.8 * bad + 0.8 * mid)), good, mid, bad];
   }
 
+  // 合冲刑害：整盘是不是「内部撕扯」。与 scoring.relations_score 逐条对应。
+  const REL_SEVERITY = { 六冲: 6.5, 三刑: 6.0, 相刑: 3.6, 自刑: 3.0,
+    六害: 2.2, 六破: 1.8 };
+  const REL_POSW = { 0: 0.70, 1: 1.20, 2: 1.20, 3: 0.70 };
+
+  function relationsScore(c) {
+    const model = c.relationsModel || relSettle(relAnalyse(c), c);
+    const ue = strengthUseful(c);
+    const favor = ue.favor, avoid = ue.avoid;
+    const nodeOf = {};
+    model.nodes.forEach(([i, z]) => { nodeOf[i] = z; });
+    const side = (i) => {
+      const m = model.merged[i];
+      const el = m ? m[0] : D.ZHI_WUXING[D.ZHI.indexOf(nodeOf[i])];
+      return favor.indexOf(el) >= 0 ? 1 : (avoid.indexOf(el) >= 0 ? -1 : 0);
+    };
+    let s = 58;
+    const plus = [], minus = [];
+    model.items.forEach((r) => {
+      let w = 0;
+      r.pos.forEach((i) => { w += (REL_POSW[i] === undefined ? 0.7 : REL_POSW[i]); });
+      w /= Math.max(1, r.pos.length);
+      if (REL_SEVERITY[r.kind] !== undefined) {
+        const sev = REL_SEVERITY[r.kind];
+        const mean = r.pos.reduce((a, i) => a + side(i), 0) / r.pos.length;
+        if (r.kind === "六冲") s += mean * sev * w;
+        else s -= sev * w * (0.55 + 0.45 * Math.max(0, mean));
+        (mean > 0 ? plus : minus).push(relLabel(r));
+      } else if (["三会", "三合", "半合", "六合"].indexOf(r.kind) >= 0 && r.transforms) {
+        const gain = 9.0 * r.strength * w;
+        if (favor.indexOf(r.element) >= 0) { s += gain; plus.push(relLabel(r)); }
+        else if (avoid.indexOf(r.element) >= 0) { s -= gain; minus.push(relLabel(r)); }
+        else plus.push(relLabel(r));
+      }
+    });
+    const tal = relTally(model);
+    if (tal.combineN >= 3) { s -= 4.5; minus.push("合多则绊"); }
+    if (tal.clashN >= 3) { s -= 5.0; minus.push("刑冲重叠"); }
+    if (model.items.some((r) => r.pos.indexOf(2) >= 0
+        && (r.kind === "六冲" || r.kind === "三刑"))) {
+      s -= 3.2;
+      minus.push("日支受冲刑");
+    }
+    return [Math.max(20, Math.min(92, s)), plus, minus];
+  }
+
   function scoreOverall(chart, zc) {
     const es = chart.elementScores;
     const [struct, sPlus, sMinus] = structureScore(chart);
@@ -1518,12 +1957,14 @@
     const [climate, cNotes] = climateScore(chart);
     const [root, rNotes] = rootScore(chart);
     const [sh, nGood, nMid, nBad] = shenshaScore(chart);
+    const [rels, relPlus, relMinus] = relationsScore(chart);
     const zs = ziweiSummary(zc);
     const qian = palaceScore(zc, zc.palaces.find((p) => p.name === "迁移"));
     const sanfang = Math.round((zs.mingScore * 0.4 + zs.wealthScore * 0.2 + zs.careerScore * 0.2 + qian * 0.2) * 10) / 10;
     const dims = { structure: Math.round(struct * 10) / 10, flow: Math.round(flow * 10) / 10,
       climate: Math.round(climate * 10) / 10, root: Math.round(root * 10) / 10,
-      ming: zs.mingScore, sanfang, shensha: Math.round(sh * 10) / 10 };
+      ming: zs.mingScore, sanfang, shensha: Math.round(sh * 10) / 10,
+      relations: Math.round(rels * 10) / 10 };
     const W = PCT.weights;
     let overall = 0;
     PCT.dims.forEach((k) => { overall += dims[k] * W[k]; });

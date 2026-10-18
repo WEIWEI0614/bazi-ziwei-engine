@@ -162,6 +162,67 @@ node tools/parity.js cases.json out.json     # optional JS/Python parity harness
 
 ---
 
+## Interactions: what the classics specify, and what we had to decide
+
+The engine used to treat an interaction as a *label* — "寅午戌 form a fire
+trine" was printed, charged a flat ±5.5, and then every branch was still scored
+by its own hidden stems. So 寅 stayed wood. In a chart that takes fire as 七杀,
+a fire month read as 偏财: comfortable on paper, oppressive in fact. That is a
+wrong reading, not a matter of taste.
+
+`mingli/bazi/relations.py` is now the only place that decides what a branch has
+become. Both the natal element model and the annual/monthly scoring read from
+it, so they cannot disagree.
+
+### What each school actually gives you
+
+None of the well-known teachers publish a formula. What they publish is an
+**order of decision**, and an order is convertible into weights:
+
+| source | what it fixes | how it lands here |
+|---|---|---|
+| 《子平真诠》 (Shen Xiaozhan) | 成败救应 — a structure is judged by what sets it up, what breaks it, what rescues it, in that order | the structure dimension; rescues weighted 1.35× breaks |
+| 《滴天髓》 | 衰旺 and 通关 — when two elements fight, the one that mediates is the useful one | the flow dimension and the useful-god selection |
+| 倪海厦 《天纪》 | 三方四正 first, 庙旺平陷 second, 四化 in three layers (birth / decade / year) third; and the rule that matters most — **a weak palace only fails when a decade or year brings the malefics to it** | the Zi Wei dimensions, and the `weak × trigger` product in the annual model rather than a sum |
+| 中州派 (Wang Tingzhi) | star combinations outrank single-star brightness; 双星同宫 changes the reading of both | star scoring: pairs get a term of their own |
+| 盲派 | 宾主 — the day master is host, wealth and office are guests; an interaction is read by *whose* guest it moves | 冲合 定向: same clash is a cure or a wound depending on which side it hits |
+
+The single most useful thing in 倪海厦's course is not a rule but a shape: he
+never adds up "good points" and "bad points". He looks for the weak palace, then
+looks for the period that hits it. That is a product, not a sum, and it is why a
+chart can look fine on every individual dimension and still fail in one decade.
+The annual model reflects that (`weak × trigger`), while the natal overall score
+stays additive and therefore says so in its own footnote.
+
+### What the model decides, and why
+
+| interaction | treatment | why |
+|---|---|---|
+| 三会 / 三合 | the three branches become the transformed element (share 1.0) | three branches present is the definition of the combination; the season only changes its strength, not its existence |
+| 半合 | share 0.65, and only when it includes the middle branch (子午卯酉) | a half combination leans the branch, it does not replace it |
+| 拱合 | share 0.35, and never transforms | 寅戌 without 午 is an arch, not a fire |
+| 六合 | transforms only if strength ≥ 0.55, i.e. the month command supports it *and* the transformed element is transparent | this is the classical condition; without it a 子丑 would erase two branches for nothing |
+| 争合 / 妒合 | both sides ×0.55 | two branches competing for one partner is one contested tie, not two combinations |
+| 三刑 / 相刑 / 自刑 | 6.0 / 3.6 / 3.0, scaled by distance and position | 刑 is not one thing; a full 寅巳申 is not a 子卯 |
+| 六冲 | damage is split by *what is being hit*: clashing a hostile element is a cure, clashing the useful god is a wound, clashing an idle one is mere motion | the old "every clash is a penalty" rule turned good years into bad ones |
+| 墓 / 库 | the same 辰 is a storehouse when the chart holds enough 水 and a tomb when it does not; only the tomb costs 0.72× | 旺为库、衰为墓 — and a storehouse can be opened by a clash, which the model also checks |
+
+Positional distance matters throughout: adjacent pillars act at full weight, one
+apart at 0.72, the two ends of the chart at 0.50.
+
+### Did any of this make it predict better?
+
+No. On 1,163 dated events across 50 public figures, the overall score moved from
+AUC 0.502 to 0.505, and health stayed at 0.463. The clash term went from 0.488
+(slightly inverted) to 0.510 — closer to a coin flip from the right side, which
+is the only direction it could honestly move.
+
+That result is worth stating plainly: the fix makes the model **correct by its
+own rules**, not **predictive**. Those are different claims and the second one
+still fails.
+
+---
+
 ## Does it predict anything?
 
 No — not yet, and the number should stay where people can see it.

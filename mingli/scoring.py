@@ -21,16 +21,20 @@ from __future__ import annotations
 import math
 
 from .bazi import luck as bz_luck
-from .calendar.ganzhi import CHONG, GAN, GAN_HE, GAN_WUXING, KE, SHENG
+from .calendar.ganzhi import (CHONG, GAN, GAN_HE, GAN_WUXING, KE, SHENG, ZHI,
+                               ZHI_WUXING)
 from .ziwei import analysis as zw_analysis
 
-DIMS = ["structure", "flow", "climate", "root", "ming", "sanfang", "shensha"]
-WEIGHTS = {"structure": 0.22, "flow": 0.10, "climate": 0.10, "root": 0.14,
-           "ming": 0.22, "sanfang": 0.11, "shensha": 0.11}
+DIMS = ["structure", "flow", "climate", "root", "ming", "sanfang", "shensha",
+        "relations"]
+#: 合冲刑害单列一维，权重从其余各项按比例让出。它测的东西别处测不到：
+#: 一个五行很匀的盘，也可能被三刑两冲撕得七零八落。
+WEIGHTS = {"structure": 0.20, "flow": 0.09, "climate": 0.09, "root": 0.13,
+           "ming": 0.20, "sanfang": 0.10, "shensha": 0.09, "relations": 0.10}
 
 DIM_ZH = {"structure": "格局层次", "flow": "五行流通", "climate": "调候得宜",
           "root": "年月根基", "ming": "紫微命宫", "sanfang": "三方四正",
-          "shensha": "神煞吉凶"}
+          "shensha": "神煞吉凶", "relations": "合冲刑害"}
 DIM_WEAK_ZH = {
     "structure": "格局层次偏弱：取格不显或破格，弱于 {p}% 的命盘",
     "flow": "五行偏枯，流通有断点，弱于 {p}% 的命盘",
@@ -39,10 +43,11 @@ DIM_WEAK_ZH = {
     "ming": "紫微命宫力量偏弱，弱于 {p}% 的命盘",
     "sanfang": "三方四正会照平淡，弱于 {p}% 的命盘",
     "shensha": "神煞偏凶，弱于 {p}% 的命盘",
+    "relations": "合冲刑害偏杂：局中刑冲重叠或合多受绊，弱于 {p}% 的命盘",
 }
 DIM_EN = {"structure": "Structure", "flow": "Element flow", "climate": "Climate",
           "root": "Foundations", "ming": "Life palace", "sanfang": "Trine",
-          "shensha": "Stars"}
+          "shensha": "Stars", "relations": "Interactions"}
 
 
 def _entropy(weights: dict) -> float:
@@ -229,6 +234,99 @@ def root_score(chart) -> tuple[float, list[str]]:
     return max(25.0, min(92.0, s)), notes
 
 
+#: 刑冲害破的基准强度。层级来自各家共许的「三刑重于冲，冲重于害，害重于破」。
+#: 系数按「这一维要有区分度」标定过：原来的 ±4 让全盘标准差只有 3.7，
+#: 十张盘挤在 48–56 之间，等于没有这个维度。放大之后 sd ≈ 7。
+_SEVERITY = {"六冲": 6.5, "三刑": 6.0, "相刑": 3.6, "自刑": 3.0,
+             "六害": 2.2, "六破": 1.8}
+#: 柱位权重：月令与日支是全局最重的两个位置
+_POSW = {0: 0.70, 1: 1.20, 2: 1.20, 3: 0.70}
+
+
+def relations_score(chart) -> tuple[float, list[str], list[str]]:
+    """合冲刑害：整盘是不是「内部撕扯」。
+
+    古法没有分值，但有明确的吉凶方向，这里只把它算出来：
+
+    - **冲刑害破伤的是谁**才决定吉凶。冲去忌神是去病（主吉），冲伤用神是
+      拆台（主凶），冲闲神只是动。旧版凡冲皆罚，于是「冲开忌神」的好年份
+      被判成凶年。
+    - **合化之后是什么五行**才决定吉凶。合化为喜用是得助，合化为忌是牵累。
+      合多而不化反而是「绊」——人被关系拴住，动弹不得。
+    - **刑冲的数量**本身是动荡的指标，与喜忌无关。
+
+    返回 (分数, 加分说明, 减分说明)。
+    """
+    model = getattr(chart, "relations_model", None)
+    if model is None:
+        return 55.0, [], []
+
+    from .bazi.relations import POSN as _P
+
+    favor, avoid, _meta = bz_luck.strength_useful(chart)
+    nodes = dict(model.nodes)
+
+    def side(idx: int) -> int:
+        """这一支（合化之后）对日主是喜 +1、忌 -1、闲 0。"""
+        merged = model.merged.get(idx)
+        el = merged[0] if merged else ZHI_WUXING[ZHI.index(nodes[idx])]
+        return 1 if el in favor else (-1 if el in avoid else 0)
+
+    s = 58.0
+    plus, minus = [], []
+
+    for rel in model.items:
+        w = sum(_POSW.get(i, 0.7) for i in rel.pos) / max(1, len(rel.pos))
+
+        if rel.kind in _SEVERITY:
+            sev = _SEVERITY[rel.kind]
+            sides = [side(i) for i in rel.pos]
+            mean_side = sum(sides) / len(sides)
+            if rel.kind in ("六冲",):
+                # 冲：去病为吉，伤用为凶，闲神则动
+                s += mean_side * sev * w
+            else:
+                # 刑害破：本身带伤，刑去忌神也只是「伤得轻」
+                s -= sev * w * (0.55 + 0.45 * max(0.0, mean_side))
+            name = rel.label
+            (plus if mean_side > 0 else minus).append(
+                f"{name}（{'+' if mean_side > 0 else '-'}）")
+
+        elif rel.kind in ("三会", "三合", "半合", "六合") and rel.transforms:
+            el = rel.element
+            gain = 9.0 * rel.strength * w
+            if el in favor:
+                s += gain
+                plus.append(f"{rel.label}，化为喜用")
+            elif el in avoid:
+                s -= gain
+                minus.append(f"{rel.label}，化为忌神")
+            else:
+                plus.append(f"{rel.label}，化神为闲")
+
+    tal = _tally(model)
+    if tal["combine_n"] >= 3:
+        s -= 4.5
+        minus.append("合多则绊：局中合局过多，反受牵制")
+    if tal["clash_n"] >= 3:
+        s -= 5.0
+        minus.append("刑冲重叠：一生多动荡，难以累积")
+
+    # 日支（配偶宫）被冲，另计
+    day_hits = [r for r in model.items
+                if 2 in r.pos and r.kind in ("六冲", "三刑")]
+    if day_hits:
+        s -= 3.2
+        minus.append("日支受冲刑，配偶宫不稳")
+
+    return max(20.0, min(92.0, s)), plus, minus
+
+
+def _tally(model) -> dict:
+    from .bazi.relations import tally
+    return tally(model)
+
+
 def shensha_score(chart) -> tuple[float, int, int, int]:
     good = sum(1 for v in chart.shensha.values() if v["nature"] == "吉")
     mid = sum(1 for v in chart.shensha.values() if v["nature"] == "中")
@@ -244,6 +342,7 @@ def score_overall(chart, zc) -> dict:
     climate, c_notes = climate_score(chart)
     root, r_notes = root_score(chart)
     sh, n_good, n_mid, n_bad = shensha_score(chart)
+    rels, rel_plus, rel_minus = relations_score(chart)
 
     zsum = zw_analysis.summary(zc)
     ming = zsum["ming_score"]
@@ -255,7 +354,7 @@ def score_overall(chart, zc) -> dict:
     dims = {"structure": round(struct, 1), "flow": round(flow, 1),
             "climate": round(climate, 1), "root": round(root, 1),
             "ming": round(ming, 1), "sanfang": sanfang,
-            "shensha": round(sh, 1)}
+            "shensha": round(sh, 1), "relations": round(rels, 1)}
     overall = sum(dims[k] * WEIGHTS[k] for k in DIMS)
 
     # 六领域
@@ -301,9 +400,10 @@ def score_overall(chart, zc) -> dict:
         break
 
     hl, wk = [], []
-    for n in s_plus + f_notes + c_notes + r_notes:
+    for n in s_plus + f_notes + c_notes + r_notes + rel_plus[:2]:
         (wk if ("断点" in n or "断绝" in n or "偏枯" in n) else hl).append(n)
 
+    s_minus.extend(rel_minus[:2])
     overall = max(2.0, min(98.0, overall))
     pct = percentile_of(overall)
     return {

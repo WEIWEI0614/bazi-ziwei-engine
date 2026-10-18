@@ -184,28 +184,26 @@ REP_GAN = {"木": "甲", "火": "丙", "土": "戊", "金": "庚", "水": "壬"}
 def zhi_effective(chart, zhi: str) -> tuple[str, str, float]:
     """流年/流月地支进入原局后的**实际五行**。
 
-    这是旧版最要命的一处漏洞：三合/半合只被记成一句「与命局成三合火局」并按
-    ±5.5 扣分，却没有改变这个地支的五行。于是「寅」永远按木（偏财）算，
-    哪怕原局午戌俱全、寅午戌已合成火局——实际是七杀成群，读出来却是财星到位。
+    交给 `relations` 判：三会三合全则化神整体生效，半合半化，六合要月令支持
+    才算化，争合与妒合各自减半。旧版只认「三合齐 / 半合」两档，且完全不管
+    月令与透干，于是寅午在冬天也被当成火局。
 
-    返回 (五行, 说明, 生效强度)。强度 1.0 = 三合/三会齐，0.5 = 半合，0 = 未成局。
+    返回 (五行, 说明, 生效强度)。
     """
-    have = [z for z in chart.all_zhi()]
-    for grp in SANHE:                       # ("申","子","辰","水")
-        if zhi in grp[:3]:
-            others = {z for z in have if z in grp[:3] and z != zhi}
-            if len(others) >= 2:
-                return grp[3], f"{zhi}与原局成三合{grp[3]}局", 1.0
-            if len(others) == 1:
-                return grp[3], f"{zhi}与原局半合{grp[3]}局", 0.5
-    for grp in SANHUI:                      # ("寅","卯","辰","木")
-        if zhi in grp[:3]:
-            others = {z for z in have if z in grp[:3] and z != zhi}
-            if len(others) >= 2:
-                return grp[3], f"{zhi}与原局成三会{grp[3]}局", 1.0
-            if len(others) == 1:
-                return grp[3], f"{zhi}与原局半会{grp[3]}局", 0.5
-    return ZHI_WUXING[ZHI.index(zhi)], "", 0.0
+    from . import relations as _rel
+
+    model = _rel.settle(_rel.analyse(chart, extra=zhi))
+    info = _rel.incoming(model)
+    note = ""
+    if info["merged"]:
+        rel = max((r for r in info["relations"]
+                   if r.kind in ("三会", "三合", "半合", "六合") and r.transforms),
+                  key=lambda r: r.strength, default=None)
+        if rel is not None:
+            note = f"{zhi}与原局{rel.kind}成{rel.element}局"
+            if rel.note:
+                note += f"（{rel.note}）"
+    return info["element"], note, info["share"]
 
 
 def _element_of(gan: str, zhi: str, merged_wx: str | None = None) -> dict:
@@ -375,61 +373,103 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     comp["十神"] = _r1(god_s)
 
     # ---- 3) 会合刑冲（有合先论合，且冲合要分喜忌）------------------------
-    # 旧版凡冲皆罚，于是「冲去忌神」这种本该去病的好年份被判成凶年。
-    # 冲合真正的吉凶取决于**被作用的那一字是喜是忌**：
-    #   冲忌神 → 去病为吉；冲用神 → 伤用为凶；冲闲神 → 动而无咎。
+    # 吉凶取决于**被作用的那一字是喜是忌**：冲忌神是去病，冲用神是拆台，
+    # 冲闲神只是动。三会/半会、三刑、争合、入墓全部交给 relations 判，
+    # 这里只负责把「强度 × 柱位 × 喜忌」折成分数。
+    from . import relations as _rel
+
     rels: list[str] = []
     delta = 0.0
     POSW = {"年": 0.9, "月": 1.1, "日": 1.4, "时": 0.8}
+    POS_OF = {0: "年", 1: "月", 2: "日", 3: "时"}
+
+    model = _rel.settle(_rel.analyse(chart, extra=zhi))
+    node_of = dict(model.nodes)
+
+    def side_of(i: int) -> int:
+        """命局这一支（合化之后）对日主是喜 +1、忌 -1、闲 0。"""
+        merged = model.merged.get(i)
+        el = merged[0] if merged else ZHI_WUXING[ZHI.index(node_of[i])]
+        return 1 if el in favor else (-1 if el in avoid else 0)
+
+    for r in model.items:
+        if 4 not in r.pos:
+            continue
+        others = [i for i in r.pos if i < 4]
+        if not others:
+            continue
+        w = max(POSW[POS_OF[i]] for i in others)
+        k = min(1.6, r.strength / max(_rel.BASE.get(r.kind, 1.0), 1e-6))
+        sign = sum(side_of(i) for i in others) / len(others)
+        where = "/".join(POS_OF[i] for i in others)
+
+        if r.kind == "六冲":
+            base = 4.5 if sign > 0 else (-6.5 if sign < 0 else -1.5)
+            delta += base * k * w
+            rels.append(f"{where}支{''.join(r.zhis)}{r.kind}")
+        elif r.kind == "六合":
+            base = 3.2 if sign > 0 else (-3.0 if sign < 0 else 0.6)
+            delta += base * k * w
+            rels.append(f"{where}支{r.label}")
+        elif r.kind in ("三刑", "相刑", "自刑", "六害", "六破"):
+            sev = {"三刑": 4.2, "相刑": 2.6, "自刑": 2.2,
+                   "六害": 1.6, "六破": 1.3}[r.kind]
+            delta -= sev * k * w
+            rels.append(f"{where}支{r.label}")
+        elif r.kind in ("三会", "三合", "半合", "拱合"):
+            s_hua = 1 if r.element in favor else (-1 if r.element in avoid else 0)
+            # 力量已在用神/十神里按化神算过，这里只留「动」的余量
+            amt = (2.0 if s_hua > 0 else -2.0 if s_hua < 0 else 0.8)
+            delta += amt * k * (1.0 if r.transforms else 0.4)
+            rels.append(f"{r.label}")
+
+    # 伏吟：流年支与命局某支相同。（辰午酉亥的自刑已由 relations 给出）
+    for i, p in enumerate(chart.pillars):
+        if p.zhi == zhi and zhi not in _rel.SELF_XING:
+            delta -= 2.0 * POSW[POS_NAMES[i]]
+            rels.append(f"流年{zhi}伏吟{POS_NAMES[i]}支")
+
+    # 墓库：用神入墓则失其用，冲开库则所藏之物出得来
+    for i, z in model.nodes:
+        if z not in _rel.TOMB:
+            continue
+        stored = _rel.TOMB[z]
+        if i < 4 and CHONG.get(zhi) == z:          # 流年冲开此库
+            if stored in favor:
+                delta += 3.2
+                rels.append(f"冲开{z}库，{stored}得出")
+            elif stored in avoid:
+                delta -= 2.4
+                rels.append(f"冲开{z}库，{stored}忌神出")
+        elif i == 4 and stored in favor:           # 流年自身带库，用神被封
+            delta -= 2.6
+            rels.append(f"流年{zhi}为{stored}之墓")
+        elif i == 4 and stored in avoid:
+            delta += 1.8
+            rels.append(f"流年{zhi}收{stored}入墓")
+
+    # 天干：运/年干只与命局四干论，模型里没有它的位置
     for i, p in enumerate(chart.pillars):
         pos = POS_NAMES[i]
         w = POSW[pos]
-        zrels = zhi_relations(p.zhi, zhi)
-        sign = gexi.rel_sign(sysd, p.zhi)          # 命局此支的喜忌
-        has_he = "六合" in zrels
-        for r in zrels:
-            rels.append(f"{pos}支{p.zhi}与{zhi}{r}")
-            if r == "六合":
-                delta += (3.2 if sign > 0 else -3.0 if sign < 0 else 0.6) * w
-            elif r == "六冲":
-                # 合能解冲：本柱既合又冲时，冲力折半
-                base = 4.5 if sign > 0 else (-6.5 if sign < 0 else -1.5)
-                delta += base * (0.5 if has_he else 1.0) * w
-            elif r == "相刑":
-                delta -= 2.6 * w
-            elif r in ("相害", "相破"):
-                delta -= 1.6 * w
-            elif r == "伏吟":
-                delta -= 2.0 * w
         el_p = GAN_WUXING[GAN.index(p.gan)]
         s_gan = 1 if el_p in avoid else (-1 if el_p in favor else 0)
-        for r in gan_relations(p.gan, gan):
-            rels.append(f"{pos}干{p.gan}与{gan}{r}")
-            if r == "天干相冲":
+        for rr in gan_relations(p.gan, gan):
+            rels.append(f"{pos}干{p.gan}与{gan}{rr}")
+            if rr == "天干相冲":
                 delta += (3.0 if s_gan > 0 else -4.0 if s_gan < 0 else -1.0) * w
-            elif r == "天干五合":
+            elif rr == "天干五合":
                 delta += (2.2 if s_gan > 0 else -2.2 if s_gan < 0 else 0.6) * w
         if GAN_CHONG.get(p.gan) == gan and CHONG[p.zhi] == zhi:
             rels.append(f"与{pos}柱天克地冲")
+            sign = side_of(i)
             if sign > 0 and s_gan > 0:
                 delta += 5.0 * w          # 天克地冲，克的都是忌神 —— 去病最彻底
             elif sign < 0 or s_gan < 0:
                 delta -= 8.0 * w
             else:
                 delta -= 3.0 * w
-    for grp in SANHE:
-        if zhi in grp[:3]:
-            have = [z for z in chart.all_zhi() if z in grp[:3] and z != zhi]
-            # 三合的吉凶看化神（grp[3]）是否为喜用，不看「合了就好」
-            s_hua = 1 if grp[3] in favor else (-1 if grp[3] in avoid else 0)
-            # 合局的「力量」已经在用神/十神里按化神算过了，这里只留「动」的余量，
-            # 否则同一件事被罚两次，三合局会把冲合项顶到钳位上。
-            if len(set(have)) >= 2:
-                delta += (2.0 if s_hua > 0 else -2.0 if s_hua < 0 else 0.8)
-                rels.append(f"{zhi}与命局成三合{grp[3]}局")
-            elif len(set(have)) == 1:
-                delta += (1.0 if s_hua > 0 else -1.0 if s_hua < 0 else 0.4)
-                rels.append(f"{zhi}与{have[0]}半合{grp[3]}局")
+
     # 一柱被冲可抵数项，若不设上限，三刑两冲一齐来时冲合项会压过喜忌，
     # 变成「只看冲不看用神」，与开篇定的顺序相反。
     comp["冲合"] = _r1(max(-12.0, min(12.0, delta)))
@@ -441,13 +481,14 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     if luck:
         lg, lz = luck.gan, luck.zhi
         e_lg = GAN_WUXING[GAN.index(lg)]
-        e_lz = ZHI_WUXING[ZHI.index(lz)]
+        # 大运地支同样进原局论合化：一部运的寅，落在午戌俱全的局里是火不是木
+        e_lz, _lz_note, _lz_share = zhi_effective(chart, lz)
         s_lg = 1.0 if e_lg in favor else (-1.0 if e_lg in avoid else 0.0)
         s_lz = 1.0 if e_lz in favor else (-1.0 if e_lz in avoid else 0.0)
         tone = max(-1.0, min(1.0, s_lg * 0.4 + s_lz * 0.6))
         big = tone * 9.0
         l_god = shishen(dm, lg)
-        l_zgod = shishen(dm, HIDDEN[lz][0])
+        l_zgod = shishen(dm, REP_GAN[e_lz])
         if l_god in sysd["dislike_gods"] or l_zgod in sysd["dislike_gods"]:
             big -= 3.0
             rels.append(f"大运{l_god}/{l_zgod}为格局所忌")
