@@ -53,7 +53,9 @@ def _entropy(weights: dict) -> float:
 
 
 def _useful(chart):
-    return bz_luck.useful_elements(chart)
+    # 整体评分沿用扶抑口径（分位数表按它标定），与流年所用的格局用神体系分开；
+    # 两者混用会让所有人的总分一起漂移。
+    return bz_luck.strength_useful(chart)
 
 
 def structure_score(chart) -> tuple[float, list[str], list[str]]:

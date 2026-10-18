@@ -9,6 +9,7 @@ from ..calendar import astro, lunar
 from ..calendar.ganzhi import (CHONG, GAN, GAN_CHONG, GAN_HE, GAN_WUXING, HAI6,
                                HE6, HIDDEN, KE, PO, SANHE, SHENG, TIANYI,
                                WENCHANG, ZHI, ZHI_WUXING, LU, shishen)
+from . import gexi
 
 POS_NAMES = ("年", "月", "日", "时")
 POS_WEIGHT = {"年": 0.7, "月": 1.0, "日": 1.3, "时": 0.8}
@@ -186,47 +187,42 @@ def _element_of(gan: str, zhi: str) -> dict:
 
 
 def useful_elements(chart) -> tuple[list[str], list[str], dict]:
-    """Return (喜用, 忌, explanation) from strength + 調候 + 格局."""
+    """喜用与忌神 —— 走格局用神体系（见 bazi/gexi.py）。
+
+    返回 (喜用, 忌, 说明)。喜用只有一到两个五行，忌神一到两个，其余是闲神；
+    这是「流年能分出好坏」的前提。旧版把食伤财官（或印比）一股脑塞进喜用，
+    五个五行全被分类，年年有话说，等于年年没话说。
+    """
+    sysd = gexi.useful_system(chart)
+    explanation = {
+        "primary": sysd["primary"],
+        "primary_class": sysd["primary_class"],
+        "rescue": sysd["rescue"],
+        "neutral": sysd["neutral"],
+        "strength_based": "；".join(sysd["why"]),
+        "tiaohou": (f"调候主用{sysd['tiaohou_element'] or '—'}，"
+                    f"仅作参看，不改用神"),
+        "note": "用神以强弱定方向、格局定先后；流派不同结论可能不同，"
+                "请用 events 校准。",
+    }
+    return sysd["favor"], sysd["avoid"], explanation
+
+
+def strength_useful(chart) -> tuple[list[str], list[str], dict]:
+    """扶抑派的粗判，仅供整体评分里的「身强用财官」一句判断使用。
+
+    整体评分与分位数表是按这一套标定的，换掉会让所有人的分数一起漂移，
+    所以这里保留旧口径，与流年所用的格局用神体系分开。
+    """
     dm_wx = chart.day_master_wx
     yin = [k for k in SHENG if SHENG[k] == dm_wx][0]
     shi = SHENG[dm_wx]
     cai = KE[dm_wx]
     guan = [k for k in KE if KE[k] == dm_wx][0]
     strong = chart.strength >= 50
-
-    favor, avoid = [], []
     if strong:
-        favor = [shi, cai, guan]
-        avoid = [dm_wx, yin]
-        reason = (f"日主{dm_wx}偏强（同党 {chart.strength:.1f}%），宜泄宜克："
-                  f"以{shi}（食伤）泄秀、{cai}（财）耗身、{guan}（官杀）制身")
-    else:
-        favor = [yin, dm_wx]
-        avoid = [cai, guan, shi]
-        reason = (f"日主{dm_wx}偏弱（同党 {chart.strength:.1f}%），宜生宜扶："
-                  f"以{yin}（印）生身、{dm_wx}（比劫）帮身")
-
-    # 調候：只取「主用」（sequence 第一位），且必须从忌神中剔除。
-    # 早前把整个 sequence 都塞进 favor，导致戊土这样的佐神同时出现在喜与忌里，
-    # favor 膨胀到四个五行，等于「什么都好」，流年判断随之失效。
-    th = chart.tiaohou
-    th_els = []
-    seq = th.get("sequence", "") or ""
-    if seq:
-        w = GAN_WUXING[GAN.index(seq[0])]
-        th_els.append(w)
-        if w in avoid:
-            avoid.remove(w)
-        if w not in favor:
-            favor.insert(0, w)
-    explanation = {
-        "strength_based": reason,
-        "tiaohou": (f"調候取{th.get('sequence','')}（{th.get('primary','')}為先），"
-                    f"已見：{''.join(th.get('satisfied', [])) or '無'}；"
-                    f"缺：{''.join(th.get('missing', [])) or '無'}"),
-        "note": "喜用神為啟發式判定，流派不同結論可能不同，請對照 events 校準結果。",
-    }
-    return favor, avoid, explanation
+        return [shi, cai, guan], [dm_wx, yin], {"strong": True}
+    return [yin, dm_wx], [cai, guan, shi], {"strong": False}
 
 
 # ---------------------------------------------------------------------------
@@ -235,17 +231,22 @@ def useful_elements(chart) -> tuple[list[str], list[str], dict]:
 
 
 def _band(score: float) -> str:
-    if score >= 80:
+    """分档阈值按实际分布的分位数定，不是拍脑袋定的整数。
+
+    旧阈值 80/68/58/46 把七成以上的年份塞进「平」和「小吉」，用户看到的
+    是一条几乎平的线 —— 那不是命平，是刻度坏了。
+    """
+    if score >= 72:
         return "大吉"
-    if score >= 68:
+    if score >= 63:
         return "吉"
-    if score >= 58:
+    if score >= 55:
         return "小吉"
-    if score >= 46:
+    if score >= 45:
         return "平"
-    if score >= 42:
+    if score >= 40:
         return "小凶"
-    if score >= 38:
+    if score >= 35:
         return "偏弱"
     return "凶"
 
@@ -291,13 +292,13 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     dm = chart.day_master
     ss_g = shishen(dm, gan)
     ss_z = shishen(dm, HIDDEN[zhi][0])
-    favor, avoid, _ = useful_elements(chart)
+    sysd = gexi.useful_system(chart)
+    favor, avoid = sysd["favor"], sysd["avoid"]
     comp: dict[str, float] = {}
 
     # ---- 1) 喜忌：地支 0.6、天干 0.4，地支权重加倍（主吉凶之本体）---------
+    # 只看喜、忌两类；闲神不论吉凶 —— 这是「平年」唯一可能的来源。
     add = _element_of(gan, zhi)
-    # 负向系数低于正向：不得用是常态，得用才是稀缺，故不一味重罚。
-    # 更重要的一条：忌神有制则不凶 —— 局中有克它或泄它的五行且有力时，惩罚折半。
     es = chart.element_scores
     gain = 0.0
     loss = 0.0
@@ -305,84 +306,107 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         if v <= 0:
             continue
         if el in favor:
-            gain += v * 1.7
-        if el in avoid:
+            # 用神本身重于相神，不可等量齐观
+            gain += v * (2.0 if el == sysd["primary"] else 1.5)
+        elif el in avoid:
             ctrl = [k for k in KE if KE[k] == el][0]      # 克我者
             drain = SHENG[el]                              # 我生者（泄）
             checked = max(es.get(ctrl, 0), es.get(drain, 0))
-            loss += v * (0.55 if checked >= 8 else 1.10)
-    # 上限收到 ±18/−16：原来的 ±26 只要干支都落在喜用就顶格，
-    # 于是同一张盘在 80 与 25 之间反复跳，读起来像「命在剧烈摇摆」。
-    comp["用神"] = _r1(max(-16.0, min(18.0, (gain - loss) * 40.0)))
-    comp["忌神有制"] = 1.0 if loss < sum(v * 1.10 for e, v in add.items() if e in avoid) else 0.0
+            loss += v * (0.7 if checked >= 8 else 1.6)
+    comp["用神"] = _r1(max(-20.0, min(20.0, (gain - loss) * 10.0)))
+    comp["忌神有制"] = 1.0 if loss < sum(
+        v * 1.6 for e, v in add.items() if e in avoid) else 0.0
 
-    # ---- 2) 十神 ----------------------------------------------------------
-    f_gan = GAN_WUXING[GAN.index(gan)] in favor
-    f_zhi = GAN_WUXING[GAN.index(HIDDEN[zhi][0])] in favor
-    god_s = _ten_god_score(ss_g, f_gan) * 0.5 + _ten_god_score(ss_z, f_zhi) * 0.7
+    # ---- 2) 十神（吉凶随格局变：正官格见伤官是破格，伤官格见伤官是驾御）--
+    el_gan = GAN_WUXING[GAN.index(gan)]
+    el_zhi = GAN_WUXING[GAN.index(HIDDEN[zhi][0])]
+    god_s = (gexi.god_score(ss_g, sysd, el_gan in favor, el_gan in avoid) * 0.45
+             + gexi.god_score(ss_z, sysd, el_zhi in favor, el_zhi in avoid) * 0.65)
     comp["十神"] = _r1(god_s)
 
-    # ---- 3) 会合刑冲（有合先论合）----------------------------------------
+    # ---- 3) 会合刑冲（有合先论合，且冲合要分喜忌）------------------------
+    # 旧版凡冲皆罚，于是「冲去忌神」这种本该去病的好年份被判成凶年。
+    # 冲合真正的吉凶取决于**被作用的那一字是喜是忌**：
+    #   冲忌神 → 去病为吉；冲用神 → 伤用为凶；冲闲神 → 动而无咎。
     rels: list[str] = []
-    penalty = 0.0
-    bonus = 0.0
-    POSW = {"年": 1.0, "月": 1.2, "日": 1.4, "时": 0.9}
+    delta = 0.0
+    POSW = {"年": 0.9, "月": 1.1, "日": 1.4, "时": 0.8}
     for i, p in enumerate(chart.pillars):
         pos = POS_NAMES[i]
         w = POSW[pos]
         zrels = zhi_relations(p.zhi, zhi)
+        sign = gexi.rel_sign(sysd, p.zhi)          # 命局此支的喜忌
         has_he = "六合" in zrels
         for r in zrels:
             rels.append(f"{pos}支{p.zhi}与{zhi}{r}")
             if r == "六合":
-                bonus += 3.2 * w
+                delta += (3.2 if sign > 0 else -3.0 if sign < 0 else 0.6) * w
             elif r == "六冲":
                 # 合能解冲：本柱既合又冲时，冲力折半
-                penalty += (3.5 if has_he else 7.0) * w
+                base = 4.5 if sign > 0 else (-6.5 if sign < 0 else -1.5)
+                delta += base * (0.5 if has_he else 1.0) * w
             elif r == "相刑":
-                penalty += 4.0 * w
+                delta -= 2.6 * w
             elif r in ("相害", "相破"):
-                penalty += 2.5 * w
+                delta -= 1.6 * w
             elif r == "伏吟":
-                penalty += 3.5 * w
+                delta -= 2.0 * w
+        el_p = GAN_WUXING[GAN.index(p.gan)]
+        s_gan = 1 if el_p in avoid else (-1 if el_p in favor else 0)
         for r in gan_relations(p.gan, gan):
             rels.append(f"{pos}干{p.gan}与{gan}{r}")
             if r == "天干相冲":
-                penalty += 3.5 * w
+                delta += (3.0 if s_gan > 0 else -4.0 if s_gan < 0 else -1.0) * w
             elif r == "天干五合":
-                bonus += 2.2 * w
+                delta += (2.2 if s_gan > 0 else -2.2 if s_gan < 0 else 0.6) * w
         if GAN_CHONG.get(p.gan) == gan and CHONG[p.zhi] == zhi:
-            penalty += 6.0 * w
             rels.append(f"与{pos}柱天克地冲")
+            if sign > 0 and s_gan > 0:
+                delta += 5.0 * w          # 天克地冲，克的都是忌神 —— 去病最彻底
+            elif sign < 0 or s_gan < 0:
+                delta -= 8.0 * w
+            else:
+                delta -= 3.0 * w
     for grp in SANHE:
         if zhi in grp[:3]:
             have = [z for z in chart.all_zhi() if z in grp[:3] and z != zhi]
+            # 三合的吉凶看化神（grp[3]）是否为喜用，不看「合了就好」
+            s_hua = 1 if grp[3] in favor else (-1 if grp[3] in avoid else 0)
             if len(set(have)) >= 2:
-                bonus += 5.0
+                delta += (5.5 if s_hua > 0 else -5.5 if s_hua < 0 else 1.5)
                 rels.append(f"{zhi}与命局成三合{grp[3]}局")
             elif len(set(have)) == 1:
-                bonus += 2.0
+                delta += (2.2 if s_hua > 0 else -2.2 if s_hua < 0 else 0.6)
                 rels.append(f"{zhi}与{have[0]}半合{grp[3]}局")
-    comp["冲合"] = _r1(bonus - penalty)
+    # 一柱被冲可抵数项，若不设上限，三刑两冲一齐来时冲合项会压过喜忌，
+    # 变成「只看冲不看用神」，与开篇定的顺序相反。
+    comp["冲合"] = _r1(max(-12.0, min(12.0, delta)))
 
     # ---- 4) 大运（定十年基调，流年只作触发）------------------------------
+    # 天干主外、地支主内，四六开；大运十神若为格局所忌，另计破格之罚。
     tone = 0.0
     big = 0.0
     if luck:
         lg, lz = luck.gan, luck.zhi
-        ladd = _element_of(lg, lz)
-        lg_gain = sum(v for e, v in ladd.items() if e in favor)
-        lg_loss = sum(v for e, v in ladd.items() if e in avoid)
-        tone = max(-1.0, min(1.0, (lg_gain - lg_loss) * 1.8))
-        big = tone * 7.0
+        e_lg = GAN_WUXING[GAN.index(lg)]
+        e_lz = ZHI_WUXING[ZHI.index(lz)]
+        s_lg = 1.0 if e_lg in favor else (-1.0 if e_lg in avoid else 0.0)
+        s_lz = 1.0 if e_lz in favor else (-1.0 if e_lz in avoid else 0.0)
+        tone = max(-1.0, min(1.0, s_lg * 0.4 + s_lz * 0.6))
+        big = tone * 9.0
+        l_god = shishen(dm, lg)
+        l_zgod = shishen(dm, HIDDEN[lz][0])
+        if l_god in sysd["dislike_gods"] or l_zgod in sysd["dislike_gods"]:
+            big -= 3.0
+            rels.append(f"大运{l_god}/{l_zgod}为格局所忌")
         if GAN_CHONG.get(lg) == gan and CHONG[lz] == zhi:
-            big -= 8.0
+            big -= 6.0
             rels.append("大运流年天克地冲")
         if zhi == lz:
-            big -= 3.0
+            big -= 2.0
             rels.append("流年伏吟大运")
         elif CHONG.get(lz) == zhi:
-            big -= 2.5
+            big -= 1.5
             rels.append("流年冲大运")
     comp["大运"] = _r1(big)
 
@@ -409,10 +433,12 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     elif tone < 0 and raw > 50:
         raw = 50 + (raw - 50) * (1 - 0.42 * abs(tone))
 
-    # 收窄到 40–86：实际命理软件的单年读数很少低于 40 或高于 86，
-    # 这是「倾向」而非「判决」，压缩后才有可比性。
-    score = 50.0 + (max(0.0, min(100.0, raw)) - 50.0) * 0.72
-    score = max(40.0, min(88.0, score))
+    # 收窄到 32–94：单年读数是「倾向」而非「判决」。
+    # 0.72 的压缩会把标准差一起压掉，好坏年看起来一样；0.85 保留区分度。
+    # 下限放到 32 而不是 40，否则最差的一批年份全堆在同一个数上，
+    # 点「凶年」和「较差」得到同一个读数，反而没有信息。
+    score = 50.0 + (max(0.0, min(100.0, raw)) - 50.0) * 0.85
+    score = max(32.0, min(94.0, score))
     comp["base"] = 50.0
     comp["raw"] = _r1(raw)
     comp["大运基调"] = round(tone, 2)
@@ -496,6 +522,10 @@ def month_periods(chart, year: int, luck: LuckCycle | None = None) -> list[Perio
     order = ["立春", "惊蛰", "清明", "立夏", "芒种", "小暑",
              "立秋", "白露", "寒露", "立冬", "大雪", "小寒"]
     yg = GAN[(year - 4) % 10]
+    # 流年基调：流月是「节奏」，流年是「主题」，月份必须围绕年走，
+    # 而不是各自独立算完再压到 50 —— 那样十二个月的读数几乎一样。
+    n_zhi = ZHI[(year - 4) % 12]
+    base = evaluate_period(chart, yg, n_zhi, luck)
     for k, name in enumerate(order):
         yy = year if name != "小寒" else year + 1
         start = astro.term_local(yy, name)
@@ -518,8 +548,9 @@ def month_periods(chart, year: int, luck: LuckCycle | None = None) -> list[Perio
                    start="%04d-%02d-%02d" % s[:3],
                    end="%04d-%02d-%02d" % e[:3])
         p.score = ev["score"]
-        # months are scaled: pull toward 50
-        p.score = round(50 + (ev["score"] - 50) * 0.72, 1)
+        # 流月 = 流年基调 + (月令与流年的差异) × 0.55
+        # 不围着流年走，月份就成了十二个互不相干的读数；压得太狠又会全挤在中间。
+        p.score = _r1(base["score"] + (ev["score"] - base["score"]) * 0.55)
         p.band = _band(p.score)
         p.shishen_gan, p.shishen_zhi = ev["shishen_gan"], ev["shishen_zhi"]
         p.components, p.relations = ev["components"], ev["relations"]

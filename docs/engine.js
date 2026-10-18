@@ -611,28 +611,195 @@
     h.forEach((s, i) => { d[D.GAN_WUXING[gi(s)]] += 0.6 * w[i]; });
     return d;
   }
+  const GWX_MAP = (() => { const o = {}; D.GAN.split("").forEach((g, i) => { o[g] = D.GAN_WUXING[i]; }); return o; })();
+
+  /* ---- 用神体系：与 mingli/bazi/gexi.py 逐条对应 ----------------------
+     旧版只看日主强弱，身强取食伤财官、身弱取印比，再把调候主用塞进去，
+     喜用动辄三四个五行、忌神两个 —— 五个五行全被分类，没有闲神，
+     于是每年都被判吉凶，读数还在两端反复跳。
+     这一版：强弱定方向、格局定先后；喜用一到两个五行，忌神一到两个，
+     其余的才是闲神，也才有「平年」。 */
+  const GE_KEY = {
+    "正官格": "正官", "七杀格": "七杀", "正财格": "正财", "偏财格": "偏财",
+    "食神格": "食神", "伤官格": "伤官", "正印格": "正印", "偏印格": "偏印",
+    "建禄格": "建禄", "月刃格": "月刃", "比劫格": "比劫",
+    "比肩格": "比劫", "劫财格": "比劫", "杂气格": "杂气",
+    "从格（从势/从财杀）": "从格",
+    "曲直仁寿格": "专旺", "炎上格": "专旺", "稼穑格": "专旺",
+    "从革格": "专旺", "润下格": "专旺"
+  };
+  const GE_PREF = {
+    正官: { like: ["正财", "偏财", "正印", "偏印"], dislike: ["伤官", "七杀"] },
+    七杀: { like: ["食神", "伤官", "正印", "偏印"], dislike: ["正财", "偏财"] },
+    正财: { like: ["食神", "伤官", "正官"], dislike: ["比肩", "劫财"] },
+    偏财: { like: ["食神", "伤官", "正官", "七杀"], dislike: ["比肩", "劫财"] },
+    正印: { like: ["正官", "七杀", "比肩"], dislike: ["正财", "偏财"] },
+    偏印: { like: ["正官", "七杀"], dislike: ["偏财", "正财"] },
+    食神: { like: ["正财", "偏财", "食神"], dislike: ["偏印"] },
+    伤官: { like: ["正财", "偏财", "正印"], dislike: ["正官"] },
+    建禄: { like: ["正官", "七杀", "正财", "食神"], dislike: ["比肩", "劫财", "正印", "偏印"] },
+    月刃: { like: ["正官", "七杀"], dislike: ["比肩", "劫财", "正印", "偏印"] },
+    比劫: { like: ["正官", "七杀", "正财"], dislike: ["比肩", "劫财"] },
+    杂气: { like: [], dislike: [] },
+    从格: { like: [], dislike: [] },
+    专旺: { like: [], dislike: [] }
+  };
+  const GOD_CLASS = {
+    比肩: "比劫", 劫财: "比劫", 食神: "食伤", 伤官: "食伤",
+    正财: "财", 偏财: "财", 正官: "官杀", 七杀: "官杀", 正印: "印", 偏印: "印"
+  };
+  const CLASS_ZH = { 比劫: "比劫（同党）", 食伤: "食伤（泄秀）", 财: "财（耗身）",
+    官杀: "官杀（制身）", 印: "印（生身）" };
+  const geKey = (n) => GE_KEY[n] || "杂气";
+  const elOfClass = (dmwx, cls) => {
+    if (cls === "比劫") return dmwx;
+    if (cls === "食伤") return D.SHENG[dmwx];
+    if (cls === "财") return D.KE[dmwx];
+    if (cls === "官杀") return Object.keys(D.KE).find((k) => D.KE[k] === dmwx);
+    return Object.keys(D.SHENG).find((k) => D.SHENG[k] === dmwx);
+  };
+  const presentEls = (c) => {
+    const s = new Set();
+    c.pillars.forEach((p) => {
+      s.add(GWX_MAP[p.gan]);
+      (p.hidden || []).forEach((h) => s.add(GWX_MAP[h]));
+    });
+    return s;
+  };
+  const strongestEl = (c, exclude) => {
+    const es = c.elementScores;
+    return ["木", "火", "土", "金", "水"]
+      .filter((k) => k !== exclude)
+      .sort((a, b) => es[b] - es[a])[0];
+  };
+
   function usefulElements(c) {
+    const dmwx = c.dayMasterWx;
+    const ge = geKey((c.structure || {}).name || "");
+    const pref = GE_PREF[ge] || { like: [], dislike: [] };
+    const present = presentEls(c);
+    const es = c.elementScores;
+    const strong = c.strength >= 50;
+    const why = [];
+    let primary = "", primaryCls = "";
+
+    if (ge === "专旺") {
+      primary = dmwx; primaryCls = "比劫";
+      why.push(`专旺格以${dmwx}为体，顺其旺势，不逆不克`);
+    } else if (ge === "从格") {
+      primary = strongestEl(c, dmwx);
+      primaryCls = elClass(dmwx, primary);
+      why.push(`从格弃命从势，顺势取${primary}（${CLASS_ZH[primaryCls]}）`);
+    } else {
+      let order;
+      if (c.strength >= 62) {
+        order = ["正官", "七杀", "正财", "偏财", "食神", "伤官"];
+        why.push(`日主偏强（同党 ${c.strength.toFixed(1)}%），宜泄宜克`);
+      } else if (c.strength < 42) {
+        order = ["正印", "偏印", "比肩", "劫财"];
+        why.push(`日主偏弱（同党 ${c.strength.toFixed(1)}%），宜生宜扶`);
+      } else {
+        order = pref.like.length ? pref.like.slice() : ["正官", "正财", "食神"];
+        why.push(`日主中和（同党 ${c.strength.toFixed(1)}%），依格局取用`);
+      }
+      // 格局定先后：格局所喜者提到前面
+      order = order.filter((g) => pref.like.includes(g))
+        .concat(order.filter((g) => !pref.like.includes(g)));
+      for (const god of order) {
+        const cls = GOD_CLASS[god];
+        const el = elOfClass(dmwx, cls);
+        if (present.has(el)) {
+          primary = el; primaryCls = cls;
+          why.push(`取${god}所属之${el}（${CLASS_ZH[cls]}）为用，命局有根`);
+          break;
+        }
+      }
+      if (!primary) {
+        primary = strongestEl(c, "");
+        primaryCls = elClass(dmwx, primary);
+        why.push(`喜用不见于四柱，就命局最旺之${primary}论用，用神虚而力薄`);
+      }
+    }
+
+    const xiang = Object.keys(D.SHENG).find((k) => D.SHENG[k] === primary);
+    const ji = Object.keys(D.KE).find((k) => D.KE[k] === primary);
+    const favor = [primary];
+    const avoid = [ji];
+    if (xiang !== ji && !avoid.includes(xiang)) favor.push(xiang);
+
+    const rescue = [];
+    const yin = Object.keys(D.SHENG).find((k) => D.SHENG[k] === dmwx);
+    if (c.strength < 42) {
+      [yin, dmwx].forEach((el) => {
+        const i = avoid.indexOf(el);
+        if (i >= 0) avoid.splice(i, 1);
+        if (!favor.includes(el)) rescue.push(el);
+      });
+      why.push("印比转为扶助，不作忌神论");
+    } else if (c.strength >= 62) {
+      let room = 2 - avoid.length;
+      if (room > 0) {
+        const cand = [yin, dmwx].sort((a, b) => (es[b] || 0) - (es[a] || 0));
+        let added = false;
+        cand.slice(0, room).forEach((el) => {
+          if (!favor.includes(el) && !avoid.includes(el)) { avoid.push(el); added = true; }
+        });
+        if (added) why.push("印比加重为忌");
+      }
+    }
+    if (!avoid.length) {
+      // 与 Python 一致：只补第一个可补的，补满两个会挤掉全部闲神
+      const cands = [Object.keys(D.KE).find((k) => D.KE[k] === primary), D.SHENG[primary]];
+      for (const el of cands) {
+        if (el && !favor.includes(el)) { avoid.push(el); break; }
+      }
+    }
+
+    const ents = ["木", "火", "土", "金", "水"];
+    let neutral = ents.filter((k) => !favor.includes(k) && !avoid.includes(k) && !rescue.includes(k));
+    if (!neutral.length && favor.length > 1) {
+      const weakest = favor.slice().sort((a, b) => (es[a] || 0) - (es[b] || 0))[0];
+      favor.splice(favor.indexOf(weakest), 1);
+      neutral.push(weakest);
+      why.push(`${weakest}在局中最弱，降为闲神，不作吉凶论`);
+    }
+
+    return {
+      primary, primaryClass: primaryCls, favor, avoid, rescue, neutral,
+      likeG: pref.like, dislikeG: pref.dislike, ge, strong, why,
+      // 兼容旧调用点
+      yin, shi: D.SHENG[dmwx], cai: D.KE[dmwx],
+      guan: Object.keys(D.KE).find((k) => D.KE[k] === dmwx)
+    };
+  }
+
+  // 五行相对日主属于哪一个十神大类
+  function elClass(dmwx, el) {
+    if (el === dmwx) return "比劫";
+    if (el === D.SHENG[dmwx]) return "食伤";
+    if (el === D.KE[dmwx]) return "财";
+    if (D.KE[el] === dmwx) return "官杀";
+    return "印";
+  }
+
+  // 扶抑派粗判：只供整体评分里「身强用财官」那一句使用。
+  // 整体分与分位数表是按这一套标定的，换成格局用神会让所有人的分数一起漂移，
+  // 所以刻意与流年所用的 usefulElements 分开。
+  function strengthUseful(c) {
     const dmwx = c.dayMasterWx;
     const yin = Object.keys(D.SHENG).find((k) => D.SHENG[k] === dmwx);
     const shi = D.SHENG[dmwx], cai = D.KE[dmwx];
     const guan = Object.keys(D.KE).find((k) => D.KE[k] === dmwx);
-    const strong = c.strength >= 50;
-    let favor = strong ? [shi, cai, guan] : [yin, dmwx];
-    const avoid = strong ? [dmwx, yin] : [cai, guan, shi];
-    // 调候只取主用（sequence 第一位），且必须从忌神里剔除；
-    // 否则戊土这类佐神会同时出现在喜与忌中，favor 膨胀到四个五行。
-    const seq = c.tiaohou.sequence || "";
-    if (seq.length) {
-      const w = D.GAN_WUXING[gi(seq[0])];
-      const i = avoid.indexOf(w);
-      if (i >= 0) avoid.splice(i, 1);
-      if (!favor.includes(w)) favor.unshift(w);
-    }
-    return { favor, avoid, yin, shi, cai, guan, strong };
+    return c.strength >= 50
+      ? { favor: [shi, cai, guan], avoid: [dmwx, yin], strong: true }
+      : { favor: [yin, dmwx], avoid: [cai, guan, shi], strong: false };
   }
+
   function band(s) {
-    return s >= 80 ? "大吉" : s >= 68 ? "吉" : s >= 58 ? "小吉" : s >= 46 ? "平"
-      : s >= 42 ? "小凶" : s >= 38 ? "偏弱" : "凶";
+    // 阈值按实际分布的分位数定；旧的 80/68/58/46 把七成年份塞进「平」和
+    // 「小吉」，画出来的线几乎是平的 —— 不是命平，是刻度坏了。
+    return s >= 72 ? "大吉" : s >= 63 ? "吉" : s >= 55 ? "小吉" : s >= 45 ? "平"
+      : s >= 40 ? "小凶" : s >= 35 ? "偏弱" : "凶";
   }
   const THEME_MAP = D.THEME_MAP;
   const T = (zh, en) => ({ zh, en });
@@ -640,17 +807,27 @@
 
   const AUSPICIOUS = { 正财: 1, 正印: 1, 正官: 1, 食神: 1 };
   const OMINOUS = { 伤官: 1, 七杀: 1, 劫财: 1, 偏印: 1 };
-  const GWX_MAP = (() => { const o = {}; D.GAN.split("").forEach((g, i) => { o[g] = D.GAN_WUXING[i]; }); return o; })();
 
-  function tenGodScore(god, isFavor) {
-    if (AUSPICIOUS[god]) return isFavor ? 5 : 1.5;
-    if (OMINOUS[god]) return isFavor ? -1.5 : -5;
-    return isFavor ? 1.5 : -1.5;
+  // 十神吉凶：五行喜忌打底，格局喜忌修正。
+  // 正官格见伤官是破格，伤官格见伤官却是驾御 —— 固定吉神表在这一条上必错。
+  function tenGodScore(god, ue, elFavor, elAvoid) {
+    let base = elFavor ? 5 : (elAvoid ? -5 : 0);
+    if ((ue.likeG || []).includes(god)) base += 2.5;
+    if ((ue.dislikeG || []).includes(god)) base -= 3;
+    return base;
+  }
+
+  // 被作用之支（命局某柱）是喜是忌：+1 去病、-1 伤用、0 闲神
+  function relSign(ue, zhi) {
+    const el = D.ZHI_WUXING[D.ZHI.indexOf(zhi)];
+    if (ue.favor.includes(el)) return -1;
+    if (ue.avoid.includes(el)) return 1;
+    return 0;
   }
 
   /* 流年/流月评分 —— 顺序依《子平真诠》：
-       1 先看喜忌（地支为主） 2 再看十神（吉神/凶神×喜忌）
-       3 后看会合刑冲（有合先论合） 4 再叠大运基调 5 神煞仅作辅助 */
+       1 先看喜忌（地支为主） 2 再看十神（吉神/凶神×格局）
+       3 后看会合刑冲（冲合要分喜忌） 4 再叠大运基调 5 神煞仅作辅助 */
   function evaluatePeriod(c, gan, zhi, luckCyc) {
     const dm = c.dayMaster;
     const ssG = shishen(dm, gan), ssZ = shishen(dm, D.HIDDEN[zhi][0]);
@@ -664,75 +841,94 @@
     Object.keys(add).forEach((el) => {
       const v = add[el];
       if (v <= 0) return;
-      if (favor.includes(el)) gain += v * 1.7;
-      if (avoid.includes(el)) {
+      // 用神本身重于相神；闲神不参与，才有「平年」
+      if (favor.includes(el)) gain += v * (el === ue.primary ? 2.0 : 1.5);
+      else if (avoid.includes(el)) {
         // 忌神有制则不凶：局中有克它或泄它的五行且有力时，惩罚折半
         const ctrl = Object.keys(D.KE).find((k) => D.KE[k] === el);
         const drain = D.SHENG[el];
         const checked = Math.max(es[ctrl] || 0, es[drain] || 0);
-        loss += v * (checked >= 8 ? 0.55 : 1.10);
+        loss += v * (checked >= 8 ? 0.7 : 1.6);
       }
     });
-    // 上限收到 ±18/−16：原来的 ±26 只要干支都落在喜用就顶格，
-    // 于是同一张盘在 80 与 25 之间反复跳。
-    comp["用神"] = Math.round(Math.max(-16, Math.min(18, (gain - loss) * 40)) * 10) / 10;
+    comp["用神"] = Math.round(Math.max(-20, Math.min(20, (gain - loss) * 10)) * 10) / 10;
     comp["忌神有制"] = loss < Object.keys(add).filter((e) => avoid.includes(e))
-      .reduce((n, e) => n + add[e] * 1.10, 0) ? 1 : 0;
+      .reduce((n, e) => n + add[e] * 1.6, 0) ? 1 : 0;
 
-    const fGan = favor.includes(GWX_MAP[gan]);
-    const fZhi = favor.includes(GWX_MAP[D.HIDDEN[zhi][0]]);
-    comp["十神"] = Math.round((tenGodScore(ssG, fGan) * 0.5 + tenGodScore(ssZ, fZhi) * 0.7) * 10) / 10;
+    const elGan = GWX_MAP[gan], elZhi = GWX_MAP[D.HIDDEN[zhi][0]];
+    comp["十神"] = Math.round((tenGodScore(ssG, ue, favor.includes(elGan), avoid.includes(elGan)) * 0.45
+      + tenGodScore(ssZ, ue, favor.includes(elZhi), avoid.includes(elZhi)) * 0.65) * 10) / 10;
 
     const rels = [];
-    let penalty = 0, bonus = 0;
-    const POSW = { year: 1.0, month: 1.2, day: 1.4, hour: 0.9 };
+    let delta = 0;
+    const POSW = { year: 0.9, month: 1.1, day: 1.4, hour: 0.8 };
     const POSN = { year: "年", month: "月", day: "日", hour: "时" };
     c.pillars.forEach((p) => {
       const pos = POSN[p.position], w = POSW[p.position];
       const zr = zhiRels(p.zhi, zhi);
+      const sign = relSign(ue, p.zhi);          // 命局此支的喜忌
       const hasHe = zr.includes("六合");
       zr.forEach((r) => {
         rels.push(`${pos}支${p.zhi}与${zhi}${r}`);
-        if (r === "六合") bonus += 3.2 * w;
-        else if (r === "六冲") penalty += (hasHe ? 3.5 : 7.0) * w;
-        else if (r === "相刑") penalty += 4.0 * w;
-        else if (r === "相害" || r === "相破") penalty += 2.5 * w;
-        else if (r === "伏吟") penalty += 3.5 * w;
+        if (r === "六合") delta += (sign > 0 ? 3.2 : sign < 0 ? -3.0 : 0.6) * w;
+        else if (r === "六冲") {
+          // 冲忌神为去病（吉），冲用神为伤用（凶），冲闲神动而无咎
+          const base = sign > 0 ? 4.5 : (sign < 0 ? -6.5 : -1.5);
+          delta += base * (hasHe ? 0.5 : 1.0) * w;
+        } else if (r === "相刑") delta -= 2.6 * w;
+        else if (r === "相害" || r === "相破") delta -= 1.6 * w;
+        else if (r === "伏吟") delta -= 2.0 * w;
       });
+      const elP = GWX_MAP[p.gan];
+      const sGan = avoid.includes(elP) ? 1 : (favor.includes(elP) ? -1 : 0);
       ganRels(p.gan, gan).forEach((r) => {
         rels.push(`${pos}干${p.gan}与${gan}${r}`);
-        if (r === "天干相冲") penalty += 3.5 * w;
-        else if (r === "天干五合") bonus += 2.2 * w;
+        if (r === "天干相冲") delta += (sGan > 0 ? 3.0 : sGan < 0 ? -4.0 : -1.0) * w;
+        else if (r === "天干五合") delta += (sGan > 0 ? 2.2 : sGan < 0 ? -2.2 : 0.6) * w;
       });
       if (D.GAN_CHONG[p.gan] === gan && D.CHONG[p.zhi] === zhi) {
-        penalty += 6.0 * w;
         rels.push(`与${pos}柱天克地冲`);
+        if (sign > 0 && sGan > 0) delta += 5.0 * w;
+        else if (sign < 0 || sGan < 0) delta -= 8.0 * w;
+        else delta -= 3.0 * w;
       }
     });
     D.SANHE.forEach((grp) => {
       if (!grp.slice(0, 3).includes(zhi)) return;
       const have = [...new Set(c.pillars.map((p) => p.zhi)
         .filter((z) => grp.slice(0, 3).includes(z) && z !== zhi))];
-      if (have.length >= 2) { bonus += 5; rels.push(`${zhi}与命局成三合${grp[3]}局`); }
-      else if (have.length === 1) { bonus += 2; rels.push(`${zhi}与${have[0]}半合${grp[3]}局`); }
+      // 三合的吉凶看化神是否为喜用，不是「合了就吉」
+      const sHua = favor.includes(grp[3]) ? 1 : (avoid.includes(grp[3]) ? -1 : 0);
+      if (have.length >= 2) {
+        delta += sHua > 0 ? 5.5 : sHua < 0 ? -5.5 : 1.5;
+        rels.push(`${zhi}与命局成三合${grp[3]}局`);
+      } else if (have.length === 1) {
+        delta += sHua > 0 ? 2.2 : sHua < 0 ? -2.2 : 0.6;
+        rels.push(`${zhi}与${have[0]}半合${grp[3]}局`);
+      }
     });
-    comp["冲合"] = Math.round((bonus - penalty) * 10) / 10;
+    comp["冲合"] = Math.round(Math.max(-12, Math.min(12, delta)) * 10) / 10;
 
     let tone = 0, big = 0;
     if (luckCyc) {
-      const ladd = elementOf(luckCyc.gan, luckCyc.zhi);
-      let lg = 0, ll = 0;
-      Object.keys(ladd).forEach((e) => {
-        if (favor.includes(e)) lg += ladd[e];
-        if (avoid.includes(e)) ll += ladd[e];
-      });
-      tone = Math.max(-1, Math.min(1, (lg - ll) * 1.8));
-      big = tone * 7;
-      if (D.GAN_CHONG[luckCyc.gan] === gan && D.CHONG[luckCyc.zhi] === zhi) {
-        big -= 8; rels.push("大运流年天克地冲");
+      // 天干主外、地支主内，四六开
+      const eLg = GWX_MAP[luckCyc.gan];
+      const eLz = D.ZHI_WUXING[D.ZHI.indexOf(luckCyc.zhi)];
+      const sLg = favor.includes(eLg) ? 1 : (avoid.includes(eLg) ? -1 : 0);
+      const sLz = favor.includes(eLz) ? 1 : (avoid.includes(eLz) ? -1 : 0);
+      tone = Math.max(-1, Math.min(1, sLg * 0.4 + sLz * 0.6));
+      big = tone * 9;
+      const lGod = shishen(dm, luckCyc.gan);
+      const lZGod = shishen(dm, D.HIDDEN[luckCyc.zhi][0]);
+      if (ue.dislikeG.includes(lGod) || ue.dislikeG.includes(lZGod)) {
+        big -= 3;
+        rels.push(`大运${lGod}/${lZGod}为格局所忌`);
       }
-      if (zhi === luckCyc.zhi) { big -= 3; rels.push("流年伏吟大运"); }
-      else if (D.CHONG[luckCyc.zhi] === zhi) { big -= 2.5; rels.push("流年冲大运"); }
+      if (D.GAN_CHONG[luckCyc.gan] === gan && D.CHONG[luckCyc.zhi] === zhi) {
+        big -= 6; rels.push("大运流年天克地冲");
+      }
+      if (zhi === luckCyc.zhi) { big -= 2; rels.push("流年伏吟大运"); }
+      else if (D.CHONG[luckCyc.zhi] === zhi) { big -= 1.5; rels.push("流年冲大运"); }
     }
     comp["大运"] = Math.round(big * 10) / 10;
 
@@ -748,9 +944,9 @@
     if (tone > 0 && raw < 50) raw = 50 - (50 - raw) * (1 - 0.42 * tone);
     else if (tone < 0 && raw > 50) raw = 50 + (raw - 50) * (1 - 0.42 * Math.abs(tone));
 
-    // 收窄到 40–86：单年读数是「倾向」不是「判决」
-    let score = 50 + (Math.max(0, Math.min(100, raw)) - 50) * 0.72;
-    score = Math.max(40, Math.min(88, score));
+    // 收窄到 32–94：单年读数是「倾向」不是「判决」；0.72 会把标准差一起压掉
+    let score = 50 + (Math.max(0, Math.min(100, raw)) - 50) * 0.85;
+    score = Math.max(32, Math.min(94, score));
     comp["base"] = 50;
     comp["raw"] = Math.round(raw * 10) / 10;
     comp["大运基调"] = Math.round(tone * 100) / 100;
@@ -807,6 +1003,8 @@
     const yg = GAN[mod(year - 4, 10)];
     const first = TIGER[gi(yg)];
     const out = [];
+    // 流年基调：流月是「节奏」，流年是「主题」，月份必须围绕年走
+    const base = evaluatePeriod(c, yg, D.ZHI[mod(year - 4, 12)], luckCyc);
     order.forEach((nm, k) => {
       const yy = nm === "小寒" ? year + 1 : year;
       const start = termLocal(yy, nm);
@@ -818,7 +1016,7 @@
         label: g + z, gan: g, zhi: z,
         start: `${s[0]}-${String(s[1]).padStart(2, "0")}-${String(s[2]).padStart(2, "0")}`,
         end: `${e[0]}-${String(e[1]).padStart(2, "0")}-${String(e[2]).padStart(2, "0")}` }, ev,
-        { score: Math.round((50 + (ev.score - 50) * 0.72) * 10) / 10 }));
+        { score: Math.round((base.score + (ev.score - base.score) * 0.55) * 10) / 10 }));
     });
     out.forEach((p) => { p.band = band(p.score); });
     return out;
@@ -1136,7 +1334,7 @@
         s += 2; plus.push(T(`调候${pri}不见，得${sub}同类代之，力减而意存`, `${pri} absent, ${sub} substitutes at reduced strength`));
       } else { s -= 6; minus.push(T(`调候${pri}全无，气候失和`, `No trace of climate stem ${pri}`)); }
     }
-    const { favor } = usefulElements(c);
+    const { favor } = strengthUseful(c);
     const dm = c.dayMasterWx;
     const yin = Object.keys(D.SHENG).find((k) => D.SHENG[k] === dm);
     const cai = D.KE[dm];
@@ -1531,5 +1729,5 @@
     percentileOf, tierOf, interpretBazi, interpretZiwei, termLocal, buildBazi, buildZiwei,
     luckCycles, startLuck, luckDirection, yearPeriod, monthPeriods, evaluatePeriod,
     palaceScore, detectPatterns, ziweiSummary, decades, yearlyPalace,
-    scoreOverall, compareEvents, buildReading, usefulElements, shishen, zhiRels };
+    scoreOverall, compareEvents, buildReading, usefulElements, strengthUseful, shishen, zhiRels };
 })();

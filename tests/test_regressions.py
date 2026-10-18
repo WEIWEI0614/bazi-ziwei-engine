@@ -209,8 +209,67 @@ class TestPeriodConsistency(unittest.TestCase):
         c = build_chart("t", "male", 1990, 5, 15, 10, 20, longitude=116.4)
         cyc = next(x for x in luck_cycles(c, 10, 2026) if x.active)
         for m in month_periods(c, 2026, cyc):
-            self.assertGreaterEqual(m.score, 40)
-            self.assertLessEqual(m.score, 88)
+            self.assertGreaterEqual(m.score, 32)
+            self.assertLessEqual(m.score, 94)
+
+
+class TestPeriodScoringIsNotFlat(unittest.TestCase):
+    """旧版把五个五行全部分进喜用与忌神，并给「冲」一律扣分，结果十几年的
+    读数挤在中间同一档，用户看到的是一条平线。以下测试盯住这个症状。"""
+
+    def test_twenty_years_actually_vary(self):
+        import statistics
+        from mingli.bazi.luck import timeline
+        c = build_chart("t", "male", 1990, 5, 15, 10, 20, longitude=116.4)
+        scores = [p["score"] for p in timeline(c, from_year=2024, years=20)]
+        self.assertGreater(statistics.pstdev(scores), 5.0)
+        self.assertGreater(max(scores) - min(scores), 20.0)
+
+    def test_bands_are_not_all_the_same(self):
+        from mingli.bazi.luck import timeline
+        c = build_chart("t", "male", 1990, 5, 15, 10, 20, longitude=116.4)
+        bands = {p["band"] for p in timeline(c, from_year=2024, years=20)}
+        self.assertGreaterEqual(len(bands), 3)
+
+    def test_there_is_always_an_idle_element(self):
+        """喜用加忌神不能覆盖五个五行 —— 没有闲神就没有「平年」。"""
+        import random
+        from mingli.bazi.gexi import useful_system
+        random.seed(3)
+        for _ in range(120):
+            c = build_chart("t", random.choice(["male", "female"]),
+                            random.randint(1950, 2005), random.randint(1, 12),
+                            random.randint(1, 28), random.randint(0, 23), 0,
+                            longitude=116.4)
+            s = useful_system(c)
+            self.assertTrue(s["neutral"],
+                            f"{''.join(p.gan + p.zhi for p in c.pillars)} 没有闲神")
+            self.assertLessEqual(len(s["favor"]) + len(s["avoid"]), 4)
+
+    def test_clashing_the_hostile_element_counts_as_a_cure(self):
+        """冲掉忌神是去病，不该扣分；冲掉用神才叫伤用。"""
+        from mingli.bazi.gexi import rel_sign
+        sysd = {"favor": ["火"], "avoid": ["水"]}
+        self.assertEqual(rel_sign(sysd, "子"), 1)     # 子属水，忌神 → 去病
+        self.assertEqual(rel_sign(sysd, "午"), -1)    # 午属火，用神 → 伤用
+        self.assertEqual(rel_sign(sysd, "辰"), 0)     # 辰属土，闲神
+
+    def test_ten_god_judgement_depends_on_structure(self):
+        """正官格见伤官是破格，伤官格见伤官是驾御 —— 同一十神，两样结论。"""
+        from mingli.bazi.gexi import god_score
+        guan = {"like_gods": {"正财", "正印"}, "dislike_gods": {"伤官", "七杀"}}
+        shang = {"like_gods": {"正财", "正印"}, "dislike_gods": {"正官"}}
+        self.assertLess(god_score("伤官", guan, False, True),
+                        god_score("伤官", shang, False, True))
+
+    def test_month_swings_around_its_year(self):
+        """流月是节奏，流年才是主题：月份不该离年基调太远。"""
+        from mingli.bazi.luck import timeline, month_periods
+        c = build_chart("t", "male", 1990, 5, 15, 10, 20, longitude=116.4)
+        year = [p for p in timeline(c, from_year=2026, years=1)][0]
+        cyc = next((x for x in luck_cycles(c, 10, 2026) if x.start_year <= 2026 <= x.end_year), None)
+        for m in month_periods(c, 2026, cyc):
+            self.assertLess(abs(m.score - year["score"]), 22.0)
 
 
 if __name__ == "__main__":

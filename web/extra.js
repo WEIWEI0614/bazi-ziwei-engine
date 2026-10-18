@@ -181,7 +181,8 @@
           T(`${POSN[p.position]}支${p.zhi}与月令${mz}六合，冲力得解`, `${p.zhi} combines with ${mz} — the clash is dissolved`));
       }
     }
-    const ue = ML.usefulElements(c);
+    // 与整体评分同一口径（扶抑），不用流年的格局用神，否则格位分会漂
+    const ue = ML.strengthUseful(c);
     if (ue.avoid.length) {
       const hit = c.pillars.filter((p) => p.hidden.some((h) => ue.avoid.includes(GWX[h])));
       if (hit.length) {

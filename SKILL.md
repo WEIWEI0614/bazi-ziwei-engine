@@ -69,8 +69,18 @@ MCP tools:
 - **Rescues count for more than breaks.** A chart with a flaw and a remedy is
   ranked above one that is merely unblemished.
 - **Shensha never outrank the five elements.** They are texture, not verdict.
-- **Annual scores are tendencies on a 40–88 scale, not verdicts.** Never present
+- **Annual scores are tendencies on a 32–94 scale, not verdicts.** Never present
   a year as determined, and never quote a single number without its components.
+- **The useful god comes from the month command, not from a strength switch.**
+  Strength decides direction (strong → drain or control, weak → resource or
+  peers), the structure decides order of preference. One or two favourable
+  elements, one or two hostile, the rest idle — and idle years carry no verdict.
+  A reading that classifies all five elements as good or bad has no neutral
+  years, which is the usual reason a year-by-year table feels wrong.
+- **A clash is not automatically bad.** Clashing away a hostile element is a
+  cure; clashing the useful one is damage; clashing an idle one is mere motion.
+  The same applies to combinations, which can tie up a useful element as easily
+  as they tame a hostile one.
 
 ## Guardrails
 

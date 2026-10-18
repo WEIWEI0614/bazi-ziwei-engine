@@ -132,6 +132,8 @@ def cmd_chart(r):
     print(f"  调候  {th['sequence']}  已见 {''.join(th['satisfied']) or '无'}  缺 {''.join(th['missing']) or '无'}")
     favor, avoid, why = bz.useful_elements(c)
     print(f"  喜用  {' '.join(favor)}    忌 {' '.join(avoid)}")
+    print(f"  闲神  {' '.join(why.get('neutral') or []) or '无'}"
+          f"    扶助 {' '.join(why.get('rescue') or []) or '无'}")
     print(f"        {why['strength_based']}")
 
     if c.shensha:
@@ -257,7 +259,9 @@ def cmd_md(r, out):
     th = c.tiaohou
     L.append(f"- 调候 {th['sequence']}（已见 {''.join(th['satisfied']) or '无'}，缺 {''.join(th['missing']) or '无'}）")
     favor, avoid, why = bz.useful_elements(c)
-    L.append(f"- 喜用 **{' '.join(favor)}**，忌 {' '.join(avoid)}")
+    L.append(f"- 喜用 **{' '.join(favor)}**，忌 {' '.join(avoid)}，"
+             f"闲神 {' '.join(why.get('neutral') or []) or '无'}"
+             + (f"，扶助 {' '.join(why.get('rescue') or [])}" if why.get("rescue") else ""))
     L.append(f"- {why['strength_based']}")
     L.append(f"- {why['tiaohou']}\n")
     L.append("## 二、紫微斗数\n")

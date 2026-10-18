@@ -181,6 +181,35 @@ difference is exposed as an option and documented, never silently averaged.
 
 ---
 
+## How a year is scored
+
+The order follows 《子平真诠》: useful god first, then the ten gods, then
+interactions, then the decade.
+
+1. **The useful god comes from the month command.** Strength sets only the
+   direction (strong → drain or control; weak → resource or peers); the
+   structure sets the order of preference. The result is one or two favourable
+   elements and one or two hostile ones — **the rest are idle, and idle years
+   carry no verdict**. That is where neutral years come from. An earlier version
+   classified all five elements, so every year received a verdict and the
+   readings swung between two extremes.
+2. **Ten-god auspiciousness depends on the structure.** 正官 (direct officer)
+   meeting 伤官 (hurting officer) breaks the structure; 伤官 meeting 伤官 is
+   mastery of it. A fixed lucky-god table must be wrong on one of the two.
+3. **A clash is not automatically bad.** Clashing away a hostile element is a
+   cure; clashing the useful one is damage; clashing an idle one is mere motion.
+   Combinations obey the same logic — they can tie up a useful element as easily
+   as they tame a hostile one.
+4. **The decade sets the tone, the year only triggers it.** Stem 40 / branch 60,
+   with an extra penalty when the decade's ten god is what the structure dislikes.
+
+Scores are compressed to 32–94 and banded by the quantiles of the actual
+distribution rather than by round numbers. With the old fixed thresholds
+(80/68/58/46), seven years in ten landed in "neutral" and the timeline looked
+flat — not because a life is flat, but because the ruler was.
+
+---
+
 ## The back-test, and why it matters
 
 Every fortune-telling tool is unfalsifiable by construction. This one is not, at least

@@ -277,7 +277,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 </head>
 <body>
 <header class="top"><div class="in">
-  <div class="brand"><b>命理引擎</b><span>BaZi × Zi Wei</span></div>
+  <div class="brand"><b>命理引擎</b><span id="brandSub">八字 × 紫微</span></div>
   <div class="spacer"></div>
   <a class="btn ghost" href="https://github.com/WEIWEI0614/bazi-ziwei-engine" target="_blank" rel="noopener">GitHub</a>
   <button class="btn" id="langBtn">EN</button>
@@ -286,25 +286,31 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
 <main>
   <div class="panel">
     <div class="form">
-      <div class="field"><label id="l-name">姓名 / Name</label><input id="f-name" placeholder="—"></div>
-      <div class="field"><label id="l-gender">性别 / Gender</label>
-        <select id="f-gender"><option value="male">男 / Male</option><option value="female">女 / Female</option></select></div>
-      <div class="field"><label id="l-cal">历法 / Calendar</label>
-        <select id="f-cal"><option value="solar">公历 Gregorian</option><option value="lunar">农历 Lunar</option></select></div>
-      <div class="field" id="wrap-solar"><label id="l-date">生日 / Date</label><input id="f-date" type="date" value="1990-05-15"></div>
-      <div class="field" id="wrap-lunar" style="display:none"><label>农历 / Lunar</label><input id="f-lunar" placeholder="1993-4-25 / 1993-闰4-25"></div>
-      <div class="field"><label id="l-time">时间 / Time</label><input id="f-time" type="time" value="10:20"></div>
-      <div class="field"><label id="l-lon">经度 / Longitude</label>
+      <div class="field"><label id="l-name">姓名</label><input id="f-name" placeholder="—"></div>
+      <div class="field"><label id="l-gender">性别</label>
+        <select id="f-gender"><option value="male">男</option><option value="female">女</option></select></div>
+      <div class="field"><label id="l-cal">历法</label>
+        <select id="f-cal"><option value="solar">公历</option><option value="lunar">农历</option></select></div>
+      <div class="field" id="wrap-solar"><label id="l-date">生日</label><input id="f-date" type="date" value="1990-05-15"></div>
+      <div class="field" id="wrap-lunar" style="display:none"><label id="l-lunar">农历生日</label><input id="f-lunar" placeholder="1993-4-25 / 1993-闰4-25"></div>
+      <div class="field"><label id="l-time">时间</label><input id="f-time" type="time" value="10:20"></div>
+      <div class="field"><label id="l-lon">经度</label>
         <select id="f-city">
-          <option value="116.40">北京 116.40</option><option value="121.47">上海 121.47</option>
-          <option value="113.26">广州 113.26</option><option value="114.06">深圳 114.06</option>
-          <option value="104.07">成都 104.07</option><option value="108.95">西安 108.95</option>
-          <option value="126.53">哈尔滨 126.53</option><option value="87.62">乌鲁木齐 87.62</option>
-          <option value="114.17">香港 114.17</option><option value="121.52">台北 121.52</option>
-          <option value="103.85">新加坡 103.85</option><option value="custom">自定义…</option>
+          <option value="116.40" data-en="Beijing 116.40">北京 116.40</option>
+          <option value="121.47" data-en="Shanghai 121.47">上海 121.47</option>
+          <option value="113.26" data-en="Guangzhou 113.26">广州 113.26</option>
+          <option value="114.06" data-en="Shenzhen 114.06">深圳 114.06</option>
+          <option value="104.07" data-en="Chengdu 104.07">成都 104.07</option>
+          <option value="108.95" data-en="Xi'an 108.95">西安 108.95</option>
+          <option value="126.53" data-en="Harbin 126.53">哈尔滨 126.53</option>
+          <option value="87.62" data-en="Urumqi 87.62">乌鲁木齐 87.62</option>
+          <option value="114.17" data-en="Hong Kong 114.17">香港 114.17</option>
+          <option value="121.52" data-en="Taipei 121.52">台北 121.52</option>
+          <option value="103.85" data-en="Singapore 103.85">新加坡 103.85</option>
+          <option value="custom" data-en="Custom…">自定义…</option>
         </select></div>
-      <div class="field"><label id="l-customlon">经度值 / °E</label><input id="f-lon" type="number" step="0.01" value="116.40"></div>
-      <div class="field form-actions"><button class="btn primary" id="go" style="width:100%">排盘 · Cast</button></div>
+      <div class="field"><label id="l-customlon">经度值（东经）</label><input id="f-lon" type="number" step="0.01" value="116.40"></div>
+      <div class="field form-actions"><button class="btn primary" id="go" style="width:100%">排盘</button></div>
     </div>
     <div class="toggles">
       <label><input type="checkbox" id="f-truesolar" checked> <span id="l-ts">真太阳时</span></label>
@@ -446,19 +452,19 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     <p class="note" style="margin:0 0 10px" id="chatHint"></p>
     <div class="chat-wrap">
       <div class="chat-side">
-        <div class="field"><label>服务商 / Provider</label>
+        <div class="field"><label id="c-l-provider">服务商</label>
           <select id="c-provider">
             <option value="https://api.deepseek.com/v1|deepseek-chat">DeepSeek</option>
             <option value="https://open.bigmodel.cn/api/paas/v4|glm-4-flash">智谱 GLM</option>
             <option value="https://dashscope.aliyuncs.com/compatible-mode/v1|qwen-plus">通义千问</option>
             <option value="https://api.moonshot.cn/v1|moonshot-v1-8k">Kimi</option>
             <option value="https://api.openai.com/v1|gpt-4o-mini">OpenAI</option>
-            <option value="custom">自定义 / Custom</option>
+            <option value="custom" data-en="Custom">自定义</option>
           </select></div>
-        <div class="field"><label>API Base</label><input id="c-base" placeholder="https://api.deepseek.com/v1"></div>
-        <div class="field"><label>Model</label><input id="c-model" placeholder="deepseek-chat"></div>
-        <div class="field"><label>API Key</label><input id="c-key" type="password" placeholder="sk-..."></div>
-        <div class="field"><label>温度 / Temperature</label><input id="c-temp" type="number" step="0.1" min="0" max="1.5" value="0.5"></div>
+        <div class="field"><label id="c-l-base">接口地址</label><input id="c-base" placeholder="https://api.deepseek.com/v1"></div>
+        <div class="field"><label id="c-l-model">模型</label><input id="c-model" placeholder="deepseek-chat"></div>
+        <div class="field"><label id="c-l-key">接口密钥</label><input id="c-key" type="password" placeholder="sk-..."></div>
+        <div class="field"><label id="c-l-temp">温度</label><input id="c-temp" type="number" step="0.1" min="0" max="1.5" value="0.5"></div>
         <button class="btn primary" id="c-save" style="width:100%">保存设置</button>
         <div class="chat-tip" id="chatTip"></div>
         <div class="quick" id="cQuick"></div>
@@ -519,9 +525,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=8"></script>
-<script src="engine.js?v=8"></script>
-<script src="extra.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="data.js?v=9"></script>
+<script src="engine.js?v=9"></script>
+<script src="extra.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
