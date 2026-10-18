@@ -786,7 +786,10 @@
       <dt>${LANG === "zh" ? "宫位分" : "Palace scores"}</dt><dd>${[
         ["命宫", R.zsummary.mingScore], ["官禄", R.zsummary.careerScore], ["财帛", R.zsummary.wealthScore],
       ].map(([nm, v]) => {
-        const st = ((window.ML_DATA.PERCENTILES || {}).palaceStats || {})[nm];
+        // 命宫分在 zsummary 里带了格局加成，标定要用「带加成的命宫分」那张表；
+        // 官禄、财帛是纯宫位分，用十二宫各自的表。两套混用会差 4 个百分位。
+        const P = (window.ML_DATA.PERCENTILES || {});
+        const st = nm === "命宫" ? (P.dimStats || {}).ming : (P.palaceStats || {})[nm];
         const pv = window.ML.pctFromStats ? window.ML.pctFromStats(st, v) : null;
         const lb = LANG === "zh" ? { 命宫: "命", 官禄: "官", 财帛: "财" }[nm] : { 命宫: "Life", 官禄: "Career", 财帛: "Wealth" }[nm];
         return `${lb} ${v.toFixed(0)}<span class="note" style="color:var(--tx3)">${pv === null ? "" : (LANG === "zh" ? `（胜 ${pv.toFixed(0)}%）` : ` (P${pv.toFixed(0)})`)}</span>`;
