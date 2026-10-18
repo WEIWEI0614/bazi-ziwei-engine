@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18e";
+  const BUILD = "2026-10-18f";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -27,6 +27,7 @@
   } catch (e) { /* ignore */ }
   let R = null;
   let SEL = 0;
+  let SEL_YEAR = null;   // null = 详情显示所选大运；数字 = 显示该流年
   let FOCUS = 2026;
 
   // tab 与视图 id 的唯一来源：两处都用它，避免加了 tab 忘了改索引
@@ -317,6 +318,26 @@
   }
 
   /* ---------- dayun / liunian ---------- */
+  // 选中大运：清掉选中的流年，详情回落到这十年
+  function pickCycle(i) {
+    SEL = Math.max(0, Math.min(R.cycles.length - 1, i));
+    SEL_YEAR = null;
+    renderDayun(); renderLiunian(); renderYears(); renderMonths();
+    renderPeriodDetail();
+  }
+  // 选中流年：同时把所属大运切过去，流月也跟着重算 —— 三处状态必须一起动，
+  // 否则会出现「流年属于乙酉，流月却按甲申算」这种对不上的画面。
+  function pickYear(y) {
+    const cyc = R.cycles.find((c) => c.startYear <= y && y <= c.endYear);
+    if (cyc) SEL = R.cycles.indexOf(cyc);
+    SEL_YEAR = y;
+    FOCUS = y;
+    const f = $("f-focus"); if (f) f.value = y;
+    R.months = ML.monthPeriods(R.bazi, y, cyc || null);
+    renderDayun(); renderLiunian(); renderYears(); renderMonths();
+    renderPeriodDetail();
+  }
+
   function renderDayun() {
     const strip = $("dayunStrip");
     strip.innerHTML = R.cycles.map((c, i) =>
@@ -327,7 +348,7 @@
         <div class="yr">${c.startYear}</div>
       </div>`).join("");
     strip.querySelectorAll(".lk").forEach((el) => {
-      el.onclick = () => { SEL = +el.dataset.i; renderDayun(); renderLiunian(); };
+      el.onclick = () => pickCycle(+el.dataset.i);
     });
   }
 
@@ -337,11 +358,127 @@
     const rows = [];
     for (let y = cyc.startYear; y < cyc.startYear + 10; y++) rows.push(ML.yearPeriod(R.bazi, y, cyc));
     strip.innerHTML = rows.map((d) =>
-      `<div class="lk" title="${d.band}">
+      `<div class="lk${SEL_YEAR === +d.name ? " on" : ""}" title="${d.band}" data-y="${d.name}">
         <div class="gz" style="color:${periodColor(d.score)}">${gzEn(d.label)}</div>
         <div class="yr">${d.name} · ${d.age}</div>
         <div class="yr" style="color:${periodColor(d.score)}">${d.score.toFixed(0)} ${bandTxt(d.band)}</div>
       </div>`).join("");
+    strip.querySelectorAll(".lk").forEach((el) => {
+      el.onclick = () => pickYear(+el.dataset.y);
+    });
+  }
+
+  /* ---------- 时段详情：点哪一段就看哪一段 ---------- */
+  const COMP_LABEL = {
+    用神: ["用神", "Useful"], 十神: ["十神", "Ten gods"], 冲合: ["会合刑冲", "Clashes"],
+    大运: ["大运基调", "Decade tone"], 神煞: ["神煞", "Stars"],
+  };
+  const COMP_MAX = { 用神: 20, 十神: 8, 冲合: 12, 大运: 11, 神煞: 4 };
+
+  function compBars(comp) {
+    return Object.keys(COMP_LABEL).map((k) => {
+      const v = comp[k] || 0;
+      const max = COMP_MAX[k] || 10;
+      const w = Math.min(50, Math.abs(v) / max * 50);
+      const col = v > 0.4 ? "#8fc98a" : v < -0.4 ? "#e2635f" : "#4b4f5a";
+      return `<div class="pd-bar"><span class="nm">${LANG === "zh" ? COMP_LABEL[k][0] : COMP_LABEL[k][1]}</span>
+        <span class="track"><i style="left:50%;width:${w}%;background:${col}"></i></span>
+        <span class="val" style="color:${col}">${v > 0 ? "+" : ""}${v.toFixed(1)}</span></div>`;
+    }).join("");
+  }
+
+  function cycleDetail(i) {
+    const c = R.cycles[i] || R.cycles[0];
+    const yrs = [];
+    for (let y = c.startYear; y <= c.endYear; y++) yrs.push(ML.yearPeriod(R.bazi, y, c));
+    const avg = yrs.reduce((n, p) => n + p.score, 0) / yrs.length;
+    const best = yrs.slice().sort((a, b) => b.score - a.score)[0];
+    const worst = yrs.slice().sort((a, b) => a.score - b.score)[0];
+    const dec = R.ziweiDecades.find((d) => d.startYear <= c.startYear + 5 && c.startYear + 5 <= d.endYear);
+    const bars = yrs.map((p) => {
+      const w = Math.max(4, Math.min(100, (p.score - 30) / 60 * 100));
+      return `<div class="pd-yr" data-y="${p.name}" title="${p.name} ${p.band}">
+        <div class="by"><i style="height:${w}%;background:${periodColor(p.score)}"></i></div>
+        <div class="ly">${p.name.slice(2)}</div>
+        <div class="ll">${gzEn(p.label)}</div>
+        <div class="lv" style="color:${periodColor(p.score)}">${p.score.toFixed(0)}</div>
+      </div>`;
+    }).join("");
+    return `
+      <div class="pd-head">
+        <div>
+          <div class="pd-title">${L("大运", "Decade")} <b>${gzEn(c.label)}</b>
+            <span class="pd-sub">${c.startAge}–${c.endAge} ${L("岁", "yrs")} · ${c.startYear}–${c.endYear}</span>
+            ${c.active ? `<span class="pill p-mid">${L("当前", "now")}</span>` : ""}</div>
+          <div class="note" style="margin-top:3px">
+            ${L("十神", "Ten gods")}：${tr(c.shishenGan)} / ${tr(c.shishenZhi)}
+            ${dec ? `　·　${L("主导宫位", "Palace")}：${tr(dec.palace)}（${LANG === "zh" ? dec.theme : (dec.themeEn || "")}）` : ""}
+          </div>
+        </div>
+        <div class="pd-kpi">
+          <div><span>${L("十年均分", "Mean")}</span><b style="color:${periodColor(avg)}">${avg.toFixed(1)}</b></div>
+          <div><span>${L("最好", "Best")}</span><b>${best.name} ${best.score.toFixed(0)}</b></div>
+          <div><span>${L("最差", "Worst")}</span><b>${worst.name} ${worst.score.toFixed(0)}</b></div>
+        </div>
+      </div>
+      <div class="pd-years">${bars}</div>
+      <p class="note" style="margin:8px 0 0">${L("点任一柱查看该年的分项拆解、机会与注意事项。",
+        "Click any bar to see that year's components, openings and cautions.")}</p>`;
+  }
+
+  function yearDetail(y) {
+    const cyc = R.cycles.find((c) => c.startYear <= y && y <= c.endYear) || null;
+    const p = ML.yearPeriod(R.bazi, y, cyc);
+    const months = ML.monthPeriods(R.bazi, y, cyc);
+    const mRows = months.map((m) => `<tr data-m="${m.name}">
+      <td class="num">${m.name}</td>
+      <td><b style="font-family:var(--serif)">${gzEn(m.label)}</b></td>
+      <td class="num" style="color:${periodColor(m.score)}">${m.score.toFixed(1)}</td>
+      <td><span class="pill ${bandCls(m.score)}">${bandTxt(m.band)}</span></td>
+      <td class="note">${(m.themes || []).slice(0, 3).map(tr).join(" · ")}</td>
+      <td class="note">${(m.cautions || []).slice(0, 1).map(bi).join("") || "—"}</td>
+    </tr>`).join("");
+    return `
+      <div class="pd-head">
+        <div>
+          <div class="pd-title">${y} <b>${gzEn(p.label)}</b>
+            <span class="pd-sub">${p.age} ${L("岁", "yrs")} · ${L("大运", "decade")} ${gzEn(p.luckCycle || "—")} · ${L("十神", "gods")} ${tr(p.shishenGan)} / ${tr(p.shishenZhi)}</span></div>
+          <div class="pd-score" style="color:${periodColor(p.score)}">${p.score.toFixed(1)}
+            <span style="font-size:13px">${bandTxt(p.band)}</span></div>
+        </div>
+        <div class="pd-kpi">
+          <div><span>${L("原始分", "Raw")}</span><b>${(p.components.raw || 0).toFixed(1)}</b></div>
+          <div><span>${L("大运基调", "Tone")}</span><b>${(p.components["大运基调"] || 0).toFixed(2)}</b></div>
+          <div><span>${L("忌神有制", "Checked")}</span><b>${p.components["忌神有制"] ? "✓" : "—"}</b></div>
+        </div>
+      </div>
+      <div class="pd-comps">${compBars(p.components)}</div>
+      <div class="pd-grid">
+        <div><h4>${L("主题", "Themes")}</h4>
+          <div class="pd-tags">${(p.themes || []).map((t) => `<span class="tag">${tr(t)}</span>`).join("") || "—"}</div></div>
+        <div><h4>${L("机会", "Openings")}</h4>
+          ${(p.opportunities || []).map((x) => `<div class="note">＋ ${bi(x)}</div>`).join("") || '<div class="note">—</div>'}</div>
+        <div><h4>${L("注意", "Cautions")}</h4>
+          ${(p.cautions || []).map((x) => `<div class="note">－ ${bi(x)}</div>`).join("") || '<div class="note">—</div>'}</div>
+        <div><h4>${L("会合刑冲", "Interactions")}</h4>
+          ${((LANG === "zh" ? p.relations : (p.relationsEn || p.relations)) || []).map((r) => `<div class="note">· ${r}</div>`).join("") || '<div class="note">—</div>'}</div>
+      </div>
+      <h4 style="margin-top:12px">${L("该年十二月", "Twelve months of this year")}</h4>
+      <div style="overflow-x:auto"><table class="dt"><thead><tr>
+        <th>${L("月份", "Month")}</th><th>${L("月建", "Pillar")}</th><th class="num">${L("评分", "Score")}</th>
+        <th>${L("评级", "Band")}</th><th>${L("主题", "Theme")}</th><th>${L("注意", "Watch")}</th>
+      </tr></thead><tbody>${mRows}</tbody></table></div>`;
+  }
+
+  function renderPeriodDetail() {
+    const nodes = document.querySelectorAll(".period-detail");
+    if (!nodes.length || !R) return;
+    const html = SEL_YEAR === null ? cycleDetail(SEL) : yearDetail(SEL_YEAR);
+    nodes.forEach((n) => { n.innerHTML = html; });
+    nodes[0].querySelectorAll(".pd-yr").forEach((el) => {
+      el.onclick = () => pickYear(+el.dataset.y);
+      el.style.cursor = "pointer";
+    });
   }
 
   /* ---------- ziwei board ---------- */
@@ -1004,9 +1141,10 @@
   /* ---------- years / months ---------- */
   function renderYears() {
     $("cycTable").innerHTML = `<thead><tr><th>${L("大运","Cycle")}</th><th>${L("年龄","Age")}</th><th>${L("年份","Years")}</th><th>${L("十神","Ten gods")}</th><th>${L("主导宫位","Palace")}</th><th></th></tr></thead><tbody>` +
-      R.cycles.map((c) => {
+      R.cycles.map((c, ci) => {
         const dec = R.ziweiDecades.find((d) => d.startYear <= c.startYear + 5 && c.startYear + 5 <= d.endYear);
-        return `<tr${c.active ? ' style="background:#221f18"' : ""}>
+        const on = SEL === ci && SEL_YEAR === null;
+        return `<tr data-ci="${ci}" class="pd-row${on ? " on" : ""}"${c.active ? ' style="background:#221f18"' : ""}>
           <td><b style="font-family:var(--serif);font-size:15px;color:${c.active ? "var(--amber2)" : "var(--tx)"}">${gzEn(c.label)}</b></td>
           <td class="num" style="color:var(--tx2)">${c.startAge}–${c.endAge}</td>
           <td class="num" style="color:var(--tx2)">${c.startYear}–${c.endYear}</td>
@@ -1039,7 +1177,7 @@
     svg.innerHTML = g;
 
     $("yearTable").innerHTML = `<thead><tr><th>${L("年份","Year")}</th><th>${L("干支","Pillar")}</th><th>${L("大运","Cycle")}</th><th class="num">${L("评分","Score")}</th><th>${L("评级","Band")}</th><th>${L("主题","Theme")}</th><th>${L("注意事项","Watch")}</th></tr></thead><tbody>` +
-      data.map((d) => `<tr>
+      data.map((d) => `<tr data-y="${d.name}" class="pd-row${SEL_YEAR === +d.name ? " on" : ""}">
         <td class="num">${d.name}<span style="color:var(--tx3)"> · ${d.age}</span></td>
         <td><b style="font-family:var(--serif)">${gzEn(d.label)}</b></td>
         <td>${d.luckCycle ? gzEn(d.luckCycle) : "—"}</td>
@@ -1047,6 +1185,12 @@
         <td><span class="pill ${bandCls(d.score)}">${bandTxt(d.band)}</span></td>
         <td class="note">${d.themes.slice(0, 3).map(tr).join(" · ")}</td>
         <td class="note">${d.cautions.slice(0, 2).map(bi).join(LANG === "zh" ? "；" : "; ") || "—"}</td></tr>`).join("") + "</tbody>";
+    $("cycTable").querySelectorAll("tr[data-ci]").forEach((tr) => {
+      tr.onclick = () => pickCycle(+tr.dataset.ci);
+    });
+    $("yearTable").querySelectorAll("tr[data-y]").forEach((tr) => {
+      tr.onclick = () => pickYear(+tr.dataset.y);
+    });
   }
 
   function renderMonths() {
@@ -1172,6 +1316,9 @@
     });
     SEL = R.cycles.findIndex((c) => c.active);
     if (SEL < 0) SEL = 0;
+    // 进来就停在「聚焦的这一年」上：用户最常看的是今年，不是十年前
+    const onCycle = R.cycles.some((c) => c.startYear <= FOCUS && FOCUS <= c.endYear);
+    SEL_YEAR = onCycle ? FOCUS : null;
     const step = (n, fn) => { try { fn(); } catch (e) { window.__mlErr && window.__mlErr(n + ": " + e.message); throw e; } };
     step("bazi", renderBaziTable); step("dayun", renderDayun);
     step("liunian", renderLiunian); step("board", renderBoard);
@@ -1179,6 +1326,7 @@
     step("score", renderScore); step("radar", drawRadar);
     step("avatar", renderAvatar);
     step("years", renderYears); step("months", renderMonths);
+    step("detail", renderPeriodDetail);
     if (R.events) renderEventResult();
     annotate(document.querySelector("main"));
   }
@@ -1613,6 +1761,7 @@
         renderBaziTable(); renderDayun(); renderLiunian(); renderBoard();
         renderScore(); drawRadar(); renderAvatar();
         renderYears(); renderMonths(); renderEventResult(); drawShareCard();
+        renderPeriodDetail();
         if ($("guaOut").children.length) renderGua();
         if ($("synOut").children.length) renderSyn();
       }

@@ -273,6 +273,45 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
   .syn-head{grid-template-columns:1fr}
   .avatar-wrap{grid-template-columns:110px 1fr}
 }
+
+/* 时段详情：点哪一段就看哪一段 */
+.period-detail .pd-head{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;
+  padding-bottom:10px;border-bottom:1px solid var(--line)}
+.period-detail .pd-title{font-size:14px;color:var(--tx2)}
+.period-detail .pd-title b{font-family:var(--serif);font-size:23px;color:var(--amber2);margin:0 6px;letter-spacing:.04em}
+.period-detail .pd-sub{font-size:11.5px;color:var(--tx3);margin-left:8px}
+.period-detail .pd-score{font-family:var(--serif);font-size:34px;font-weight:600;line-height:1.2;margin-top:4px}
+.period-detail .pd-kpi{display:flex;gap:16px;flex-wrap:wrap}
+.period-detail .pd-kpi>div{min-width:78px}
+.period-detail .pd-kpi span{display:block;font-size:10.5px;color:var(--tx3);letter-spacing:.08em}
+.period-detail .pd-kpi b{font-size:14px;font-weight:500;font-family:var(--serif)}
+.period-detail .pd-years{display:flex;gap:6px;align-items:flex-end;margin-top:12px;height:110px}
+.period-detail .pd-yr{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;gap:1px}
+.period-detail .pd-yr .by{flex:1;width:100%;display:flex;align-items:flex-end;
+  background:rgba(255,255,255,.03);border-radius:3px}
+.period-detail .pd-yr .by i{width:100%;border-radius:3px;opacity:.85}
+.period-detail .pd-yr .ly{font-size:10px;color:var(--tx3)}
+.period-detail .pd-yr .ll{font-size:10px;color:var(--tx2);font-family:var(--serif)}
+.period-detail .pd-yr .lv{font-size:10.5px;font-weight:600}
+.period-detail .pd-yr:hover .by{background:rgba(232,163,61,.14)}
+.period-detail .pd-comps{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 18px;margin-top:10px}
+.period-detail .pd-bar{display:flex;align-items:center;gap:8px;font-size:11.5px}
+.period-detail .pd-bar .nm{width:64px;color:var(--tx3);flex:none}
+.period-detail .pd-bar .track{position:relative;flex:1;height:7px;background:#20242d;border-radius:4px;overflow:hidden}
+.period-detail .pd-bar .track i{position:absolute;top:0;bottom:0;border-radius:4px}
+.period-detail .pd-bar .val{width:44px;text-align:right;font-size:11px}
+.period-detail .pd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:12px}
+.period-detail h4{font-size:11px;letter-spacing:.12em;color:var(--amber);margin:0 0 5px;font-weight:500}
+.period-detail .pd-tags{display:flex;flex-wrap:wrap;gap:4px}
+.period-detail .note{font-size:12px;line-height:1.7;margin:2px 0}
+.period-detail table.dt{margin-top:4px}
+tr.pd-row{cursor:pointer}
+tr.pd-row:hover{background:#1d2029}
+tr.pd-row.on{background:#241f16;box-shadow:inset 3px 0 0 var(--amber)}
+@media(max-width:760px){
+  .period-detail .pd-years{height:86px}
+  .period-detail .pd-yr .ll{display:none}
+}
 </style>
 </head>
 <body>
@@ -334,6 +373,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     <h2 class="sec" id="h-liunian">流年 <small>Annual</small></h2>
     <div class="strip yr" id="liunianStrip"></div>
     <p class="note" id="liunianNote" style="margin-top:6px"></p>
+    <div class="card period-detail" data-pd="chart" style="margin-top:10px"></div>
 
     <h2 class="sec" id="h-zw">紫微斗数命盘 <small>Zi Wei Dou Shu</small></h2>
     <div class="board" id="board"></div>
@@ -399,6 +439,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     <h2 class="sec" id="h-timeline">流年走势</h2>
     <div class="card"><svg id="yearChart" viewBox="0 0 900 210" style="width:100%"></svg></div>
     <div class="card" style="overflow-x:auto;margin-top:10px"><table class="dt" id="yearTable"></table></div>
+    <div class="card period-detail" data-pd="year" style="margin-top:12px"></div>
   </section>
 
   <section class="view" id="v-month">
@@ -525,9 +566,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=10"></script>
-<script src="engine.js?v=10"></script>
-<script src="extra.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="data.js?v=11"></script>
+<script src="engine.js?v=11"></script>
+<script src="extra.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

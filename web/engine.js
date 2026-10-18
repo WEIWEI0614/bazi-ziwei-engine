@@ -825,6 +825,11 @@
     return 0;
   }
 
+  const POSN_EN = { 年: "Year", 月: "Month", 日: "Day", 时: "Hour" };
+  const REL_EN = { 六合: "combines with", 六冲: "clashes", 相刑: "punishes",
+    相害: "harms", 相破: "breaks", 伏吟: "doubles", 自刑: "self-punishes",
+    天干五合: "stem-combines with", 天干相冲: "stem-clashes with" };
+
   /* 流年/流月评分 —— 顺序依《子平真诠》：
        1 先看喜忌（地支为主） 2 再看十神（吉神/凶神×格局）
        3 后看会合刑冲（冲合要分喜忌） 4 再叠大运基调 5 神煞仅作辅助 */
@@ -860,6 +865,8 @@
       + tenGodScore(ssZ, ue, favor.includes(elZhi), avoid.includes(elZhi)) * 0.65) * 10) / 10;
 
     const rels = [];
+    // 关系文本是拼出来的，展示层没法事后翻译，所以这里同时出一份英文
+    const relsEn = [];
     let delta = 0;
     const POSW = { year: 0.9, month: 1.1, day: 1.4, hour: 0.8 };
     const POSN = { year: "年", month: "月", day: "日", hour: "时" };
@@ -870,6 +877,7 @@
       const hasHe = zr.includes("六合");
       zr.forEach((r) => {
         rels.push(`${pos}支${p.zhi}与${zhi}${r}`);
+        relsEn.push(`${POSN_EN[pos]} branch ${py(p.zhi)} ${REL_EN[r] || r} ${py(zhi)}`);
         if (r === "六合") delta += (sign > 0 ? 3.2 : sign < 0 ? -3.0 : 0.6) * w;
         else if (r === "六冲") {
           // 冲忌神为去病（吉），冲用神为伤用（凶），冲闲神动而无咎
@@ -883,11 +891,13 @@
       const sGan = avoid.includes(elP) ? 1 : (favor.includes(elP) ? -1 : 0);
       ganRels(p.gan, gan).forEach((r) => {
         rels.push(`${pos}干${p.gan}与${gan}${r}`);
+        relsEn.push(`${POSN_EN[pos]} stem ${py(p.gan)} ${REL_EN[r] || r} ${py(gan)}`);
         if (r === "天干相冲") delta += (sGan > 0 ? 3.0 : sGan < 0 ? -4.0 : -1.0) * w;
         else if (r === "天干五合") delta += (sGan > 0 ? 2.2 : sGan < 0 ? -2.2 : 0.6) * w;
       });
       if (D.GAN_CHONG[p.gan] === gan && D.CHONG[p.zhi] === zhi) {
         rels.push(`与${pos}柱天克地冲`);
+        relsEn.push(`stem-and-branch clash with the ${POSN_EN[pos]} pillar`);
         if (sign > 0 && sGan > 0) delta += 5.0 * w;
         else if (sign < 0 || sGan < 0) delta -= 8.0 * w;
         else delta -= 3.0 * w;
@@ -902,9 +912,11 @@
       if (have.length >= 2) {
         delta += sHua > 0 ? 5.5 : sHua < 0 ? -5.5 : 1.5;
         rels.push(`${zhi}与命局成三合${grp[3]}局`);
+        relsEn.push(`${py(zhi)} completes a full ${grp[3]} trine with the chart`);
       } else if (have.length === 1) {
         delta += sHua > 0 ? 2.2 : sHua < 0 ? -2.2 : 0.6;
         rels.push(`${zhi}与${have[0]}半合${grp[3]}局`);
+        relsEn.push(`${py(zhi)} half-combines with ${py(have[0])} into ${grp[3]}`);
       }
     });
     comp["冲合"] = Math.round(Math.max(-12, Math.min(12, delta)) * 10) / 10;
@@ -923,19 +935,21 @@
       if (ue.dislikeG.includes(lGod) || ue.dislikeG.includes(lZGod)) {
         big -= 3;
         rels.push(`大运${lGod}/${lZGod}为格局所忌`);
+        relsEn.push(`decade ${D.I18N.shishen[lGod] || lGod}/${D.I18N.shishen[lZGod] || lZGod} is what the structure dislikes`);
       }
       if (D.GAN_CHONG[luckCyc.gan] === gan && D.CHONG[luckCyc.zhi] === zhi) {
         big -= 6; rels.push("大运流年天克地冲");
+        relsEn.push("decade and year clash on both stem and branch");
       }
-      if (zhi === luckCyc.zhi) { big -= 2; rels.push("流年伏吟大运"); }
-      else if (D.CHONG[luckCyc.zhi] === zhi) { big -= 1.5; rels.push("流年冲大运"); }
+      if (zhi === luckCyc.zhi) { big -= 2; rels.push("流年伏吟大运"); relsEn.push("year doubles the decade"); }
+      else if (D.CHONG[luckCyc.zhi] === zhi) { big -= 1.5; rels.push("流年冲大运"); relsEn.push("year clashes the decade"); }
     }
     comp["大运"] = Math.round(big * 10) / 10;
 
     let sha = 0;
-    if ((D.TIANYI[dm] || "").includes(zhi)) { sha += 4; rels.push("流年天乙贵人"); }
-    if (D.WENCHANG[dm] === zhi) { sha += 3; rels.push("流年文昌"); }
-    if (D.LU[dm] === zhi) { sha += 3; rels.push("流年临禄"); }
+    if ((D.TIANYI[dm] || "").includes(zhi)) { sha += 4; rels.push("流年天乙贵人"); relsEn.push("Tian Yi (noble) in the year"); }
+    if (D.WENCHANG[dm] === zhi) { sha += 3; rels.push("流年文昌"); relsEn.push("Wen Chang (scholarship) in the year"); }
+    if (D.LU[dm] === zhi) { sha += 3; rels.push("流年临禄"); relsEn.push("Lu (salary) in the year"); }
     if (["辰", "戌", "丑", "未"].includes(zhi) && (ssZ === "正官" || ssZ === "七杀")) sha -= 2;
     comp["神煞"] = sha;
 
@@ -985,7 +999,7 @@
     };
     return { shishenGan: ssG, shishenZhi: ssZ, score: Math.round(score * 10) / 10,
       band: band(Math.round(score * 10) / 10), components: comp, relations: rels,
-      themes, cautions: uniq(cautions), opportunities: uniq(opps) };
+      themes, relationsEn: relsEn, cautions: uniq(cautions), opportunities: uniq(opps) };
   }
 
   function yearPeriod(c, year, luckCyc) {
@@ -1209,16 +1223,16 @@
     if (mingMajors.has("紫微")) {
       const helpers = new Set(ming.stars.map((s) => s.name));
       [-4, 4, 6].forEach((o) => branches[ZHI[mod(ming.index + o, 12)]].stars.forEach((s) => helpers.add(s.name)));
-      if ((["左辅", "右弼"].some((x) => helpers.has(x))) && (["天魁", "天钺"].some((x) => helpers.has(x)))) add("君臣慶會");
-      if (ming.branch === "午") add("極向離明");
-      if (trioMajors.has("破軍")) add("英星入廟");
+      if ((["左辅", "右弼"].some((x) => helpers.has(x))) && (["天魁", "天钺"].some((x) => helpers.has(x)))) add("君臣庆会");
+      if (ming.branch === "午") add("极向离明");
+      if (trioMajors.has("破軍")) add("英星入庙");
     }
-    if (["七殺", "破軍", "貪狼"].every((x) => trioMajors.has(x))) add("殺破狼");
-    if (["天機", "太陰", "天同", "天梁"].every((x) => trioMajors.has(x))) add("機月同梁");
-    if (mingMajors.has("太陰") && ming.branch === "亥") add("月朗天門");
-    if (mingMajors.has("太陽") && ming.branch === "卯") add("日照雷門");
-    if (mingMajors.has("巨門") && ["子", "午"].includes(ming.branch)) add("石中隱玉");
-    if (!ming.stars.some((s) => s.kind === "主星")) add("命無正曜");
+    if (["七殺", "破軍", "貪狼"].every((x) => trioMajors.has(x))) add("杀破狼");
+    if (["天機", "太陰", "天同", "天梁"].every((x) => trioMajors.has(x))) add("机月同梁");
+    if (mingMajors.has("太陰") && ming.branch === "亥") add("月朗天门");
+    if (mingMajors.has("太陽") && ming.branch === "卯") add("日照雷门");
+    if (mingMajors.has("巨門") && ["子", "午"].includes(ming.branch)) add("石中隐玉");
+    if (!ming.stars.some((s) => s.kind === "主星")) add("命无正曜");
     return found;
   }
   function ziweiSummary(chart) {
