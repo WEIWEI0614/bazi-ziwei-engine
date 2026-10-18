@@ -155,8 +155,13 @@ def _substitute(stem: str) -> str:
     return _SUBSTITUTE.get(stem, "")
 
 
-def flow_score(chart) -> tuple[float, list[str]]:
-    """五行流通：分布均匀度 + 是否存在相生链。"""
+def flow_score(chart, favor=None) -> tuple[float, list[str]]:
+    """五行流通：分布均匀度 + 是否存在相生链。
+
+    `favor` 给出喜用时，「某一行近乎断绝」只在**它是喜用**时才算断点。
+    旧版不分喜忌：身旺盘印（木）断尽本是好事，却照样扣 5 分，于是
+    「偏枯但清」的格局在流通这一维被当成「气不通」。
+    """
     es = chart.element_scores
     ent = _entropy(es)
     score = ent * 70 + 20
@@ -172,8 +177,12 @@ def flow_score(chart) -> tuple[float, list[str]]:
         notes.append(f"五行有 {chains} 条连续相生链，气能流转")
     weakest = min(es, key=es.get)
     if es[weakest] < 2:
-        score -= 5
-        notes.append(f"{weakest}近乎断绝（{es[weakest]:.1f}%），流通有断点")
+        if not favor or weakest in favor:
+            score -= 5
+            notes.append(f"{weakest}近乎断绝（{es[weakest]:.1f}%），流通有断点")
+        else:
+            notes.append(f"{weakest}几近断绝（{es[weakest]:.1f}%），但它是忌神，"
+                         f"断之反成清局，不作断点论")
     return max(15.0, min(95.0, score)), notes
 
 
@@ -338,7 +347,7 @@ def shensha_score(chart) -> tuple[float, int, int, int]:
 def score_overall(chart, zc) -> dict:
     es = chart.element_scores
     struct, s_plus, s_minus = structure_score(chart)
-    flow, f_notes = flow_score(chart)
+    flow, f_notes = flow_score(chart, _useful(chart)[0])
     climate, c_notes = climate_score(chart)
     root, r_notes = root_score(chart)
     sh, n_good, n_mid, n_bad = shensha_score(chart)

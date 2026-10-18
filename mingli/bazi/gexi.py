@@ -304,7 +304,12 @@ def god_score(god: str, sysd: dict, el_favor, el_avoid: bool = False) -> float:
         w = 0.0
     else:
         w = float(el_favor)
-    base = 5.0 * w if w > 0 else (-5.0 if el_avoid else 0.0)
+    # 五行方向只给 ±2，**不再给 ±5**。
+    # 这一项的「这个五行是喜是忌」已经被「用神」项算过一次（±20 那一项），
+    # 再按 ±5 算一遍，等于同一个事实罚两遍：丙午年丙火为忌，用神项扣一次，
+    # 比肩七杀再扣一次，两项叠加就把总分直接压到下限。
+    # 这里只保留「十神层面的增量」——格局喜忌（正官格见伤官是破格这类）。
+    base = 2.0 * w if w > 0 else (-2.0 if el_avoid else 0.0)
     if god in sysd["like_gods"]:
         base += 2.5
     if god in sysd["dislike_gods"]:

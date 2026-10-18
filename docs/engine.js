@@ -1249,7 +1249,9 @@
   function tenGodScore(god, ue, elFavor, elAvoid) {
     // elFavor 收 0–1 的权重；布尔 true 按 1.0。次喜（0.40）不该与用神同分。
     const w = elFavor === true ? 1 : (elFavor === false || elFavor == null ? 0 : Number(elFavor));
-    let base = w > 0 ? 5 * w : (elAvoid ? -5 : 0);
+    // 五行方向只给 ±2：它已经被「用神」项算过一次，再按 ±5 算一遍
+    // 等于同一件事罚两遍，两项叠加直接把总分压到下限
+    let base = w > 0 ? 2 * w : (elAvoid ? -2 : 0);
     if ((ue.likeG || []).includes(god)) base += 2.5;
     if ((ue.dislikeG || []).includes(god)) base -= 3;
     return base;
@@ -1295,7 +1297,7 @@
         const ctrl = Object.keys(D.KE).find((k) => D.KE[k] === el);
         const drain = D.SHENG[el];
         const checked = Math.max(es[ctrl] || 0, es[drain] || 0);
-        loss += v * (checked >= 8 ? 0.7 : 1.6);
+        loss += v * (checked >= 5.5 ? 0.7 : 1.6);
       }
     });
     comp["用神"] = Math.round(Math.max(-20, Math.min(20, (gain - loss) * 10)) * 10) / 10;
@@ -1435,7 +1437,9 @@
       const sLg = favor.includes(eLg) ? 1 : (avoid.includes(eLg) ? -1 : 0);
       const sLz = favor.includes(eLz) ? 1 : (avoid.includes(eLz) ? -1 : 0);
       tone = Math.max(-1, Math.min(1, sLg * 0.4 + sLz * 0.6));
-      big = tone * 9;
+      // 大运基调不再直接砸 ±9 分：下面「大运吉而流年凶」那段已经用同一个
+      // tone 往 50 拉过一次，两处都按 9 分算等于同一件事罚两遍
+      big = tone * 3;
       const lGod = shishen(dm, luckCyc.gan);
       const lZGod = shishen(dm, REP_GAN[eLz]);
       if (ue.dislikeG.includes(lGod) || ue.dislikeG.includes(lZGod)) {
@@ -1465,8 +1469,8 @@
     else if (tone < 0 && raw > 50) raw = 50 + (raw - 50) * (1 - 0.42 * Math.abs(tone));
 
     // 收窄到 32–94：单年读数是「倾向」不是「判决」；0.72 会把标准差一起压掉
-    let score = 50 + (Math.max(0, Math.min(100, raw)) - 50) * 0.85;
-    score = Math.max(32, Math.min(94, score));
+    let score = 50 + (Math.max(0, Math.min(100, raw)) - 50) * 0.80;
+    score = Math.max(30, Math.min(93, score));
     comp["base"] = 50;
     comp["raw"] = Math.round(raw * 10) / 10;
     comp["大运基调"] = Math.round(tone * 100) / 100;
@@ -2162,7 +2166,7 @@
     return [Math.max(20, Math.min(95, s)), plus, minus];
   }
 
-  function flowScore(c) {
+  function flowScore(c, favor) {
     const es = c.elementScores, ent = entropy(es);
     let score = ent * 70 + 20;
     const notes = [];
@@ -2173,7 +2177,17 @@
     }
     if (chains) { score += Math.min(10, chains * 2.5); notes.push(T(`五行有 ${chains} 条连续相生链，气能流转`, `${chains} generating chains — energy circulates`)); }
     const weakest = Object.keys(es).sort((a, b) => es[a] - es[b])[0];
-    if (es[weakest] < 2) { score -= 5; notes.push(T(`${weakest}近乎断绝（${es[weakest].toFixed(1)}%），流通有断点`, `${D.I18N.wx[weakest]} nearly absent — the chain breaks`)); }
+    if (es[weakest] < 2) {
+      // 只在它是喜用时才算断点：忌神断尽本是清局，不该扣
+      if (!favor || favor.indexOf(weakest) >= 0) {
+        score -= 5;
+        notes.push(T(`${weakest}近乎断绝（${es[weakest].toFixed(1)}%），流通有断点`,
+          `${D.I18N.wx[weakest]} nearly absent — the chain breaks`));
+      } else {
+        notes.push(T(`${weakest}几近断绝（${es[weakest].toFixed(1)}%），但它是忌神，断之反成清局`,
+          `${D.I18N.wx[weakest]} is nearly absent, but it is hostile — the break clears the chart`));
+      }
+    }
     return [Math.max(15, Math.min(95, score)), notes];
   }
 
@@ -2273,7 +2287,7 @@
   function scoreOverall(chart, zc) {
     const es = chart.elementScores;
     const [struct, sPlus, sMinus] = structureScore(chart);
-    const [flow, fNotes] = flowScore(chart);
+    const [flow, fNotes] = flowScore(chart, usefulElements(chart).favor);
     const [climate, cNotes] = climateScore(chart);
     const [root, rNotes] = rootScore(chart);
     const [sh, nGood, nMid, nBad] = shenshaScore(chart);

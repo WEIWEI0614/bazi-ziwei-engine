@@ -376,7 +376,9 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             ctrl = [k for k in KE if KE[k] == el][0]      # 克我者
             drain = SHENG[el]                              # 我生者（泄）
             checked = max(es.get(ctrl, 0), es.get(drain, 0))
-            loss += v * (0.7 if checked >= 8 else 1.6)
+            # 5.5% 就足以「有制」。旧阈值 8% 太高：命局里 6.4% 的土明明
+            # 能泄旺火，却因为差 1.6 个点被当成「制不住」，全额重罚。
+            loss += v * (0.7 if checked >= 5.5 else 1.6)
     comp["用神"] = _r1(max(-20.0, min(20.0, (gain - loss) * 10.0)))
     comp["忌神有制"] = 1.0 if loss < sum(
         v * 1.6 for e, v in add.items() if e in avoid) else 0.0
@@ -504,7 +506,11 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         s_lg = 1.0 if e_lg in favor else (-1.0 if e_lg in avoid else 0.0)
         s_lz = 1.0 if e_lz in favor else (-1.0 if e_lz in avoid else 0.0)
         tone = max(-1.0, min(1.0, s_lg * 0.4 + s_lz * 0.6))
-        big = tone * 9.0
+        # 大运基调只给一点方向感，不再直接砸 ±9 分。
+        # 下面「大运吉而流年凶 → 不至大凶」那段已经用同一个 tone 把吉凶
+        # 往 50 拉过一次，两处都按 9 分算等于同一件事罚两遍：一部忌运的
+        # 二十年，每年先被扣 12 分，再被压缩一次，于是整段全是大凶。
+        big = tone * 3.0
         l_god = shishen(dm, lg)
         l_zgod = shishen(dm, REP_GAN[e_lz])
         if l_god in sysd["dislike_gods"] or l_zgod in sysd["dislike_gods"]:
@@ -548,8 +554,11 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     # 0.72 的压缩会把标准差一起压掉，好坏年看起来一样；0.85 保留区分度。
     # 下限放到 32 而不是 40，否则最差的一批年份全堆在同一个数上，
     # 点「凶年」和「较差」得到同一个读数，反而没有信息。
-    score = 50.0 + (max(0.0, min(100.0, raw)) - 50.0) * 0.85
-    score = max(32.0, min(94.0, score))
+    score = 50.0 + (max(0.0, min(100.0, raw)) - 50.0) * 0.80
+    # 下限 30：旧版 32 太低，一串分项同时打满的年份全被压成同一个 32，
+    # 读起来像「每年都一样差」。收一点离散度，也让最凶的年与次凶的年
+    # 还能分出先后。
+    score = max(30.0, min(93.0, score))
     comp["base"] = 50.0
     comp["raw"] = _r1(raw)
     comp["大运基调"] = round(tone, 2)
