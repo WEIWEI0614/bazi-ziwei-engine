@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18g";
+  const BUILD = "2026-10-18h";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -1696,7 +1696,7 @@
       ["流年分数是什么",
         "五条分项（用神、十神、会合刑冲、大运、神煞）按权重相加，再压到 32–94。带 * 的两项权重由本引擎自定，方向来自古法。它的用途是「同一张盘内排序」——看哪几年相对顺、哪几年相对滞，不是事件预测。「75.8」本身没有绝对含义，页面因此优先显示它在这张盘的年份里所处的位置（前 3% / 后 19%）。"],
       ["实测：它预测不了具体事件",
-        "拿 MingLi-Bench 的 160 道真实比赛题（全球算命师大赛 2022–2025，四选一）测过：可判定的 66 题答对 7 题，10.6%，随机是 25%——目前没有可测的预测力。同批题里，答案属负面事件的年份平均 53.7 分，属正面事件的 54.2 分，相差 0.5 分，而这把尺子的标准差是 10.5。这个数字留在页面上，不藏。复现：python tools/bench_mingli.py。"],
+        "两次测试，指向同一结论。（一）MingLi-Bench 的 160 道真实比赛题（全球算命师大赛 2022–2025，四选一）：可判定的 58 题答对 7 题，12.1%，随机是 25%。把选项文字换成人工标注（每项标出领域与吉凶）之后还是 7 题——问题不在选项映射，在引擎本身。（二）BaziQA 的 50 位名人、1163 条带年份事件：以「这一年发生过该类事件」为正例算 AUC，整体分数 0.502，冲合强度 0.488，五个领域全部落在 0.46–0.54；0.5 就是没有信号。这个结论留在页面上，不藏。复现：python tools/bench_mingli.py、python tools/bench_celebrity.py。"],
       ["校验",
         "历法与四柱：3,000 组随机时刻对 lunar-python，年月日时零误差。紫微：700 张盘对 iztro，命宫 / 五行局 / 宫干 / 十四主星 / 六吉六煞 / 38 杂曜 / 四套十二神 / 小限 / 大限全部一致（1 例主星差异源于朔日临界）。浏览器 JS 与 Python 逐字段比对，差异仅四舍五入。38 个单元测试。"],
       ["局限",
@@ -1719,7 +1719,7 @@
       ["What the annual score is",
         "Five components (useful god, ten gods, interactions, decade tone, stars) are weighted and summed, then compressed to 32-94. The two marked * carry weights we chose ourselves; their direction is classical. The score ranks years within one chart — which run easier, which run against you — it does not predict events. '75.8' has no absolute meaning, which is why the page leads with its position among that chart's years (top 3% / bottom 19%)."],
       ["Tested: it does not predict events",
-        "Against the 160 real competition questions in MingLi-Bench (Global Fortune Teller Competition 2022-2025, four options each), the engine answers 7 of the 66 decidable items correctly — 10.6%, where chance is 25%. In the same set, years whose true answer was a negative event average 53.7 against 54.2 for positive ones: a gap of 0.5 on a scale whose standard deviation is 10.5. The number stays on this page. Reproduce with: python tools/bench_mingli.py."],
+        "Two tests, one conclusion. (1) The 160 real competition questions in MingLi-Bench (four options each): the engine answers 7 of the 58 decidable items — 12.1%, where chance is 25%. Replacing the keyword mapping with hand-marked labels for every option (life area plus good/bad) still gives 7 — so the loss is not in the mapping, it is in the engine. (2) BaziQA's 50 public figures with 1163 dated life events: treating 'this category of event happened this year' as the positive class, AUC is 0.502 for the overall score, 0.488 for clash strength, and 0.46-0.54 across all five areas. 0.5 is no signal. The result stays on this page. Reproduce with: python tools/bench_mingli.py and python tools/bench_celebrity.py."],
       ["Validation",
         "Calendar and pillars: 3,000 random instants against lunar-python, zero mismatches on all four pillars. Zi Wei: 700 charts against iztro — palace, bureau, stems, 14 majors, 12 auxiliaries, 38 adjective stars, four sets of twelve gods, minor and decade limits all identical (one chart differs by a major star at a new-moon knife edge). Browser JS vs Python: field-by-field parity. 38 unit tests."],
       ["Limits",

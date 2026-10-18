@@ -190,10 +190,43 @@ Two ways to read that:
   has to be mapped to a life area by keyword, and most of the loss happens
   there. None of the upstream projects in this space attempt the task either.
 
-What follows: the score is a **ruler for ranking years inside one chart**, not a
-forecast. The UI now leads with the percentile rather than the raw number,
-because the percentile is the only part that can be stated plainly, and it marks
-the components whose weights were chosen rather than inherited.
+Two follow-ups made the picture sharper.
+
+**First, the option mapping was not the problem.** Every option in the decidable
+items was hand-labelled with a life area and a good/bad sign — the mapping a
+language model would have produced, done carefully. The engine still answers 7 of
+58. The loss is in the engine, not in the text handling.
+
+**Second, a much cleaner test.** [BaziQA](https://github.com/ChenJiangxi/BaziQA)
+publishes 50 public figures with exact birth moments and 1,163 dated life events
+filed under five headings. No options, no mapping: the heading *is* the life
+area. The question becomes simply — do the years in which something happened
+stand out from the quiet years?
+
+```bash
+python tools/bench_celebrity.py
+```
+
+| feature | AUC | meaning |
+|---|---|---|
+| overall score | 0.502 | no signal |
+| clash / combination strength | 0.488 | no signal, slightly inverted |
+| five life areas, signed | 0.46–0.54 | no signal |
+| five life areas, absolute | 0.49–0.51 | no signal |
+
+3,150 person-years, 748 event-years. AUC 0.5 is a coin flip. Nothing crosses
+0.55; the highest cell is 0.536 on 88 samples, which is what you expect from
+testing thirty combinations at once.
+
+So: the annual score is a **ruler for ranking years inside one chart**, not a
+forecast. The UI leads with the percentile rather than the raw number, because
+the percentile is the only part that can be stated plainly, and it marks the
+components whose weights were chosen rather than inherited.
+
+What this engine is actually good at is the part that can be checked exactly:
+the calendar (3,000 random moments against `lunar-python`, zero error on all four
+pillars), the star placement (700 charts against `iztro`), and the audit trail
+behind every judgement. That is a real claim. Forecasting is not.
 
 ---
 
@@ -293,6 +326,9 @@ docs/                   published copy of web/ for GitHub Pages
 tools/gen_js_data.py    emits data.js from the Python tables  <- keeps both engines honest
 tools/parity.js         JS/Python field-by-field comparison
 tools/check_lang.py     renders both languages and fails if either leaks the other
+tools/bench_mingli.py   160 competition questions -> accuracy (see "Does it predict anything?")
+tools/bench_celebrity.py  50 public figures, 1163 dated events -> AUC
+data/                   both benchmark sets and the hand-marked option labels
 tests/                   64 unit tests, no third-party dependencies
 ```
 
