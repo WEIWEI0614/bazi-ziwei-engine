@@ -963,10 +963,10 @@
       else if (r.includes("相害")) cautions.push(T("相害：人际暗耗，慎防被牵连", "Harm: quiet attrition in relationships"));
       else if (r.includes("伏吟")) cautions.push(T("伏吟：旧事重来，情绪反复，宜静守", "Repetition: old matters return, mood swings"));
     });
-    if (OMINOUS[ssG] && score < 48) cautions.push(T(`${ssG}当值而全局失衡：压力与是非集中，忌硬碰体制与上级`, `${ssG} rules an unbalanced period: pressure concentrates — do not fight authority`));
+    if (OMINOUS[ssG] && score < 48) cautions.push(T(`${ssG}当值而全局失衡：压力与是非集中，忌硬碰体制与上级`, `${D.I18N.shishen[ssG] || ssG} rules an unbalanced period: pressure concentrates — do not fight authority`));
     if (AUSPICIOUS[ssG] && score >= 55) cautions.push(T("吉神当值，宜按程序推进，勿走捷径以免失信", "A benefic rules: proceed by procedure, do not cut corners"));
 
-    if (score >= 62) opps.push(T(`${ssG}/${ssZ}得用，是推进主业与积累信誉的窗口`, `${ssG}/${ssZ} are useful: a window to push your main line`));
+    if (score >= 62) opps.push(T(`${ssG}/${ssZ}得用，是推进主业与积累信誉的窗口`, `${D.I18N.shishen[ssG] || ssG}/${D.I18N.shishen[ssZ] || ssZ} are useful: a window to push your main line`));
     const joined = rels.join(" ");
     if (joined.includes("天乙贵人")) opps.push(T("天乙贵人到位：主动求见关键人物，成功率高", "Tian Yi present: approach key people proactively"));
     if (joined.includes("文昌")) opps.push(T("文昌到位：考试、论文、资格与公开发表皆宜", "Wen Chang present: exams, papers, credentials"));
@@ -1230,18 +1230,38 @@
     const pats0 = detectPatterns(chart);
     const bonus = pats0.reduce((n, p) => n + ((D.PATTERN_BONUS || {})[p.name] || 0), 0);
     mingScore = Math.round(Math.max(2, Math.min(98, mingScore + bonus)) * 10) / 10;
+    const majorMing = ming.stars.filter((s) => s.kind === "主星");
     return { mingScore, wealthScore: palaceScore(chart, cai),
       careerScore: palaceScore(chart, guan), patterns: detectPatterns(chart),
-      mingStars: ming.stars.filter((s) => s.kind === "主星").map((s) => s.name + (s.hua ? "化" + s.hua : "") + (s.brightness ? `[${s.brightness}]` : "")),
+      mingStars: majorMing.map((s) => s.name + (s.hua ? "化" + s.hua : "") + (s.brightness ? `[${s.brightness}]` : "")),
+      // 分字段的版本：中文串没法在展示层安全地翻译，英文界面用这个自己拼
+      mingStarParts: majorMing.map((s) => ({ name: s.name, hua: s.hua || "", bright: s.brightness || "" })),
       bodyPalace: (chart.palaces.find((p) => p.isBody) || {}).name || "" };
   }
+  // 大限主题：中文原文在 data.js 的 DECADE_THEMES，这里只补英文，供英文界面用
+  const DECADE_EN = {
+    命宫: ["Self and direction", "building a personal position"],
+    兄弟: ["Peers and cooperation", "siblings, partners, competitors matter"],
+    夫妻: ["Intimacy", "marriage and long-term partnership"],
+    子女: ["Creation and nurture", "children, creative work, investments"],
+    财帛: ["Resources and cash flow", "income structure and money management"],
+    疾厄: ["Body and stress", "health, mood, depletion"],
+    迁移: ["Outside world", "travel, relocation, outside opportunity"],
+    仆役: ["Network and team", "friends, staff, community"],
+    官禄: ["Career and position", "profession and social role"],
+    田宅: ["Roots and assets", "property, family, inner stability"],
+    福德: ["Spirit and enjoyment", "mindset, interests, quality of life"],
+    父母: ["Elders and institutions", "parents, superiors, the system"]
+  };
   function decades(chart, asOf) {
     const now = asOf || new Date().getFullYear();
     return chart.palaces.map((p, k) => {
       const [s, e] = p.decade, sy = chart.birth.y + s - 1;
       const th = D.DECADE_THEMES[p.name] || ["", ""];
+      const en = DECADE_EN[p.name] || ["", ""];
       return { index: k, branch: p.branch, palace: p.name, startAge: s, endAge: e,
         startYear: sy, endYear: sy + 9, theme: th[0], advice: th[1],
+        themeEn: en[0], adviceEn: en[1],
         score: palaceScore(chart, p), active: sy <= now && now <= sy + 9 };
     });
   }
@@ -1320,9 +1340,9 @@
   function structureScore(c) {
     let s = 50; const plus = [], minus = [];
     const st = c.structure;
-    if (st.kind === "特殊格") { s += 12; plus.push(T(`成${st.name}，特殊格局立得住`, `Exceptional ${st.name} holds together`)); }
-    else if (st.transparent.length) { s += 10; plus.push(T(`${st.name}取格清晰（月令藏干透出）`, `${st.name} is cleanly established`)); }
-    else { s += 4; plus.push(T(`${st.name}以月令本气论，格象平实`, `${st.name} by month-command root qi — plain`)); }
+    if (st.kind === "特殊格") { s += 12; plus.push(T(`成${st.name}，特殊格局立得住`, `Exceptional ${structLabelEn(st.name)} holds together`)); }
+    else if (st.transparent.length) { s += 10; plus.push(T(`${st.name}取格清晰（月令藏干透出）`, `${structLabelEn(st.name)} is cleanly established`)); }
+    else { s += 4; plus.push(T(`${st.name}以月令本气论，格象平实`, `${structLabelEn(st.name)} by month-command root qi — plain`)); }
     const th = c.tiaohou, gans = c.pillars.map((p) => p.gan);
     const hidden = c.pillars.flatMap((p) => p.hidden);
     const pri = th.primary;
@@ -1331,7 +1351,7 @@
     else if (pri) {
       const sub = SUBST[pri];
       if (sub && (gans.includes(sub) || hidden.includes(sub))) {
-        s += 2; plus.push(T(`调候${pri}不见，得${sub}同类代之，力减而意存`, `${pri} absent, ${sub} substitutes at reduced strength`));
+        s += 2; plus.push(T(`调候${pri}不见，得${sub}同类代之，力减而意存`, `${py(pri)} absent, ${py(sub)} substitutes at reduced strength`));
       } else { s -= 6; minus.push(T(`调候${pri}全无，气候失和`, `No trace of climate stem ${pri}`)); }
     }
     const { favor } = strengthUseful(c);
@@ -1385,7 +1405,7 @@
         const sub = SUBST[ch];
         if (sub && (gans.includes(sub) || hidden.includes(sub))) {
           got += 0.55;
-          notes.push(T(`${ch}不见，以${sub}代之`, `${ch} absent, ${sub} substitutes`));
+          notes.push(T(`${ch}不见，以${sub}代之`, `${py(ch)} absent, ${py(sub)} substitutes`));
         }
       }
     });
@@ -1481,6 +1501,20 @@
 
   /* ---------------- interpretation ---------------- */
   const I18 = D.I18N;
+  // 解释文本是双语的：中文那份保留原文，英文那份里的干支必须换成拼音，
+  // 否则英文句子里会硬生生嵌一个汉字。
+  const GAN_PY = { 甲: "Jia", 乙: "Yi", 丙: "Bing", 丁: "Ding", 戊: "Wu",
+    己: "Ji", 庚: "Geng", 辛: "Xin", 壬: "Ren", 癸: "Gui" };
+  const ZHI_PY = { 子: "Zi", 丑: "Chou", 寅: "Yin", 卯: "Mao", 辰: "Chen", 巳: "Si",
+    午: "Wu", 未: "Wei", 申: "Shen", 酉: "You", 戌: "Xu", 亥: "Hai" };
+  const py = (s) => !s ? s : [...s].map((ch) => GAN_PY[ch] || ZHI_PY[ch] || ch).join(" ");
+  const STRUCT_EN_EXTRA = { 比肩格: "Parallel structure", 劫财格: "Rob Wealth structure",
+    比劫格: "Rivals structure", 杂气格: "Mixed Qi structure",
+    "从格（从势/从财杀）": "Following structure" };
+  const STAGE_EN = { 长生: "Birth", 沐浴: "Bath", 冠带: "Capping", 临官: "Office",
+    帝旺: "Peak", 衰: "Decline", 病: "Illness", 死: "Death", 墓: "Tomb",
+    绝: "Severed", 胎: "Conception", 养: "Nurture" };
+  const structLabelEn = (n) => (I18.structure && I18.structure[n]) || STRUCT_EN_EXTRA[n] || n;
 
   function interpretBazi(c) {
     const out = [];
@@ -1488,7 +1522,7 @@
     const I = I18;
     const zh = [], en = [];
     zh.push(`日主${dm}（${c.dayMasterWx}）生于${c.month.zhi}月，月令为${c.strengthLabel}（同党占 ${c.strength.toFixed(1)}%）。`);
-    en.push(`Day master ${dm} (${I.wx[c.dayMasterWx]}) born in the ${c.month.zhi} month; allies take ${c.strength.toFixed(1)}%, so it reads as ${I.strength[c.strengthLabel]}.`);
+    en.push(`Day master ${py(dm)} (${I.wx[c.dayMasterWx]}) born in the ${py(c.month.zhi)} month; allies take ${c.strength.toFixed(1)}%, so it reads as ${I.strength[c.strengthLabel]}.`);
     const structZh = st.kind === "特殊格"
       ? "特殊格局不宜用常规喜忌去套，成败系于一点：那一点被破则全局翻转。"
       : "普通格重在用神是否透出有力；格清而用神无力，仍是平常；格浊而用神得力，反能成事。";
@@ -1496,7 +1530,7 @@
       ? "An exceptional structure — ordinary favourable-element logic does not apply; the whole chart turns on one point."
       : "An ordinary structure — what matters is whether the useful god is transparent and rooted. A clean structure with a weak god stays ordinary; a muddy one with a strong god still delivers.";
     zh.push(`取格：${st.basis}。${structZh}`);
-    en.push(`Structure: ${I.structure[st.name] || st.name}. ${structEn}`);
+    en.push(`Structure: ${structLabelEn(st.name)}. ${structEn}`);
     if (th.sequence) {
       const miss = th.missing.length;
       const total = th.sequence.length;
@@ -1504,7 +1538,7 @@
         + (miss === 0 ? "调候齐备，先天气候得宜，起手条件不差。"
           : miss === total ? "调候全缺，环境给的支持有限，需靠方位、行业与择时后补——这一块补不上，格局就上不去。"
             : "调候有缺，需靠后天补：方位、行业属性，以及流年走到该五行时集中发力。"));
-      en.push(`Climate god: ${th.sequence} (lead ${th.primary}); present ${th.satisfied.join(", ") || "none"}, missing ${th.missing.join(", ") || "none"}. `
+      en.push(`Climate god: ${py(th.sequence)} (lead ${py(th.primary)}); present ${py(th.satisfied.join("")) || "none"}, missing ${py(th.missing.join("")) || "none"}. `
         + (miss === 0 ? "Complete — the starting conditions are workable."
           : miss === total ? "Nothing present; the environment under-supports you. Compensate by direction, industry and timing."
             : "Partially present: compensate by direction, industry, and by pushing in years that supply it."));
@@ -1542,7 +1576,7 @@
     c.pillars.forEach((p) => {
       const label = I.pillarInfo[p.position];
       zh3.push(`${p.gan}${p.zhi}（${p.shishenGan}／${p.shishenZhi}，${p.stage}）：${label.zh}。${tailZh[p.position]}`);
-      en3.push(`${p.gan}${p.zhi} (${I.shishen[p.shishenGan]} / ${I.shishen[p.shishenZhi]}, ${p.stage}) — ${label.en}. ${tailEn[p.position]}`);
+      en3.push(`${py(p.gan + p.zhi)} (${I.shishen[p.shishenGan] || "Self"} / ${I.shishen[p.shishenZhi] || p.shishenZhi}, ${STAGE_EN[p.stage] || p.stage}) — ${label.en}. ${tailEn[p.position]}`);
     });
     out.push({ key: "pillars", zh: zh3, en: en3 });
 

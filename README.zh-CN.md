@@ -246,11 +246,19 @@ web/                    index.html + app.js + engine.js + data.js（浏览器版
 docs/                   web/ 的发布副本，用于 GitHub Pages
 tools/gen_js_data.py    由 Python 端生成 data.js —— 这是两端不漂移的原因
 tools/parity.js         JS 与 Python 的逐字段比对
-tests/                  19 个单元测试，无第三方依赖
+tools/check_lang.py     渲染中英两版，任一侧漏出对方文字就报错
+tests/                  64 个单元测试，无第三方依赖
 ```
 
 `web/data.js` 是**生成的**，从不手写：VSOP 系数、藏干、纳音、调候表、星曜亮度、四化表，
 全部由 `tools/gen_js_data.py` 从 Python 模块导出。两端因此不可能各说各话。
+
+界面在结构上就是单语的：数据层保留中文原名（干支、神煞、星名），渲染层负责映射，
+所以 `?lang=en` 拿不到中文串，`?lang=zh` 也拿不到英文标签。这条由真浏览器验，不靠 grep：
+
+```bash
+python tools/check_lang.py        # 有任何残留就退出码 1；加 --show 看全量
+```
 
 ---
 

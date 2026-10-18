@@ -288,9 +288,9 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
     <div class="form">
       <div class="field"><label id="l-name">姓名</label><input id="f-name" placeholder="—"></div>
       <div class="field"><label id="l-gender">性别</label>
-        <select id="f-gender"><option value="male">男</option><option value="female">女</option></select></div>
+        <select id="f-gender"><option value="male" data-en="Male">男</option><option value="female" data-en="Female">女</option></select></div>
       <div class="field"><label id="l-cal">历法</label>
-        <select id="f-cal"><option value="solar">公历</option><option value="lunar">农历</option></select></div>
+        <select id="f-cal"><option value="solar" data-en="Gregorian">公历</option><option value="lunar" data-en="Lunar">农历</option></select></div>
       <div class="field" id="wrap-solar"><label id="l-date">生日</label><input id="f-date" type="date" value="1990-05-15"></div>
       <div class="field" id="wrap-lunar" style="display:none"><label id="l-lunar">农历生日</label><input id="f-lunar" placeholder="1993-4-25 / 1993-闰4-25"></div>
       <div class="field"><label id="l-time">时间</label><input id="f-time" type="time" value="10:20"></div>
@@ -430,16 +430,16 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
           <select id="s-rel"></select></div>
         <div class="field"><label id="s-l-name">对方姓名 / Name</label><input id="s-name" placeholder="—"></div>
         <div class="field"><label id="s-l-gender">对方性别 / Gender</label>
-          <select id="s-gender"><option value="male">男 / Male</option><option value="female">女 / Female</option></select></div>
+          <select id="s-gender"><option value="male" data-en="Male">男</option><option value="female" data-en="Female">女</option></select></div>
         <div class="field"><label id="s-l-date">对方生日 / Date</label><input id="s-date" type="date" value="1997-10-10"></div>
         <div class="field"><label id="s-l-time">时间 / Time</label><input id="s-time" type="time" value="20:00"></div>
         <div class="field"><label id="s-l-city">出生地 / Longitude</label>
           <select id="s-city">
-            <option value="116.40">北京</option><option value="121.47">上海</option>
-            <option value="113.26">广州</option><option value="114.06">深圳</option>
-            <option value="104.07">成都</option><option value="105.57">遂宁</option>
-            <option value="108.95">西安</option><option value="114.17">香港</option>
-            <option value="121.52">台北</option><option value="103.85">新加坡</option>
+            <option value="116.40" data-en="Beijing">北京</option><option value="121.47" data-en="Shanghai">上海</option>
+            <option value="113.26" data-en="Guangzhou">广州</option><option value="114.06" data-en="Shenzhen">深圳</option>
+            <option value="104.07" data-en="Chengdu">成都</option><option value="105.57" data-en="Suining">遂宁</option>
+            <option value="108.95" data-en="Xi'an">西安</option><option value="114.17" data-en="Hong Kong">香港</option>
+            <option value="121.52" data-en="Taipei">台北</option><option value="103.85" data-en="Singapore">新加坡</option>
           </select></div>
         <div class="field form-actions"><button class="btn primary" id="s-run" style="width:100%">合盘</button></div>
       </div>
@@ -455,8 +455,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
         <div class="field"><label id="c-l-provider">服务商</label>
           <select id="c-provider">
             <option value="https://api.deepseek.com/v1|deepseek-chat">DeepSeek</option>
-            <option value="https://open.bigmodel.cn/api/paas/v4|glm-4-flash">智谱 GLM</option>
-            <option value="https://dashscope.aliyuncs.com/compatible-mode/v1|qwen-plus">通义千问</option>
+            <option value="https://open.bigmodel.cn/api/paas/v4|glm-4-flash" data-en="Zhipu GLM">智谱 GLM</option>
+            <option value="https://dashscope.aliyuncs.com/compatible-mode/v1|qwen-plus" data-en="Qwen">通义千问</option>
             <option value="https://api.moonshot.cn/v1|moonshot-v1-8k">Kimi</option>
             <option value="https://api.openai.com/v1|gpt-4o-mini">OpenAI</option>
             <option value="custom" data-en="Custom">自定义</option>
@@ -525,9 +525,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=9"></script>
-<script src="engine.js?v=9"></script>
-<script src="extra.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<script src="data.js?v=10"></script>
+<script src="engine.js?v=10"></script>
+<script src="extra.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

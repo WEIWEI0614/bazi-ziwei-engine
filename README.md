@@ -257,12 +257,22 @@ web/                    index.html + app.js + engine.js + data.js   (browser bui
 docs/                   published copy of web/ for GitHub Pages
 tools/gen_js_data.py    emits data.js from the Python tables  <- keeps both engines honest
 tools/parity.js         JS/Python field-by-field comparison
-tests/                  19 unit tests, no third-party dependencies
+tools/check_lang.py     renders both languages and fails if either leaks the other
+tests/                   64 unit tests, no third-party dependencies
 ```
 
 `web/data.js` is **generated**, never hand-written: every table (VSOP terms, hidden stems,
 nayin, 調候, brightness grades, sihua) is dumped from the Python modules by
 `tools/gen_js_data.py`. That is why the two engines cannot drift apart.
+
+The UI is single-language by construction: the data layer keeps the Chinese term
+(干支, 神煞, star names) and the render layer maps it, so `?lang=en` never gets a
+Chinese string and `?lang=zh` never gets an English label. Both are checked by a
+real browser, not by grep:
+
+```bash
+python tools/check_lang.py        # exits 1 on any leftover; --show for the full list
+```
 
 ---
 

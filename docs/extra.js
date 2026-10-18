@@ -8,6 +8,18 @@
 
   const GWX = (() => { const o = {}; D.GAN.split("").forEach((g, i) => { o[g] = D.GAN_WUXING[i]; }); return o; })();
   const POSN = { year: "年", month: "月", day: "日", hour: "时" };
+  /* 英文串里的中文变量必须先就地换成英文/拼音：T(zh, en) 的两个参数是各自独立
+     的成品句子，en 里夹一个汉字就是漏网。 */
+  const GAN_PY = { 甲: "Jia", 乙: "Yi", 丙: "Bing", 丁: "Ding", 戊: "Wu",
+    己: "Ji", 庚: "Geng", 辛: "Xin", 壬: "Ren", 癸: "Gui" };
+  const ZHI_PY = { 子: "Zi", 丑: "Chou", 寅: "Yin", 卯: "Mao", 辰: "Chen", 巳: "Si",
+    午: "Wu", 未: "Wei", 申: "Shen", 酉: "You", 戌: "Xu", 亥: "Hai" };
+  const gz = (s) => !s ? s : [...s].map((ch) => GAN_PY[ch] || ZHI_PY[ch] || ch).join(" ");
+  const wxe = (w) => (D.I18N.wx && D.I18N.wx[w]) || w;
+  const STRU_EXTRA = { 比肩格: "Parallel structure", 劫财格: "Rob Wealth structure",
+    比劫格: "Rivals structure", 杂气格: "Mixed Qi structure",
+    "从格（从势/从财杀）": "Following structure" };
+  const stru = (n) => (D.I18N.structure && D.I18N.structure[n]) || STRU_EXTRA[n] || n;
   const GRADES = [[88, "上上格"], [74, "上格"], [60, "中上格"], [44, "中格"], [28, "中下格"], [0, "下格"]];
   const GRADE_EN = { 上上格: "top grade", 上格: "upper grade", 中上格: "upper-middle grade", 中格: "middle grade", 中下格: "lower-middle grade", 下格: "low grade" };
   const LIUHE = D.HE6 || {};
@@ -47,7 +59,7 @@
     // 1. 成格
     add("setup", T("取格有据", "Structure identified"), true, 6,
       T(`月令${c.month.zhi}，${c.structure.basis}`,
-        `Month ${c.month.zhi}: ${c.structure.name}`));
+        `Month ${gz(c.month.zhi)}: ${stru(c.structure.name)}`));
     const clean = !!(c.structure.transparent && c.structure.transparent.length);
     add("setup", T("格清气透", "Structure is clean"), clean, 8,
       clean ? T("月令藏干透于天干，格象清而不杂", "The month's hidden stem is transparent — the structure is clean")
@@ -55,11 +67,11 @@
 
     const four = [
       ["官星有气", "Officer has qi", branchWx(c, guanWx) >= 1,
-        T(`${guanWx}为官杀，藏于地支 ${branchWx(c, guanWx)} 处`, `${guanWx} as officer, hidden in ${branchWx(c, guanWx)} branches`)],
+        T(`${guanWx}为官杀，藏于地支 ${branchWx(c, guanWx)} 处`, `${wxe(guanWx)} as officer, hidden in ${branchWx(c, guanWx)} branch(es)`)],
       ["财星有根", "Wealth is rooted", branchWx(c, caiWx) >= 1,
-        T(`${caiWx}为财，藏于地支 ${branchWx(c, caiWx)} 处`, `${caiWx} as wealth, hidden in ${branchWx(c, caiWx)} branches`)],
+        T(`${caiWx}为财，藏于地支 ${branchWx(c, caiWx)} 处`, `${wxe(caiWx)} as wealth, hidden in ${branchWx(c, caiWx)} branch(es)`)],
       ["印星有根", "Resource is rooted", branchWx(c, yinWx) >= 1,
-        T(`${yinWx}为印，藏于地支 ${branchWx(c, yinWx)} 处`, `${yinWx} as resource, hidden in ${branchWx(c, yinWx)} branches`)],
+        T(`${yinWx}为印，藏于地支 ${branchWx(c, yinWx)} 处`, `${wxe(yinWx)} as resource, hidden in ${branchWx(c, yinWx)} branch(es)`)],
       ["日主得地", "Self has ground", c.strength >= 45,
         T(`日主同党 ${c.strength.toFixed(1)}%，${c.strengthLabel}`,
           `Allies ${c.strength.toFixed(1)}% — ${D.I18N.strength[c.strengthLabel] || c.strengthLabel}`)],
@@ -86,7 +98,7 @@
     let noble = 0; const nobleNames = [];
     nobles.forEach(([nm, w]) => { if (shaAt(c, nm)) { noble += w; nobleNames.push(nm); } });
     add("setup", T("命带贵气", "Noble stars present"), noble > 0, Math.min(12, noble),
-      nobleNames.length ? T("带 " + nobleNames.join("、") + "，贵气有根", "Carries " + nobleNames.join(", "))
+      nobleNames.length ? T("带 " + nobleNames.join("、") + "，贵气有根", "Carries " + nobleNames.map((n) => (D.I18N.shensha && D.I18N.shensha[n]) || n).join(", "))
         : T("无贵气星，全凭格局本身", "No noble stars — everything rests on the structure"));
 
     let chain = 0; const ws = ["木", "火", "土", "金", "水"];
@@ -145,10 +157,10 @@
       const subs = [...th.sequence].filter((ch) => !got.includes(ch) && (allG.includes(SUBST[ch]) || allH.includes(SUBST[ch])));
       if (!got.length && !subs.length) {
         add("break", T("调候全缺", "Climate entirely absent"), true, 5,
-          T(`调候取${th.sequence}而局中全无，气候失和`, `The climate stems ${th.sequence} are absent`));
+          T(`调候取${th.sequence}而局中全无，气候失和`, `The climate stems ${gz(th.sequence)} are absent`));
       } else if (!got.length) {
         add("break", T("调候以同类代之", "Climate substituted"), true, 2,
-          T(`调候${th.sequence}不见，得${subs.join("")}同类代之，力减而意存`, `${th.sequence} absent, substituted by ${subs.join("")}`));
+          T(`调候${th.sequence}不见，得${subs.join("")}同类代之，力减而意存`, `${gz(th.sequence)} absent, substituted by ${gz(subs.join(""))}`));
       }
     }
 
@@ -187,7 +199,7 @@
       const hit = c.pillars.filter((p) => p.hidden.some((h) => ue.avoid.includes(GWX[h])));
       if (hit.length) {
         add("rescue", T("忌神受制", "Hostile element checked"), true, 4,
-          T(`忌神${ue.avoid.join("")}落于${POSN[hit[0].position]}支${hit[0].zhi}，其势受制`, `The hostile ${ue.avoid.join("")} lands in ${hit[0].zhi} and is checked`));
+          T(`忌神${ue.avoid.join("")}落于${POSN[hit[0].position]}支${hit[0].zhi}，其势受制`, `The hostile ${ue.avoid.map(wxe).join(", ")} lands in ${gz(hit[0].zhi)} and is checked`));
       }
     }
 
@@ -200,7 +212,7 @@
     const score = Math.max(6, Math.min(99, 26 + 62 * ratio - brk + res * 1.35));
 
     return {
-      score: Math.round(score * 10) / 10, grade: gradeOf(score),
+      score: Math.round(score * 10) / 10, grade: gradeOf(score), gradeEn: GRADE_EN[gradeOf(score)],
       setupRatio: Math.round(ratio * 1000) / 1000,
       setupScore: Math.round(setup * 10) / 10, setupMax: Math.round(setupMax * 10) / 10,
       broken: brk, rescued: Math.round(res * 10) / 10,
@@ -228,45 +240,72 @@
     const ji4 = all4.flatMap((p) => p.stars.filter((s) => s.hua === "忌").map((s) => s.name));
     const found = [];
 
-    const reg = (name, cond, need, note, tier) => {
+    const reg = (name, cond, need, note, tier, nameEn, noteEn) => {
       if (!cond) return;
       const needN = need.size ? 2 : 1;
       const auxN = need.size ? [...aux4].filter((x) => need.has(x)).length : aux4.size;
       const clean = bad4.size === 0 || (bad4.size === 1 && badMing.size === 0);
+      const star = (n) => (D.I18N.star && D.I18N.star[n]) || n;
       if (auxN >= needN && clean) {
-        found.push({ name, status: "成立", tier, note, aux: auxN, bad: [...bad4] });
+        found.push({ name, nameEn: nameEn || name, status: "成立", statusEn: "holds",
+          tier, note, noteEn: noteEn || note, aux: auxN, bad: [...bad4] });
       } else {
-        const why = [];
-        if (auxN < needN) why.push("吉星加会不足");
-        if (!clean) why.push("见" + [...bad4].join("、") + "，奴欺主");
-        if (ji4.length) why.push("化忌同会");
-        found.push({ name, status: "有瑕", tier, note: note + "（" + why.join("；") + "）", aux: auxN, bad: [...bad4] });
+        const why = [], whyEn = [];
+        if (auxN < needN) { why.push("吉星加会不足"); whyEn.push("too few auxiliary stars"); }
+        if (!clean) {
+          why.push("见" + [...bad4].join("、") + "，奴欺主");
+          whyEn.push("with " + [...bad4].map(star).join(", ") + " — the servant overpowers the master");
+        }
+        if (ji4.length) { why.push("化忌同会"); whyEn.push("an obstacle transformation in the same trine"); }
+        found.push({ name, nameEn: nameEn || name, status: "有瑕", statusEn: "flawed", tier,
+          note: note + "（" + why.join("；") + "）",
+          noteEn: (noteEn || note) + " (" + whyEn.join("; ") + ")",
+          aux: auxN, bad: [...bad4] });
       }
     };
     const BIG = new Set(["左辅", "右弼", "文昌", "文曲", "天魁", "天钺", "禄存"]);
 
-    reg("极向离明", mm.size === 1 && mm.has("紫微") && ming.branch === "午", new Set(), "紫微居午，如北极向明，领袖之象", "大贵格");
-    reg("紫府同宫", mm.has("紫微") && mm.has("天府") && mm.size === 2 && ["寅", "申"].includes(ming.branch), new Set(), "二帝同宫，贵气最重，惟进退步调不一", "大贵格");
-    reg("紫府朝垣", m4.has("紫微") && m4.has("天府"), BIG, "紫府合照命垣，主资源聚合，不大贵即当大富", "大贵格");
-    reg("君臣庆会", mm.has("紫微"), new Set(["左辅", "右弼", "文昌", "文曲", "天魁", "天钺"]), "紫微为君，辅弼昌曲为臣，主领导与助力兼备", "大贵格");
+    reg("极向离明", mm.size === 1 && mm.has("紫微") && ming.branch === "午", new Set(), "紫微居午，如北极向明，领袖之象", "大贵格",
+      "Pole Facing the Light", "Zi Wei in Wu: the pole star facing the light — a leader's form");
+    reg("紫府同宫", mm.has("紫微") && mm.has("天府") && mm.size === 2 && ["寅", "申"].includes(ming.branch), new Set(), "二帝同宫，贵气最重，惟进退步调不一", "大贵格",
+      "Zi Wei and Tian Fu Together", "Two emperors in one palace — the heaviest nobility, though they move at different paces");
+    reg("紫府朝垣", m4.has("紫微") && m4.has("天府"), BIG, "紫府合照命垣，主资源聚合，不大贵即当大富", "大贵格",
+      "Zi Wei and Tian Fu in Trine", "The two emperors shine on the life palace: resources gather — either high rank or great wealth");
+    reg("君臣庆会", mm.has("紫微"), new Set(["左辅", "右弼", "文昌", "文曲", "天魁", "天钺"]), "紫微为君，辅弼昌曲为臣，主领导与助力兼备", "大贵格",
+      "Ruler and Ministers Meet", "Zi Wei as ruler, the auxiliaries as ministers — leadership with support");
     const cai = z.palaces.find((p) => p.name === "财帛"), guan = z.palaces.find((p) => p.name === "官禄");
-    reg("府相朝垣", majorsOf([cai, guan]).has("天府") && majorsOf([cai, guan]).has("天相"), BIG, "府相夹辅命垣，主富贵双全、人情味厚", "贵格");
-    reg("机月同梁", ["天机", "太阴", "天同", "天梁"].every((n) => m4.has(n)), new Set(), "机月同梁作吏人，宜公职、专业、幕僚", "常格");
-    reg("日丽中天", mm.size === 1 && mm.has("太阳") && ming.branch === "午", new Set(), "太阳在午，光芒最盛，主贵而显", "贵格");
-    reg("日照雷门", mm.size === 1 && mm.has("太阳") && ming.branch === "卯", new Set(), "太阳在卯，旭日东升，主早年得志", "贵格");
-    reg("月朗天门", mm.size === 1 && mm.has("太阴") && ming.branch === "亥", new Set(), "太阴在亥，月照天门，主聪慧清贵", "贵格");
-    reg("石中隐玉", mm.size === 1 && mm.has("巨门") && ["子", "午"].includes(ming.branch), new Set(), "巨门在子午，先苦后甘，以口才与研究立身", "贵格");
-    reg("英星入庙", mm.size === 1 && mm.has("破军") && ["子", "午"].includes(ming.branch), new Set(), "破军在子午入庙，敢破敢立", "常格");
-    reg("阳梁昌禄", ["太阳", "天梁", "文昌", "禄存"].every((n) => m4.has(n)), new Set(), "四星会齐，利考试与公职", "贵格");
-    reg("巨日同宫", mm.has("巨门") && mm.has("太阳") && ["寅", "申"].includes(ming.branch), new Set(), "巨日同宫，求名易于求利", "贵格");
+    reg("府相朝垣", majorsOf([cai, guan]).has("天府") && majorsOf([cai, guan]).has("天相"), BIG, "府相夹辅命垣，主富贵双全、人情味厚", "贵格",
+      "Tian Fu and Tian Xiang in Trine", "Fu and Xiang flank the life palace: wealth with rank, and warmth with people");
+    reg("机月同梁", ["天机", "太阴", "天同", "天梁"].every((n) => m4.has(n)), new Set(), "机月同梁作吏人，宜公职、专业、幕僚", "常格",
+      "Ji, Yue, Tong, Liang", "The classic clerk form: public office, the professions, staff work");
+    reg("日丽中天", mm.size === 1 && mm.has("太阳") && ming.branch === "午", new Set(), "太阳在午，光芒最盛，主贵而显", "贵格",
+      "Sun at Midheaven", "The sun in Wu at full brilliance — prominent and noble");
+    reg("日照雷门", mm.size === 1 && mm.has("太阳") && ming.branch === "卯", new Set(), "太阳在卯，旭日东升，主早年得志", "贵格",
+      "Sun Shining on the Thunder Gate", "The sun in Mao, rising: early success");
+    reg("月朗天门", mm.size === 1 && mm.has("太阴") && ming.branch === "亥", new Set(), "太阴在亥，月照天门，主聪慧清贵", "贵格",
+      "Moon Bright at the Heavenly Gate", "Tai Yin in Hai: clear intelligence with quiet nobility");
+    reg("石中隐玉", mm.size === 1 && mm.has("巨门") && ["子", "午"].includes(ming.branch), new Set(), "巨门在子午，先苦后甘，以口才与研究立身", "贵格",
+      "Jade Hidden in Stone", "Ju Men in Zi or Wu: bitter first, sweet later; lives by speech and research");
+    reg("英星入庙", mm.size === 1 && mm.has("破军") && ["子", "午"].includes(ming.branch), new Set(), "破军在子午入庙，敢破敢立", "常格",
+      "Hero Star Enshrined", "Po Jun in Zi or Wu at its peak: breaks and builds, decisive");
+    reg("阳梁昌禄", ["太阳", "天梁", "文昌", "禄存"].every((n) => m4.has(n)), new Set(), "四星会齐，利考试与公职", "贵格",
+      "Sun, Liang, Chang, Lu", "All four together: favourable for examinations and public office");
+    reg("巨日同宫", mm.has("巨门") && mm.has("太阳") && ["寅", "申"].includes(ming.branch), new Set(), "巨日同宫，求名易于求利", "贵格",
+      "Ju Men and Sun Together", "Fame comes more easily than money");
     const sunP = z.palaces.find((p) => p.stars.some((s) => s.name === "太阳"));
     const moonP = z.palaces.find((p) => p.stars.some((s) => s.name === "太阴"));
     if (sunP && moonP) {
-      reg("日月并明", (sunP.branch === "巳" && moonP.branch === "酉") || (sunP.branch === "辰" && moonP.branch === "戌"), new Set(), "日月皆旺，丹墀桂墀，主少年得志", "贵格");
+      reg("日月并明", (sunP.branch === "巳" && moonP.branch === "酉") || (sunP.branch === "辰" && moonP.branch === "戌"), new Set(), "日月皆旺，丹墀桂墀，主少年得志", "贵格",
+        "Sun and Moon Both Bright", "Both luminaries strong: early success and public notice");
     }
-    reg("杀破狼", ["七杀", "破军", "贪狼"].every((n) => m4.has(n)), new Set(), "杀破狼三方会照，一生起伏大，宜开创不宜守成", "变格");
+    reg("杀破狼", ["七杀", "破军", "贪狼"].every((n) => m4.has(n)), new Set(), "杀破狼三方会照，一生起伏大，宜开创不宜守成", "变格",
+      "Sha Po Lang", "Seven Killings, Breaker and Greedy Wolf in trine: a life of swings — build, do not conserve");
     if (!mm.size) {
-      found.push({ name: "命无正曜", status: "成立", tier: "常格", note: "命宫无十四主星，借对宫安星，性格随环境塑造", aux: aux4.size, bad: [...bad4] });
+      found.push({ name: "命无正曜", nameEn: "No Major Star in the Life Palace",
+        status: "成立", statusEn: "holds", tier: "常格",
+        note: "命宫无十四主星，借对宫安星，性格随环境塑造",
+        noteEn: "The life palace holds no major star; it borrows from the opposite palace, so character is shaped by circumstance",
+        aux: aux4.size, bad: [...bad4] });
     }
 
     const tierW = { 大贵格: 96, 贵格: 86, 常格: 70, 变格: 62 };
@@ -290,7 +329,7 @@
     });
     const score = Math.max(8, Math.min(99, base + Math.max(-8, Math.min(8, bonus))));
     return {
-      score: Math.round(score * 10) / 10, grade: gradeOf(score),
+      score: Math.round(score * 10) / 10, grade: gradeOf(score), gradeEn: GRADE_EN[gradeOf(score)],
       patterns: found, mingAux: [...aux4], mingBad: [...bad4], ji: ji4,
     };
   }
