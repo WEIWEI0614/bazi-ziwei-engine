@@ -238,6 +238,41 @@ Even the single most quoted rule — "year palace overlapping the natal spouse
 palace means marriage" — comes out at 0.497, which is a coin flip. Fifteen cells,
 none above 0.55.
 
+**Fourth, what the products actually do.** Reading their code and their prompts
+sorted the market into three tiers, and none of them has a scoring rule:
+
+| tier | example | annual output |
+|---|---|---|
+| paid apps | 文墨天机, 问真 | no number at all — "year palace in the spouse palace, feelings stir" |
+| open-source platforms | `Sudo-Biao/Chinese-Metaphysics-Platform` (161★) | three values, 吉/平/凶, from **one** five-element relation flipped by day-master strength |
+| AI fortune tellers | k-life.me and the prompt packs sold around it | 0-100 per year, requested by the prompt, with **no rule given** |
+
+The third tier is worth quoting. The prompt says, in full:
+
+> 每一年的数据点必须包含 5 个维度的独立评分（0-100 分）……
+> `"baseLevelScore": 75`
+
+That is the entire specification. A base of 75, five dimensions, and an
+instruction to fill them in. The model reads the chart, writes a paragraph, and
+then puts a number on it — the number is a by-product of the prose, not a
+calculation. Ask twice, get two answers; change the model, get a different chart
+of a life.
+
+All three tiers were run through the same exam (`tools/bench_methods.py`, health
+events, where "bad year" has an unambiguous meaning):
+
+| method | AUC |
+|---|---|
+| paid Zi Wei method (four transformations) | 0.484 |
+| open-source minimal (one five-element relation) | 0.483 |
+| this repo's five weighted components | 0.542 |
+| chance | 0.500 |
+
+The two established methods point slightly the **wrong** way. This repo's does
+better — 0.542 is about two standard errors, p ≈ 0.05 — but that is one cell out
+of thirty comparisons, and it does not survive the correction. More complexity
+buys a little; not enough.
+
 So: the annual score is a **ruler for ranking years inside one chart**, not a
 forecast. The UI leads with the percentile rather than the raw number, because
 the percentile is the only part that can be stated plainly, and it marks the
@@ -349,6 +384,7 @@ tools/check_lang.py     renders both languages and fails if either leaks the oth
 tools/bench_mingli.py   160 competition questions -> accuracy (see "Does it predict anything?")
 tools/bench_celebrity.py  50 public figures, 1163 dated events -> AUC
 tools/bench_ziwei.py    the paid apps' annual method, same data -> AUC
+tools/bench_methods.py   three methods head to head on one exam
 data/                   both benchmark sets and the hand-marked option labels
 tests/                   64 unit tests, no third-party dependencies
 ```
