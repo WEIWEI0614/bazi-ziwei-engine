@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18r";
+  const BUILD = "2026-10-18s";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -1749,13 +1749,13 @@
       ["八字要素",
         "十神、藏干（本气 / 中气 / 余气加权）、纳音、十二长生、旬空、旺相休囚死、五行量化占比、日主强弱、格局（含建禄 / 月刃 / 从格 / 专旺）、调候（《穷通宝鉴》120 条）、全部合冲刑害破。"],
       ["神煞",
-        "45 颗，分吉 / 中 / 凶三组。每颗都给出「落宫 + 依据」（如「日干丙帝旺之位」「年支酉查红鸾」），可逐条复核，不是黑箱。"],
+        "52 颗，分吉 / 中 / 凶三组。每颗都给出「落宫 + 依据」，例如「日干丙帝旺之位」「年支酉查红鸾」「年支酉，阳男阴女查元辰」，可逐条复核，不是黑箱。三合系八颗（驿马 / 桃花 / 华盖 / 将星 / 劫煞 / 灾煞 / 亡神 / 六厄）各自固定在十二长生的一个位置上——这既是查法的来源，也是自检：八张表必须分别落在 病 / 沐浴 / 墓 / 帝旺 / 绝 / 胎 / 临官 / 死，一张不错才算过。元辰与勾绞是全表仅有的两颗分性别神煞（阳男阴女进一位、阴男阳女退一位），走了哪一支会直接写在依据里。"],
       ["格位判定",
-        "格位与强度分成两个数。格位按古法逐条审计：成格 12 项、破格 7 项、救应 5 项，救应按 1.35 倍回补（《五言独步》「有病方为贵，无伤不是奇」）。紫微吉格按「吉星加会且三煞不临命」判成立 / 有瑕。强度则是七维加权，两者不互相折算。"],
+        "格位与强度分成两个数，互不折算。\n格位从 50 起算：取格清晰 +10（月令藏干透出）、以本气论 +4、特殊格 +12；调候用神透干 +10、藏支 +5、得同类替代 +2、全无 −6；用神方向对得上 +6（身强用财官 / 身弱用印比），方向相反 −4；命带天乙、天德、月德最多 +8。\n破格三项：月令被冲 −6、日主被合 −5、月刃而无官杀制 −6。\n强度是另一回事：同党（印 + 比劫）占比，超过 62% 为极强、52–62 偏强、45–52 中和、37–45 偏弱、低于 37 极弱。两个数并列，因为「格高而身弱」与「格低而身旺」是两种完全不同的人生结构，折算成一个数就看不出来了。"],
       ["紫微斗数",
         "寅首五虎遁定宫干、纳音定五行局、起紫微诀（商数宫前走，借数偶顺奇逆）安十四主星；六吉六煞、38 杂曜、长生 / 博士 / 将前 / 岁前四套十二神、小限、命主身主、斗君、生年四化与宫干自化全部入盘。"],
       ["流年与流月",
-        "按《子平真诠》顺序：用神专求月令，先看喜忌（地支为主）→ 再论十神吉凶（随格局而变）→ 再看会合刑冲（冲去忌神为去病，冲伤用神为凶，冲闲神则动而无咎）→ 最后叠大运基调。喜用一到两个五行、忌神一到两个，其余为闲神；闲神年份不作吉凶论，这才是「平年」的来处。分数压缩在 32–94 之间，单年读数是倾向而非判决。"],
+        "按《子平真诠》顺序：用神专求月令，先看喜忌（地支为主）→ 再论十神吉凶（随格局而变）→ 再看会合刑冲（冲去忌神为去病，冲伤用神为凶，冲闲神则动而无咎）→ 最后叠大运基调。喜用一到两个五行、忌神一到两个，其余为闲神；闲神年份不作吉凶论，这才是「平年」的来处。分数压缩在 30–93 之间，单年读数是倾向而非判决。"],
       ["合冲刑害怎么算",
         "三会、三合、半合、拱合、六合、三刑、相刑、自刑、六冲、六害、六破、墓库，全部由一个模型判定（mingli/bazi/relations.py），命局五行分布和流年流月都从它取数。关键不是「记下这个关系」，而是**改掉地支的五行**：寅午戌成局，寅就不再是木。份额按类封顶——三会三合整体转化，半合 0.65，拱合 0.35，六合要月令支持且化神透干才化。争合与妒合双方各打 0.55 折。墓库按「旺为库、衰为墓」判：库只是封存（可被冲开），墓才打 0.72 折。"],
       ["喜用神怎么定",
@@ -1763,9 +1763,9 @@
       ["紫微格局表",
         "74 条：吉 43、中 16、凶 15，覆盖传统常见格局与十四主星的双星同宫组合（紫贪、廉府、武相、机梁等）。每条都返回成立／不成立，不成立的附一句可核对的原因，例如「禄马交驰：禄存在官禄、天马在田宅，两宫不相会」。结构成立与成色受损分两个字段：前者是「有没有这个格」，后者是「这个格有多干净」，混在一个状态里就会得到「每条吉格都有瑕」这种读不出信息的结果。"],
       ["参考了哪些流派",
-        "都不公布公式，公布的是判断次序，次序可以折成权重。《子平真诠》定成败救应的先后（救应按 1.35 倍计回破格）；《滴天髓》定衰旺与通关（两神相战，能通关者才是用神）；倪海厦《天纪》定紫微的次序（先三方四正、次庙旺平陷、再四化三层），最有用的是他的**形状**——先找最弱的宫，再找哪一步运打上去，那是乘法不是加法；中州派定「星曜组合重于单颗庙旺」；盲派定宾主（日主是主，财官是客，冲合要看动的是谁的客）。"],
+        "七个来源，每个只贡献一件事。下面每一条都对应代码里的一个函数或一张表。\n**《子平真诠》（沈孝瞻）—— 定成败救应的先后。** 取格以月令为准：先看月令本气透不透，再看四柱有无破格，最后看有没有救应。落到「格局层次」维（权重 0.20）：取格清晰 +10、本气 +4，破格按「月令被冲 / 日主被合 / 月刃无制」三项各扣——这就是「先成、后破、再看救」的顺序。\n**《滴天髓》—— 定衰旺与通关。** 两神相战，能通关的那一方才是用神。这一条决定了用神在官杀 / 财 / 食伤里取谁，也决定了「五行流通」维里相生链怎么数。\n**《穷通宝鉴》—— 调候 120 条。** 按月令 × 日干查该用什么：透干 +10、藏支 +5、同类替代 +2、全无 −6。落到「调候得宜」维（权重 0.09）。\n**倪海厦《天纪》—— 定紫微的判定次序。** 先三方四正，次庙旺平陷，再四化三层（生年 / 大限 / 流年）。最有用的是形状而不是条目：**先找最弱的宫，再找哪一步运把煞星叠上去**——那是乘法，不是把吉凶加起来。落到「紫微命宫」「三方四正」两维，以及流年的「弱 × 触发」。\n**中州派（王亭之）—— 星曜组合重于单颗庙旺。** 双星同宫会改写两颗星的读法。落到格局表：74 条里 20 条是双星组合（紫贪、廉府、财印交驰、机梁、同梁……），判的是「这一对星落在命宫三方四正的哪一宫」，不是单颗亮度。\n**盲派 —— 宾主。** 日主是主，财官是客；一个冲合要看它动的是谁的客。落到冲合的定向：冲忌神是去病、冲用神是拆台、冲闲神只是动而无咎——同一个冲，看打在哪一边决定吉凶。\n**《五言独步》—— 「有病方为贵，无伤不是奇」。** 救应按 1.35 倍回补破格就出自这一句：一个完全无伤的平顺格，反而不如一个有明显病、却恰好有药来救的格。"],
       ["流年分数是什么",
-        "五条分项（用神、十神、会合刑冲、大运、神煞）按权重相加，再压到 32–94。带 * 的两项权重由本引擎自定，方向来自古法。它的用途是「同一张盘内排序」——看哪几年相对顺、哪几年相对滞，不是事件预测。「75.8」本身没有绝对含义，页面因此优先显示它在这张盘的年份里所处的位置（前 3% / 后 19%）。"],
+        "五条分项（用神、十神、会合刑冲、大运、神煞）按权重相加，再压到 30–93。带 * 的两项权重由本引擎自定，方向来自古法。它的用途是「同一张盘内排序」——看哪几年相对顺、哪几年相对滞，不是事件预测。「75.8」本身没有绝对含义，页面因此优先显示它在这张盘的年份里所处的位置（前 3% / 后 19%）。"],
       ["实测：它预测不了具体事件",
         "三次测试，指向同一结论。（一）MingLi-Bench 的 160 道真实比赛题（全球算命师大赛 2022–2025，四选一）：可判定的 58 题答对 7 题，12.1%，随机是 25%。把选项文字换成人工标注（每项标出领域与吉凶）之后还是 7 题——问题不在选项映射，在引擎本身。（二）BaziQA 的 50 位名人、1163 条带年份事件：以「这一年发生过该类事件」为正例算 AUC，整体分数 0.505，冲合强度 0.510（改正合化与墓库之后从 0.488 挪过来的），五个领域落在 0.46–0.53；0.5 就是没有信号。（三）把付费紫微 App 自己讲的那套（流年命宫叠本命宫、流年四化落宫）实现出来，在同一批 50 人上测：十五格 AUC 全部落在 0.476–0.532，最常被引用的「流年命宫叠本命夫妻宫主结婚」也只有 0.497。真实产品分三档：付费 App 根本不给数字，只给定性句；开源平台给三个值（吉/平/凶），规则只有一条五行生克；AI 算命产品让模型自己填 0-100，提示词里除了「baseLevelScore: 75」没有任何规则——数字是叙述的副产品。（五）最后让模型自己学：十二个特征、留一人交叉验证，命理+年龄 0.601，只用年龄 0.595，把命理特征打乱后仍有 0.575——年龄是真信号，命理只值 0.006，换上事业/感情/财富三类则归零。这个结论留在页面上，不藏。复现：python tools/bench_mingli.py、bench_celebrity.py、bench_ziwei.py。"],
       ["校验",
@@ -1780,9 +1780,9 @@
       ["BaZi components",
         "Ten gods, hidden stems (primary / middle / residual weighted), nayin, twelve stages, void branches, seasonal states, quantified element shares, day-master strength, structure, climate god (120 rules from Qiong Tong Bao Jian), and every clash / combination / punishment / harm."],
       ["Shensha",
-        "52 stars in three grades. Each reports where it lands and which rule produced it — auditable, not a black box."],
+        "52 stars in three grades. Every entry carries the palace it lands in and the rule that put it there, so each one can be verified rather than taken on faith. The eight trine-based stars each sit at a fixed position of the twelve-stage cycle; that is both where the lookup comes from and how it is checked -- all eight must land on illness, bath, tomb, peak, severance, embryo, office and death respectively. Yuan Chen and Gou Jiao are the only two that depend on gender, and the branch actually used is printed."],
       ["Grade vs strength",
-        "Two separate numbers. Rank is judged by the classical audit: 12 setup conditions, 7 break conditions, 5 rescue conditions, with rescues weighted 1.35x. Zi Wei patterns require auxiliary stars present and no malefic in the life palace. Strength is a seven-dimension weighted score. They are never averaged together."],
+        "Grade and strength are two separate numbers and are never converted into each other.\nGrade starts at 50: a cleanly identified structure +10 (the month branch hidden stem is transparent), root qi +4, a special structure +12; the climate stem transparent +10, hidden in a branch +5, a substitute of the same kind +2, absent entirely -6; a useful god pointing the right way +6 and the wrong way -4; Tian Yi, Tian De and Yue De up to +8 together.\nThree ways to break it: month branch clashed -6, day master combined away -5, a blade structure with no officer to control it -6.\nStrength is a different axis: the share held by resource plus peers -- above 62% very strong, 52-62 strong, 45-52 balanced, 37-45 weak, below 37 very weak. Both are shown side by side, because a high structure on a weak day master and a low structure on a strong one are two entirely different lives."],
       ["Zi Wei",
         "Palace stems by the Five Tiger rule, bureau by sound-element, Purple Star by the quotient/borrow method; 14 majors, 6+6 auxiliaries, 38 adjective stars, four sets of twelve gods, minor limits, life/body rulers, Dou Jun, birth-year and self transformations."],
       ["Annual & monthly",
@@ -1794,9 +1794,9 @@
       ["The Zi Wei pattern table",
         "74 entries: 43 auspicious, 16 neutral, 15 adverse, covering the classical named patterns plus the two-star combinations of the fourteen majors (Zi Wei with Tan Lang, Lian Zhen with Tian Fu, Wu Qu with Tian Xiang, Tian Ji with Tian Liang and so on). Each entry returns holds or does not hold, and the ones that do not carry a checkable reason — for instance, Lu and Horse: Lu Cun sits in Career, Tian Ma in Property, so the two palaces never meet. Whether a pattern exists and how clean it is are separate fields; merging them produces the useless reading where every auspicious pattern is marked flawed."],
       ["Which schools this borrows from",
-        "None of them publish a formula; they publish an order of decision, and an order converts into weights. Zi Ping Zhen Quan fixes the order in which a structure is built, broken and rescued (a rescue counts 1.35x a break). Di Tian Sui fixes strength and mediation — when two elements fight, the one that mediates is the useful god. Ni Haixia's Tian Ji fixes the Zi Wei order (trine first, brightness second, four transformations in three layers third), and its most useful part is a **shape**: find the weakest palace, then find the period that hits it. That is a product, not a sum. The Zhongzhou school holds that combinations outrank single-star brightness. The blind school uses host-and-guest: the day master is host, wealth and office are guests, and an interaction is read by whose guest it moves."],
+        "Seven sources, each contributing exactly one thing. Every line below maps to a function or a table in the code.\n**Zi Ping Zhen Quan (Shen Xiaozhan) -- the order of build, break and rescue.** A structure is read from the month command: first whether the month hidden stem is transparent, then whether anything breaks it, then whether anything rescues it. This becomes the structure dimension (weight 0.20): clean identification +10, root qi +4, with breaks charged for a clashed month branch, a combined-away day master and an uncontrolled blade.\n**Di Tian Sui -- strength and mediation.** When two elements fight, the one that mediates is the useful god. That decides which of officer, wealth and output is taken, and how the generating chains in the flow dimension are counted.\n**Qiong Tong Bao Jian -- 120 climate entries.** Month branch times day stem gives what the chart needs: transparent +10, hidden +5, a substitute +2, absent -6. This is the climate dimension (weight 0.09).\n**Ni Haixia, Tian Ji -- the order of Zi Wei judgement.** Trine first, brightness second, the four transformations in three layers third. What is most useful there is not a rule but a shape: **find the weakest palace, then find the period that puts the malefics on it.** That is a product, not a sum of good and bad points. It becomes the life-palace and trine dimensions, and the weak-times-trigger term in the annual model.\n**Zhongzhou school (Wang Tingzhi) -- combinations outrank single-star brightness.** Two stars in one palace change how each is read. This becomes the pattern table: 20 of its 74 entries are two-star combinations, judged by which palace of the trine the pair occupies rather than by either star brightness.\n**Blind school -- host and guest.** The day master is host; wealth and officer are guests. An interaction is read by whose guest it moves. This becomes the direction of every clash: clashing a hostile element is a cure, clashing the useful god is a wound, clashing an idle one is mere motion.\n**Wu Yan Du Bu -- illness is what makes a chart valuable.** A rescue counts 1.35 times a break, which comes from that line: a chart with no wound at all is worth less than one with a clear illness and the right medicine."],
       ["What the annual score is",
-        "Five components (useful god, ten gods, interactions, decade tone, stars) are weighted and summed, then compressed to 32-94. The two marked * carry weights we chose ourselves; their direction is classical. The score ranks years within one chart — which run easier, which run against you — it does not predict events. '75.8' has no absolute meaning, which is why the page leads with its position among that chart's years (top 3% / bottom 19%)."],
+        "Five components (useful god, ten gods, interactions, decade tone, stars) are weighted and summed, then compressed to 30-93. The two marked * carry weights we chose ourselves; their direction is classical. The score ranks years within one chart — which run easier, which run against you — it does not predict events. '75.8' has no absolute meaning, which is why the page leads with its position among that chart's years (top 3% / bottom 19%)."],
       ["Tested: it does not predict events",
         "Two tests, one conclusion. (1) The 160 real competition questions in MingLi-Bench (four options each): the engine answers 7 of the 58 decidable items — 12.1%, where chance is 25%. Replacing the keyword mapping with hand-marked labels for every option (life area plus good/bad) still gives 7 — so the loss is not in the mapping, it is in the engine. (2) BaziQA's 50 public figures with 1163 dated life events: treating 'this category of event happened this year' as the positive class, AUC is 0.505 for the overall score, 0.510 for clash strength (it was 0.488 before combinations and tombs were modelled), and 0.46-0.53 across all five areas. 0.5 is no signal. (3) Implementing what the paid Zi Wei apps describe in their own guides — the year palace landing on a natal palace, the annual four transformations landing in one — gives fifteen AUC cells between 0.476 and 0.532 on the same 50 people; the most quoted rule of all — year palace on the natal spouse palace means marriage — scores 0.497. As for the products: paid apps give no number at all, open-source platforms give three values from a single five-element relation, and AI fortune tellers ask the model to fill in 0-100 with no rule beyond a base of 75 — the number is a by-product of the prose. (5) Finally, a fitted model: twelve features, leave-one-person-out, chart plus age reaches 0.601 while age alone reaches 0.595 and shuffled chart features still reach 0.575 — age is real, the chart is worth 0.006, and on career, romance and wealth it is worth nothing. The result stays on this page. Reproduce with: python tools/bench_mingli.py, bench_celebrity.py, bench_ziwei.py."],
       ["Validation",
@@ -1804,10 +1804,16 @@
       ["Limits",
         "(1) ΔT beyond 2050 is a prediction — far-future terms may drift by tens of seconds. (2) When a new moon falls seconds before midnight the lunar date can differ by a day (~once in 30 years). (3) Scoring weights are heuristic — calibrate with the back-test. (4) This describes structural tendencies, not specific events."],
     ];
+    // 正文允许换行与 **强调**。旧版整段塞进一个 div，段落之间没有呼吸；
+    // 而且 **形状** 会把星号原样显示出来。
+    const fmt = (txt) => String(txt).split("\n").map((x) => x.trim())
+      .filter(Boolean)
+      .map((x) => `<p style="margin:0 0 7px">${x.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")}</p>`)
+      .join("");
     $("methodBox").innerHTML = rows.map(([h, body]) =>
-      `<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #21242c">
-         <div style="font-size:12px;color:var(--amber);letter-spacing:.1em;margin-bottom:4px">${h}</div>
-         <div class="note" style="color:var(--tx2);line-height:1.85">${body}</div>
+      `<div style="margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid #21242c">
+         <div style="font-size:12px;color:var(--amber);letter-spacing:.1em;margin-bottom:6px">${h}</div>
+         <div class="note" style="color:var(--tx2);line-height:1.85">${fmt(body)}</div>
        </div>`).join("");
   }
 
