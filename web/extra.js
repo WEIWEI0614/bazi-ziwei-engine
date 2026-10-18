@@ -86,9 +86,14 @@
       clean ? T("月令藏干透于天干，格象清而不杂", "The month's hidden stem is transparent — the structure is clean")
         : T("月令藏干未透，格以本气论，力散而象平", "No transparent stem — the structure is read from root qi, flatter and looser"));
 
+    // 官不只要有根，还可以「有源」：官星透干而财能生官，古法算「源不絕」，不是无官。
+    const guanRoot = branchWx(c, guanWx);
+    const guanStemOn = c.pillars.some((p) => p.shishenGan === "正官" || p.shishenGan === "七杀");
+    const guanOk = guanRoot >= 1 || (guanStemOn && branchWx(c, caiWx) >= 1);
     const four = [
-      ["官星有气", "Officer has qi", branchWx(c, guanWx) >= 1,
-        T(`${guanWx}为官杀，藏于地支 ${branchWx(c, guanWx)} 处`, `${wxe(guanWx)} as officer, hidden in ${branchWx(c, guanWx)} branch(es)`)],
+      ["官星有根或有源", "Officer rooted or fed", guanOk,
+        T(`${guanWx}为官杀，藏于地支 ${guanRoot} 处` + (guanRoot === 0 && guanOk ? "，得财生，官有源而不绝" : ""),
+          `${wxe(guanWx)} as officer: rooted ${guanRoot} time(s)` + (guanRoot === 0 && guanOk ? ", but wealth feeds it" : ""))],
       ["财星有根", "Wealth is rooted", branchWx(c, caiWx) >= 1,
         T(`${caiWx}为财，藏于地支 ${branchWx(c, caiWx)} 处`, `${wxe(caiWx)} as wealth, hidden in ${branchWx(c, caiWx)} branch(es)`)],
       ["印星有根", "Resource is rooted", branchWx(c, yinWx) >= 1,
@@ -114,6 +119,19 @@
         ok ? T("日主偏弱而印星有根，扶得起", "Weak but rooted resource — support is available")
           : T("身弱而印比无力，格高身弱，福不称格", "Weak and unsupported — the structure outruns the self"));
     }
+
+    // 用神有力（《子平真诠》「用神有力无力」）：格成了，还要看药有没有分量。
+    const sys = ML.usefulElements ? ML.usefulElements(c) : {};
+    const prim = sys.primary || "";
+    const primShare = (c.elementScores || {})[prim] || 0;
+    const primRoot = c.pillars.some((p) => p.hidden.some((h) => GWX[h] === prim));
+    const primTrans = c.pillars.some((p) => p.gan && GWX[p.gan] === prim);
+    add("setup", T("用神有力", "Useful god has weight"), prim && primShare >= 3 && (primRoot || primTrans), 6,
+      prim && primShare >= 3 && (primRoot || primTrans)
+        ? T(`用神${prim}占 ${primShare.toFixed(1)}%${primTrans ? "且透干" : "，藏支有根"}，药真而能任`,
+            `${wxe(prim)} as the useful god holds ${primShare.toFixed(1)}% and ${primTrans ? "is transparent" : "has a root"} — the medicine can act`)
+        : T(`用神${prim || "—"}占 ${primShare.toFixed(1)}%，药轻不任病`,
+            `${wxe(prim) || "—"} holds only ${primShare.toFixed(1)}% — too light to act`));
 
     const nobles = [["天乙贵人", 5], ["天德贵人", 4], ["月德贵人", 4], ["文昌贵人", 3], ["学堂", 3], ["国印贵人", 3]];
     let noble = 0; const nobleNames = [];
@@ -576,8 +594,31 @@
     };
   }
 
+  /* 未来 N 年的大运，干支五行落在喜用 / 忌神各占多少年。
+     只陈述事实，不合成分数——把运揉进一个总分就要定权重，权重一改结论就变。 */
+  function luckFit(b, years) {
+    const Y = years || 40, now = new Date().getFullYear();
+    const ue = ML.usefulElements(b);
+    const favor = new Set(ue.favor || []), avoid = new Set(ue.avoid || []);
+    const cy = ML.luckCycles(b, 12, now);
+    const segs = []; let f = 0, a = 0, m = 0;
+    cy.forEach((c) => {
+      const lo = Math.max(c.startYear, now), hi = Math.min(c.endYear, now + Y - 1);
+      const n = hi - lo + 1;
+      if (n <= 0) return;
+      const ew = [GWX[c.gan], D.ZHI_WUXING[D.ZHI.indexOf(c.zhi)]];
+      const fit = ew.every((e) => favor.has(e)) ? "喜用"
+        : (ew.every((e) => avoid.has(e)) ? "忌" : "半");
+      if (fit === "喜用") f += n; else if (fit === "忌") a += n; else m += n;
+      segs.push({ label: c.label, start: c.startYear, end: c.endYear, years: n, elements: ew, fit });
+    });
+    const total = f + a + m || 1;
+    return { span: now + "–" + (now + Y - 1), years: total, favor: f, avoid: a, mixed: m,
+      rate: Math.round(((f + 0.5 * m) / total) * 1000) / 1000, segments: segs };
+  }
+
   Object.assign(window.ML, {
-    gradeOf, GRADE_EN, baziGrade, ziweiGrade, combinedGrade, castGua, synastry,
+    gradeOf, GRADE_EN, baziGrade, ziweiGrade, combinedGrade, castGua, synastry, luckFit,
   });
 
   /* 把格位挂进 buildReading 的返回值：格位（贵贱）与强度（力量）并列输出 */
@@ -587,6 +628,7 @@
     try {
       r.grade = combinedGrade(baziGrade(r.bazi), ziweiGrade(r.ziwei));
       r.scores.grade = r.grade;
+      r.luckFit = luckFit(r.bazi);
     } catch (e) {
       console.error("grade", e);
     }

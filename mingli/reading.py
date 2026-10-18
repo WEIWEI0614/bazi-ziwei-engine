@@ -12,6 +12,7 @@ from .ziwei import analysis as zw_analysis
 from .ziwei.chart import ZiweiChart, build_ziwei
 
 from . import pattern as _pattern
+from . import scoring as _scoring  # noqa: E402
 from .scoring import score_overall  # noqa: E402
 
 
@@ -27,6 +28,7 @@ class Reading:
     months: list = field(default_factory=list)
     events: dict = field(default_factory=dict)
     meta: dict = field(default_factory=dict)
+    luck_fit: dict = field(default_factory=dict)
 
 
 def build_reading(name: str, gender: str, year: int, month: int, day: int,
@@ -48,6 +50,7 @@ def build_reading(name: str, gender: str, year: int, month: int, day: int,
     r.grade = _pattern.combined_grade(_pattern.bazi_grade(chart),
                                       _pattern.ziwei_grade(zc))
     r.scores["grade"] = r.grade
+    r.luck_fit = _scoring.luck_fit(chart)
     r.zsummary = zw_analysis.summary(zc)
     r.cycles = bz_luck.luck_cycles(chart, count=10, as_of=focus_year)
     r.timeline = bz_luck.timeline(chart, years=12, as_of_year=focus_year)

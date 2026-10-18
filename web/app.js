@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18u";
+  const BUILD = "2026-10-18v";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -673,6 +673,12 @@
     const fuPct = fuPal && ML.palaceScore
       ? ML.pctFromStats(((window.ML_DATA.PERCENTILES || {}).palaceStats || {}).父母, ML.palaceScore(R.ziwei, fuPal))
       : null;
+    // 运：只陈述未来 40 年大运与喜用的配合，不揉进格位分（一揉就得定权重，权重一改结论就变）
+    const lf = R.luckFit || {};
+    const luckLine = !lf.segments ? "" : (LANG === "zh"
+      ? `运（${lf.span}，共 ${lf.years} 年）：喜用 <b>${lf.favor}</b> 年 · 忌 <b style="color:var(--red)">${lf.avoid}</b> 年${lf.mixed ? ` · 半 ${lf.mixed}` : ""}
+         —— ${lf.segments.map((x) => `${gzEn(x.label)} ${x.start}–${x.end}<span style="color:${x.fit === "喜用" ? "var(--teal)" : (x.fit === "忌" ? "var(--red)" : "var(--tx3)")}">${x.fit}</span>`).join("；")}`
+      : `Luck (${lf.span}, ${lf.years} yrs): ${lf.favor} favourable, ${lf.avoid} adverse${lf.mixed ? `, ${lf.mixed} mixed` : ""}.`);
     const caveat = LANG === "zh"
       ? `<div style="margin-top:8px;padding:8px 11px;border-left:2px solid var(--line);color:var(--tx3)">
            <b style="color:var(--tx2)">这一栏评的是盘，不是你。</b>
@@ -690,12 +696,12 @@
       ? `${g.basis || ""}<br>
          <span style="color:var(--tx3)">格位判「贵贱」（成格 / 破格 / 救应），强度判「力量」（五行、调候、流通）。二者不互相折算——
          从格可以身弱而格高，身强之造也可以格低。<b>分档一律按百分位，不按分数</b>：上格＝前 12%，中上格＝前 28%，
-         中格＝中间三成。分数不能横比，位置才能：同一个 80 分，在紫微格里是第 76 百分位，放进八字格里只剩第 67。</span><br>
+         中格＝中间三成。分数不能横比，位置才能——同一个分数，换一把尺子就换一个位置，所以先换算百分位再比较。</span><br>
          八字 <b style="color:${gcol(bz.percentile || 0)}">${bz.grade || "—"} ${(bz.score || 0).toFixed(1)}</b>（${bz.percentile !== undefined ? beat(bz.percentile) : "—"}）
          · 紫微 <b style="color:${gcol(zw.percentile || 0)}">${zw.grade || "—"} ${(zw.score || 0).toFixed(1)}</b>（${zw.percentile !== undefined ? beat(zw.percentile) : "—"}）
          · 合计 <b>${g.percentile !== undefined ? beat(g.percentile) : "—"}</b>
-         · 强度 ${s.overall.toFixed(1)}（${LANG === "zh" ? "超过 " + s.percentile.toFixed(0) + "%" : "P" + s.percentile.toFixed(0)}）
-         ${caveat}`
+         · 强度 ${s.overall.toFixed(1)}（${LANG === "zh" ? "超过 " + s.percentile.toFixed(0) + "%" : "P" + s.percentile.toFixed(0)}）<br>
+         ${luckLine}${caveat}`
       : `${g.basisEn || ""}${caveat}`;
 
     // 成格 / 破格 / 救应 明细
@@ -1831,7 +1837,7 @@
       ["Shensha",
         "52 stars in three grades. Every entry carries the palace it lands in and the rule that put it there, so each one can be verified rather than taken on faith. The eight trine-based stars each sit at a fixed position of the twelve-stage cycle; that is both where the lookup comes from and how it is checked -- all eight must land on illness, bath, tomb, peak, severance, embryo, office and death respectively. Yuan Chen and Gou Jiao are the only two that depend on gender, and the branch actually used is printed."],
       ["Grade vs strength",
-        "Grade and strength are two separate numbers and are never converted into each other.\nGrade is a **checklist of what makes a structure stand**, not a weighted average: 67.4 points available -- a documented structure 6, a clean one (month hidden stem transparent) 8, officer / wealth / resource each rooted 5, day master rooted 5, all four present 10, a strong master able to carry wealth and officer 7, noble stars up to 12, an unbroken generating chain up to 8.\nBreaks are subtracted item by item: officer combined away 7, hurting officer meeting officer 5, a blade with no officer to control it 5, rivals contesting wealth 4, month clashed 6, day master combined away 4, no climate god at all 5 (halved when a substitute of the same kind is present).\nRescues come back at 1.35x -- 'the chart that is ill is the valuable one': hurting officer controlled 7, wealth feeding officer 6, output bridging rivals to wealth 5, a clash dissolved by a combination 5, the avoid element held in check 4.\nScore = 26 + 62 x setup ratio - breaks + 1.35 x rescues.\n**The tier is a percentile, not a score.** Calibrated on 3000 random charts, the BaZi grade averages 75.3 (sd 11.0) and the Zi Wei grade 69.7 (sd 14.8). The old cut-offs were hard-coded at 88 / 74 / 60 without ever checking that distribution, so 'upper grade' covered two fifths of all charts and 'upper-middle' was the mode -- the same word meant two different positions. Tiers now share one ladder with overall strength: top 3%, upper 12%, upper-middle 28%, middle the central 30%, lower-middle the next 25%, low the last 15%. So 'BaZi 72, Zi Wei 80' is not necessarily two tiers: the same 80 sits at the 76th percentile of Zi Wei grades and only the 67th of BaZi grades -- a score cannot be compared across rulers, a position can.\nThe two are also not averaged as scores -- different zero points mean a 0.55 / 0.45 blend quietly gives BaZi extra weight, so each is converted to a percentile first.\nThe BaZi checklist rewards charts where officer, wealth, resource and master are all rooted, which favours balanced charts; a lopsided or dominant-element chart loses on this ruler. That is a limit of the checklist, not a verdict."],
+        "Grade and strength are two separate numbers and are never converted into each other.\nGrade is a **checklist of what makes a structure stand**, not a weighted average: 67.4 points available -- a documented structure 6, a clean one (month hidden stem transparent) 8, officer / wealth / resource each rooted 5, day master rooted 5, all four present 10, a strong master able to carry wealth and officer 7, noble stars up to 12, an unbroken generating chain up to 8.\nBreaks are subtracted item by item: officer combined away 7, hurting officer meeting officer 5, a blade with no officer to control it 5, rivals contesting wealth 4, month clashed 6, day master combined away 4, no climate god at all 5 (halved when a substitute of the same kind is present).\nRescues come back at 1.35x -- 'the chart that is ill is the valuable one': hurting officer controlled 7, wealth feeding officer 6, output bridging rivals to wealth 5, a clash dissolved by a combination 5, the avoid element held in check 4.\nScore = 26 + 62 x setup ratio - breaks + 1.35 x rescues.\n**The tier is a percentile, not a score.** Calibrated on 3000 random charts, the BaZi grade averages 75.3 (sd 11.0) and the Zi Wei grade 69.7 (sd 14.8). The old cut-offs were hard-coded at 88 / 74 / 60 without ever checking that distribution, so 'upper grade' covered two fifths of all charts and 'upper-middle' was the mode -- the same word meant two different positions. Tiers now share one ladder with overall strength: top 3%, upper 12%, upper-middle 28%, middle the central 30%, lower-middle the next 25%, low the last 15%. So 'BaZi 72, Zi Wei 80' is not necessarily two tiers: a score cannot be compared across rulers, a position can -- convert to a percentile first.\nThe two are also not averaged as scores -- different zero points mean a 0.55 / 0.45 blend quietly gives BaZi extra weight, so each is converted to a percentile first.\nThe BaZi checklist rewards charts where officer, wealth, resource and master are all rooted, which favours balanced charts; a lopsided or dominant-element chart loses on this ruler. That is a limit of the checklist, not a verdict."],
       ["Zi Wei",
         "Palace stems by the Five Tiger rule, bureau by sound-element, Purple Star by the quotient/borrow method; 14 majors, 6+6 auxiliaries, 38 adjective stars, four sets of twelve gods, minor limits, life/body rulers, Dou Jun, birth-year and self transformations."],
       ["Annual & monthly",

@@ -160,9 +160,16 @@ def bazi_grade(chart) -> dict:
         else "月令藏干未透，格以本气论，力散而象平")
 
     # 官 / 财 / 印 / 身 四者是否有根（《子房》上等格之形）
+    # 官这一条要留一个「有源」的口子：官星不透根而财能生官，古法算「有源不絕」，
+    # 不是「无官」。旧版只查藏干有没有官，把「财旺生官」的盘一律当成缺官，
+    # 与它自己在救应里给的「财旺生官」正面冲突。
+    guan_root = _branch_wx(chart, guan_wx)
+    guan_stem = any(p.shishen_gan in ("正官", "七杀") for p in chart.pillars)
+    guan_ok = guan_root >= 1 or (guan_stem and _branch_wx(chart, cai_wx) >= 1)
     four = [
-        ("官星有根", _branch_wx(chart, guan_wx) >= 1,
-         f"{guan_wx}为官杀，藏于地支 {_branch_wx(chart, guan_wx)} 处"),
+        ("官星有根或有源", guan_ok,
+         f"{guan_wx}为官杀，藏于地支 {guan_root} 处"
+         + ("，得财生，官有源而不绝" if guan_root == 0 and guan_ok else "")),
         ("财星有根", _branch_wx(chart, cai_wx) >= 1,
          f"{cai_wx}为财，藏于地支 {_branch_wx(chart, cai_wx)} 处"),
         ("印星有根", _branch_wx(chart, yin_wx) >= 1,
@@ -186,6 +193,25 @@ def bazi_grade(chart) -> dict:
         add("setup", "身弱得印比扶", _branch_wx(chart, yin_wx) >= 1, 7,
             "日主偏弱而印星有根，扶得起" if _branch_wx(chart, yin_wx) >= 1
             else "身弱而印比无力，格高身弱，福不称格")
+
+    # 用神有力（《子平真诠》「用神有力无力」）：格成了，还要看药有没有分量。
+    # 只看占比与根：占 >=3% 且有根或透干才算「药真」。这一条旧清单完全没有，
+    # 于是「格成而药轻」和「格成而药真」同分。
+    from .bazi import gexi as _gex
+    _sys = _gex.useful_system(chart)
+    prim = _sys.get("primary", "")
+    _es = chart.element_scores
+    prim_share = _es.get(prim, 0.0)
+    prim_root = any(_GWX.get(h) == prim for p in chart.pillars for h in p.hidden)
+    prim_trans = any(_GWX.get(p.gan) == prim for p in chart.pillars)
+    if prim and prim_share >= 3 and (prim_root or prim_trans):
+        add("setup", "用神有力", True, 6,
+            f"用神{prim}占 {prim_share:.1f}%"
+            f"{'且透干' if prim_trans else '，藏支有根'}，药真而能任")
+    elif prim and prim_share >= 3:
+        add("setup", "用神有力", False, 6, f"用神{prim}占 {prim_share:.1f}% 而无根无透，药在而力薄")
+    else:
+        add("setup", "用神有力", False, 6, f"用神{prim}仅 {prim_share:.1f}%，药轻不任病")
 
     # 贵气
     noble = 0

@@ -344,6 +344,43 @@ def shensha_score(chart) -> tuple[float, int, int, int]:
     return max(20.0, min(94.0, s)), good, mid, bad
 
 
+def luck_fit(chart, years: int = 40) -> dict:
+    """未来 N 年的大运，干支五行落在喜用 / 忌神各占多少年。
+
+    格是命，运是时。古法判「层次」从来两样一起看：格高运背则空，格平运助则发。
+    这里只**陈述事实**，不合成分数——把运揉进一个总分就要定权重，
+    而权重一改，结论就跟着改，那又回到「数字可以调」的老路。
+    """
+    from .bazi import gexi as _gex
+    sys_ = _gex.useful_system(chart)
+    favor, avoid = set(sys_["favor"]), set(sys_["avoid"])
+    seq = bz_luck.luck_cycles(chart, 12, None)
+    if not seq:
+        return {}
+    this_year = __import__("datetime").date.today().year
+    segs, fav_y, av_y, neu_y = [], 0, 0, 0
+    for c in seq:
+        lo, hi = max(c.start_year, this_year), min(c.end_year, this_year + years - 1)
+        n = hi - lo + 1
+        if n <= 0:
+            continue
+        gw = None
+        from .calendar.ganzhi import GAN, GAN_WUXING, ZHI, ZHI_WUXING
+        ew = [GAN_WUXING[GAN.index(c.gan)], ZHI_WUXING[ZHI.index(c.zhi)]]
+        if all(e in favor for e in ew):
+            fit, fav_y = "喜用", fav_y + n
+        elif all(e in avoid for e in ew):
+            fit, av_y = "忌", av_y + n
+        else:
+            fit, neu_y = "半", neu_y + n
+        segs.append({"label": c.label, "start": c.start_year, "end": c.end_year,
+                     "years": n, "elements": ew, "fit": fit})
+    total = fav_y + av_y + neu_y or 1
+    return {"span": f"{this_year}–{this_year + years - 1}", "years": total,
+            "favor": fav_y, "avoid": av_y, "mixed": neu_y,
+            "rate": round((fav_y + 0.5 * neu_y) / total, 3), "segments": segs}
+
+
 def score_overall(chart, zc) -> dict:
     es = chart.element_scores
     struct, s_plus, s_minus = structure_score(chart)
