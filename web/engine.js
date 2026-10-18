@@ -629,9 +629,34 @@
     return out;
   }
   const POS_W = { 年: 0.7, 月: 1.0, 日: 1.3, 时: 0.8 };
-  function elementOf(g, z) {
+  const REP_GAN = { 木: "甲", 火: "丙", 土: "戊", 金: "庚", 水: "壬" };
+
+  // 流年/流月地支进入原局后的实际五行：三合/三会齐则化神完全生效，半合减半。
+  // 旧版只把它记成一句「与命局成三合火局」并按 ±5.5 扣分，五行与十神仍按本气算，
+  // 于是「寅」永远当木（偏财），哪怕寅午戌早已合成火局（七杀成群）。
+  function zhiEffective(c, zhi) {
+    const have = c.pillars.map((p) => p.zhi);
+    for (const grp of D.SANHE) {
+      if (grp.slice(0, 3).includes(zhi)) {
+        const others = new Set(have.filter((z) => grp.slice(0, 3).includes(z) && z !== zhi));
+        if (others.size >= 2) return [grp[3], `三合${grp[3]}`, 1];
+        if (others.size === 1) return [grp[3], `半合${grp[3]}`, 0.5];
+      }
+    }
+    for (const grp of D.SANHUI) {
+      if (grp.slice(0, 3).includes(zhi)) {
+        const others = new Set(have.filter((z) => grp.slice(0, 3).includes(z) && z !== zhi));
+        if (others.size >= 2) return [grp[3], `三会${grp[3]}`, 1];
+        if (others.size === 1) return [grp[3], `半会${grp[3]}`, 0.5];
+      }
+    }
+    return [D.ZHI_WUXING[D.ZHI.indexOf(zhi)], "", 0];
+  }
+
+  function elementOf(g, z, mergedWx) {
     const d = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
     d[D.GAN_WUXING[gi(g)]] += 0.4;
+    if (mergedWx) { d[mergedWx] += 0.6; return d; }
     const h = D.HIDDEN[z], w = h.length === 1 ? [1] : h.length === 2 ? [0.7, 0.3] : [0.6, 0.28, 0.12];
     h.forEach((s, i) => { d[D.GAN_WUXING[gi(s)]] += 0.6 * w[i]; });
     return d;
@@ -860,12 +885,13 @@
        3 后看会合刑冲（冲合要分喜忌） 4 再叠大运基调 5 神煞仅作辅助 */
   function evaluatePeriod(c, gan, zhi, luckCyc) {
     const dm = c.dayMaster;
-    const ssG = shishen(dm, gan), ssZ = shishen(dm, D.HIDDEN[zhi][0]);
+    const [zhiWxEff, , mergeShare] = zhiEffective(c, zhi);
+    const ssG = shishen(dm, gan), ssZ = shishen(dm, REP_GAN[zhiWxEff]);
     const ue = usefulElements(c);
     const favor = ue.favor, avoid = ue.avoid;
     const comp = {};
 
-    const add = elementOf(gan, zhi);
+    const add = elementOf(gan, zhi, mergeShare > 0 ? zhiWxEff : null);
     const es = c.elementScores;
     let gain = 0, loss = 0;
     Object.keys(add).forEach((el) => {
@@ -885,7 +911,7 @@
     comp["忌神有制"] = loss < Object.keys(add).filter((e) => avoid.includes(e))
       .reduce((n, e) => n + add[e] * 1.6, 0) ? 1 : 0;
 
-    const elGan = GWX_MAP[gan], elZhi = GWX_MAP[D.HIDDEN[zhi][0]];
+    const elGan = GWX_MAP[gan], elZhi = zhiWxEff;
     comp["十神"] = Math.round((tenGodScore(ssG, ue, favor.includes(elGan), avoid.includes(elGan)) * 0.45
       + tenGodScore(ssZ, ue, favor.includes(elZhi), avoid.includes(elZhi)) * 0.65) * 10) / 10;
 
@@ -934,12 +960,13 @@
         .filter((z) => grp.slice(0, 3).includes(z) && z !== zhi))];
       // 三合的吉凶看化神是否为喜用，不是「合了就吉」
       const sHua = favor.includes(grp[3]) ? 1 : (avoid.includes(grp[3]) ? -1 : 0);
+      // 合局的力量已经在用神/十神里按化神算过了，这里只留「动」的余量
       if (have.length >= 2) {
-        delta += sHua > 0 ? 5.5 : sHua < 0 ? -5.5 : 1.5;
+        delta += sHua > 0 ? 2.0 : sHua < 0 ? -2.0 : 0.8;
         rels.push(`${zhi}与命局成三合${grp[3]}局`);
         relsEn.push(`${py(zhi)} completes a full ${grp[3]} trine with the chart`);
       } else if (have.length === 1) {
-        delta += sHua > 0 ? 2.2 : sHua < 0 ? -2.2 : 0.6;
+        delta += sHua > 0 ? 1.0 : sHua < 0 ? -1.0 : 0.4;
         rels.push(`${zhi}与${have[0]}半合${grp[3]}局`);
         relsEn.push(`${py(zhi)} half-combines with ${py(have[0])} into ${grp[3]}`);
       }
@@ -1026,7 +1053,9 @@
       band: band(Math.round(score * 10) / 10), components: comp, relations: rels,
       themes, relationsEn: relsEn, cautions: uniq(cautions), opportunities: uniq(opps),
       // 相对位置：分数本身没有绝对含义，这个才是能说出口的那句话
-      percentile: yearPercentileOf(score) };
+      percentile: yearPercentileOf(score),
+      merge: { wx: zhiWxEff, note: (zhiEffective(c, zhi)[1] || ""), share: mergeShare,
+               god: mergeShare > 0 ? ssZ : "", gan: ssG } };
   }
 
   function yearPeriod(c, year, luckCyc) {

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from ..calendar import astro, lunar
 from ..calendar.ganzhi import (CHONG, GAN, GAN_CHONG, GAN_HE, GAN_WUXING, HAI6,
-                               HE6, HIDDEN, KE, PO, SANHE, SHENG, TIANYI,
+                               HE6, HIDDEN, KE, PO, SANHE, SANHUI, SHENG, TIANYI,
                                WENCHANG, ZHI, ZHI_WUXING, LU, shishen)
 from . import gexi
 
@@ -178,9 +178,43 @@ def gan_relations(a: str, b: str) -> list[str]:
     return out
 
 
-def _element_of(gan: str, zhi: str) -> dict:
+REP_GAN = {"木": "甲", "火": "丙", "土": "戊", "金": "庚", "水": "壬"}
+
+
+def zhi_effective(chart, zhi: str) -> tuple[str, str, float]:
+    """流年/流月地支进入原局后的**实际五行**。
+
+    这是旧版最要命的一处漏洞：三合/半合只被记成一句「与命局成三合火局」并按
+    ±5.5 扣分，却没有改变这个地支的五行。于是「寅」永远按木（偏财）算，
+    哪怕原局午戌俱全、寅午戌已合成火局——实际是七杀成群，读出来却是财星到位。
+
+    返回 (五行, 说明, 生效强度)。强度 1.0 = 三合/三会齐，0.5 = 半合，0 = 未成局。
+    """
+    have = [z for z in chart.all_zhi()]
+    for grp in SANHE:                       # ("申","子","辰","水")
+        if zhi in grp[:3]:
+            others = {z for z in have if z in grp[:3] and z != zhi}
+            if len(others) >= 2:
+                return grp[3], f"{zhi}与原局成三合{grp[3]}局", 1.0
+            if len(others) == 1:
+                return grp[3], f"{zhi}与原局半合{grp[3]}局", 0.5
+    for grp in SANHUI:                      # ("寅","卯","辰","木")
+        if zhi in grp[:3]:
+            others = {z for z in have if z in grp[:3] and z != zhi}
+            if len(others) >= 2:
+                return grp[3], f"{zhi}与原局成三会{grp[3]}局", 1.0
+            if len(others) == 1:
+                return grp[3], f"{zhi}与原局半会{grp[3]}局", 0.5
+    return ZHI_WUXING[ZHI.index(zhi)], "", 0.0
+
+
+def _element_of(gan: str, zhi: str, merged_wx: str | None = None) -> dict:
+    """干支拆五行。`merged_wx` 给了就按合化后的五行算地支，不再用藏干。"""
     d = {w: 0.0 for w in ("木", "火", "土", "金", "水")}
     d[GAN_WUXING[GAN.index(gan)]] += 0.40
+    if merged_wx:
+        d[merged_wx] += 0.60
+        return d
     weights = {1: (1.0,), 2: (0.7, 0.3), 3: (0.6, 0.28, 0.12)}[len(HIDDEN[zhi])]
     for h, w in zip(HIDDEN[zhi], weights):
         d[GAN_WUXING[GAN.index(h)]] += 0.60 * w
@@ -304,15 +338,17 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         5. 神煞仅作辅助，不压过五行喜忌
     """
     dm = chart.day_master
+    # 先看这个地支有没有跟原局合成别的五行：合化之后，十神与喜忌都按化神算。
+    zhi_wx_eff, merge_note, merge_share = zhi_effective(chart, zhi)
     ss_g = shishen(dm, gan)
-    ss_z = shishen(dm, HIDDEN[zhi][0])
+    ss_z = shishen(dm, REP_GAN[zhi_wx_eff])
     sysd = gexi.useful_system(chart)
     favor, avoid = sysd["favor"], sysd["avoid"]
     comp: dict[str, float] = {}
 
     # ---- 1) 喜忌：地支 0.6、天干 0.4，地支权重加倍（主吉凶之本体）---------
     # 只看喜、忌两类；闲神不论吉凶 —— 这是「平年」唯一可能的来源。
-    add = _element_of(gan, zhi)
+    add = _element_of(gan, zhi, zhi_wx_eff if merge_share > 0 else None)
     es = chart.element_scores
     gain = 0.0
     loss = 0.0
@@ -333,7 +369,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
 
     # ---- 2) 十神（吉凶随格局变：正官格见伤官是破格，伤官格见伤官是驾御）--
     el_gan = GAN_WUXING[GAN.index(gan)]
-    el_zhi = GAN_WUXING[GAN.index(HIDDEN[zhi][0])]
+    el_zhi = zhi_wx_eff
     god_s = (gexi.god_score(ss_g, sysd, el_gan in favor, el_gan in avoid) * 0.45
              + gexi.god_score(ss_z, sysd, el_zhi in favor, el_zhi in avoid) * 0.65)
     comp["十神"] = _r1(god_s)
@@ -386,11 +422,13 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             have = [z for z in chart.all_zhi() if z in grp[:3] and z != zhi]
             # 三合的吉凶看化神（grp[3]）是否为喜用，不看「合了就好」
             s_hua = 1 if grp[3] in favor else (-1 if grp[3] in avoid else 0)
+            # 合局的「力量」已经在用神/十神里按化神算过了，这里只留「动」的余量，
+            # 否则同一件事被罚两次，三合局会把冲合项顶到钳位上。
             if len(set(have)) >= 2:
-                delta += (5.5 if s_hua > 0 else -5.5 if s_hua < 0 else 1.5)
+                delta += (2.0 if s_hua > 0 else -2.0 if s_hua < 0 else 0.8)
                 rels.append(f"{zhi}与命局成三合{grp[3]}局")
             elif len(set(have)) == 1:
-                delta += (2.2 if s_hua > 0 else -2.2 if s_hua < 0 else 0.6)
+                delta += (1.0 if s_hua > 0 else -1.0 if s_hua < 0 else 0.4)
                 rels.append(f"{zhi}与{have[0]}半合{grp[3]}局")
     # 一柱被冲可抵数项，若不设上限，三刑两冲一齐来时冲合项会压过喜忌，
     # 变成「只看冲不看用神」，与开篇定的顺序相反。
@@ -510,6 +548,9 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         "band": _band(_r1(score)), "components": comp, "relations": rels,
         "themes": th, "cautions": cautions, "opportunities": opps,
         "percentile": _year_pct(_r1(score)),
+        # 合化说明：让「为什么这个月凶」有据可查，而不是只给一个数
+        "merge": {"wx": zhi_wx_eff, "note": merge_note, "share": merge_share,
+                  "god": ss_z if merge_share > 0 else "", "gan": ss_g},
     }
 
 

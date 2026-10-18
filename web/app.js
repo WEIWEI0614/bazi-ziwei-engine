@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18l";
+  const BUILD = "2026-10-18m";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -470,6 +470,21 @@
           <div><span>${L("忌神有制", "Checked")}</span><b>${p.components["忌神有制"] ? "✓" : "—"}</b></div>
         </div>
       </div>
+      ${(() => {
+        const m = p.merge;
+        if (!m || !m.share) return "";
+        const ue2 = ML.usefulElements(R.bazi);
+        const side = ue2.favor.includes(m.wx) ? L("喜用", "favourable")
+          : ue2.avoid.includes(m.wx) ? L("忌神", "unfavourable") : L("闲神", "neutral");
+        // 中文直接用引擎拼好的说明；英文要重拼，否则会把中文那句原样搬过去
+        const noteTxt = LANG === "zh" ? m.note
+          : (m.share === 1 ? "a full combination" : "a half combination");
+        const sep = LANG === "zh" ? "：" : ": ";
+        return `<div class="pd-merge">${L("合化", "Combined")}${sep}${noteTxt}　→　
+          ${L("地支实为", "the branch is really")} <b>${wxName(m.wx)}</b>
+          (${tr(m.god)}, ${side})
+          ${LANG === "zh" ? `；天干 ${m.gan ? tr(m.gan) : "—"} 是另一回事` : `; the stem reads as ${m.gan ? tr(m.gan) : "—"}`}</div>`;
+      })()}
       <div class="pd-comps">${compBars(p.components)}</div>
       <p class="note pd-foot">${L("分项方向依古法（月令取用、十神吉凶、冲合定向）；带 * 的权重由本引擎自定。分数被压在 32–94，所以「" + p.score.toFixed(1) + "」本身没有绝对含义——有意义的是它在这批年份中的位置。",
         "Each component's direction is classical; components marked * carry a weight we chose ourselves. The scale is clamped to 32–94, so the raw number means nothing on its own — its position among years does.")}</p>
