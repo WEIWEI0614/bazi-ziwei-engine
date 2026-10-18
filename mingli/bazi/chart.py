@@ -426,7 +426,7 @@ def _find_relations(chart: BaziChart) -> None:
             if CHONG[a] == b:
                 rel["冲"].append({"pair": pair, "type": "六冲"})
             if HAI6[a] == b:
-                rel["害"].append({"pair": pair, "type": "六害"})
+                rel["害"].append({"pair": pair, "type": "相害"})
             if PO[a] == b:
                 rel["破"].append({"pair": pair, "type": "相破"})
             for grp in XING:
@@ -441,17 +441,19 @@ def _find_relations(chart: BaziChart) -> None:
 
     for grp in SANHE:
         hits = [(pos[i], zhis[i]) for i in range(4) if zhis[i] in grp[:3]]
-        uniq = {z for _, z in hits}
+        # 按「年→时」的首次出现顺序去重：用 set 的话字序随哈希变化，
+        # 同一个盘每次运行可能显示成 丑巳 或 巳丑。
+        uniq = list(dict.fromkeys(z for _, z in hits))
         if len(uniq) == 3:
-            rel["三合"].append({"pair": "".join(z for _, z in hits),
-                                "type": f"三合{grp[3]}局"})
+            rel["三合"].append({"pair": "".join(uniq), "type": f"三合{grp[3]}局"})
         elif len(uniq) == 2:
-            rel["半合"].append({"pair": "".join(z for z in uniq),
-                                "type": f"半合{grp[3]}局"})
+            rel["半合"].append({"pair": "".join(uniq), "type": f"半合{grp[3]}局"})
     for grp in SANHUI:
-        hits = [zhis[i] for i in range(4) if zhis[i] in grp[:3]]
-        if len(hits) == 3:
-            rel["三会"].append({"pair": "".join(hits), "type": f"三会{grp[3]}方"})
+        # 三会要三个「不同」地支。按命中数量判会把 卯辰辰 也算成三会木方，
+        # 按出现次数判又会让 申申酉戌 通过 —— 两处都错，必须是去重后恰好三个。
+        seen = list(dict.fromkeys(z for z in zhis if z in grp[:3]))
+        if len(seen) == 3:
+            rel["三会"].append({"pair": "".join(seen), "type": f"三会{grp[3]}方"})
     for z in set(zhis):
         if zhis.count(z) >= 2 and z in ("辰", "午", "酉", "亥"):
             rel["刑"].append({"pair": z + z, "type": "自刑"})

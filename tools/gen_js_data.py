@@ -83,11 +83,17 @@ def _shensha_tables():
     names = ["TIANYI", "TAIJI", "WENCHANG", "GUOYIN", "FUXING", "LU", "YANGREN",
              "JINYU", "HONGYAN", "LIUXIA", "XUETANG", "YIMA", "TAOHUA", "HUAGAI",
              "JIANGXING", "JIESHA", "ZAISHA", "WANGSHEN", "GUSHEN", "GUASU",
-             "POSUI", "FEILIAN", "TIANDE", "YUEDE"]
+             "POSUI", "FEILIAN", "TIANDE", "YUEDE",
+             "TIANGUAN", "TIANCHU", "GAN_HE_MAP", "ZHI_HE_MAP"]
     out = {n: getattr(S, n) for n in names}
     out["TIANSHU_HIT"] = {k: list(v) for k, v in S.TIANSHU_HIT.items()}
     out["SIFEI"] = {k: list(v) for k, v in S.SIFEI.items()}
     out["DEFS"] = {k: list(v) for k, v in S.DEFS.items()}
+    out["JINSHEN"] = sorted(S.JINSHEN)
+    out["LIUXIU"] = sorted(S.LIUXIU)
+    out["SHILING"] = sorted(S.SHILING)
+    out["GULUAN"] = sorted(S.GULUAN)
+    out["RIDE"] = sorted(S.RIDE)
     out["KUIGANG"] = sorted(S.KUIGANG)
     out["SHIE_DABAI"] = sorted(S.SHIE_DABAI)
     out["YINYANG_CUO"] = sorted(S.YINYANG_CUO)
@@ -143,6 +149,7 @@ def dump():
         "SYNASTRY": _synastry_cfg(),
         "PERCENTILES": _percentiles(),
         "PATTERNS": [list(p) for p in ZA.PATTERNS],
+        "PATTERN_BONUS": ZA.PATTERN_BONUS,
         "DECADE_THEMES": {k: list(v) for k, v in ZA.DECADE_THEMES.items()},
         "THEME_MAP": BC.__dict__.get("THEME_MAP") or {},
     }

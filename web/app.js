@@ -282,7 +282,7 @@
     const zs = R.zsummary, ld = b.lunar;
     const sihua = Object.keys(z.sihua).map((k) => `${k}化${z.sihua[k]}`).join("　");
     c.innerHTML = `<h3>命盘</h3>
-      <div class="r"><span>${L("出生","Born")}</span><b>${b.birth.y}-${String(b.birth.m).padStart(2, "0")}-${String(b.birth.d).padStart(2, "0")} ${String(b.birth.h).padStart(2, "0")}:${String(b.birth.mi).padStart(2, "0")}</b></div>
+      <div class="r"><span>${L("出生","Born")}</span><b>${b.birth.y}-${String(b.birth.m).padStart(2, "0")}-${String(b.birth.d).padStart(2, "0")} ${String(b.birth.h).padStart(2, "0")}:${String(b.birth.mi).padStart(2, "0")}${b.trueSolarApplied && b.trueSolar ? `<span style="color:var(--tx3);font-weight:400"> → 真太阳时 ${String(b.trueSolar.h).padStart(2, "0")}:${String(b.trueSolar.mi).padStart(2, "0")}</span>` : ""}</b></div>
       <div class="r"><span>${L("农历","Lunar")}</span><b>${ld.year} · ${ld.isLeap ? "闰" : ""}${ld.month}月${ld.day}日 ${z.hourBranch}时</b></div>
       <div class="r"><span>${L("四柱","Pillars")}</span><b class="gz">${b.pillars.map((p) => p.gan + p.zhi).join(" ")}</b></div>
       <div class="r"><span>${L("五行局 / 紫微","Bureau / Purple Star")}</span><b>${z.ju} · ${z.ziweiBranch}</b></div>
@@ -1305,7 +1305,9 @@
     const yrs = R.timeline.slice(0, 4).map((t) => `${t.name} ${t.label} ${t.score.toFixed(0)}(${t.band})`).join("；");
     const ss = Object.keys(b.shensha).slice(0, 14).join("、");
     return [
-      `【命主】${b.gender === "female" ? "女" : "男"}，公历 ${b.birth.y}-${b.birth.m}-${b.birth.d} ${String(b.birth.h).padStart(2, "0")}:${String(b.birth.mi).padStart(2, "0")}，真太阳时 ${b.trueSolar || ""}`,
+      `【命主】${b.gender === "female" ? "女" : "男"}，公历 ${b.birth.y}-${b.birth.m}-${b.birth.d} ${String(b.birth.h).padStart(2, "0")}:${String(b.birth.mi).padStart(2, "0")}`
+        + (b.trueSolarApplied && b.trueSolar
+          ? `（真太阳时 ${String(b.trueSolar.h).padStart(2, "0")}:${String(b.trueSolar.mi).padStart(2, "0")}）` : ""),
       `【四柱】${b.pillars.map((p) => p.gan + p.zhi).join(" ")}`,
       `【日主】${b.dayMaster}${b.dayMasterWx}，${b.strengthLabel}（同党 ${b.strength.toFixed(1)}%），喜 ${ue.favor.join("")}，忌 ${ue.avoid.join("")}`,
       `【格局】${b.structure.name}（${b.structure.basis}）`,

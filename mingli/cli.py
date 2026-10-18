@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import os
 import sys
@@ -58,9 +59,36 @@ def _parse(argv):
     return p.parse_args(argv)
 
 
+def _date_parts(text: str) -> tuple[int, int, int]:
+    """Parse YYYY-MM-DD with a readable error instead of a bare traceback."""
+    try:
+        y, m, d = (int(x) for x in text.split("-"))
+    except ValueError:
+        raise SystemExit(f"mingli: --date expects YYYY-MM-DD, got {text!r}")
+    try:
+        _dt.date(y, m, d)
+    except ValueError as exc:
+        raise SystemExit(f"mingli: {text} is not a valid date ({exc})")
+    if not 1900 <= y <= 2100:
+        print(f"warning: {y} is outside the verified range 1900-2100; "
+              "solar terms and new moons may drift", file=sys.stderr)
+    return y, m, d
+
+
+def _clock_parts(text: str) -> tuple[int, int]:
+    raw = text or "12:00"
+    try:
+        hh, mm = (int(x) for x in raw.split(":"))
+    except ValueError:
+        raise SystemExit(f"mingli: --time expects HH:MM, got {raw!r}")
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        raise SystemExit(f"mingli: --time {raw} is out of range (00:00-23:59)")
+    return hh, mm
+
+
 def _opts(a):
-    y, m, d = (int(x) for x in a.date.split("-"))
-    hh, mm = (int(x) for x in (a.time or "12:00").split(":"))
+    y, m, d = _date_parts(a.date)
+    hh, mm = _clock_parts(a.time)
     ev = None
     if getattr(a, "events", None):
         with open(a.events, encoding="utf-8") as f:
@@ -347,6 +375,10 @@ def main(argv=None):
         cmd_serve(a.port)
         return
     r = build_reading(**_opts(a))
+    target = getattr(a, "year_num", None)
+    if target is not None and not 1900 <= target <= 2100:
+        print(f"warning: {target} is outside the verified range 1900-2100; "
+              "annual and monthly boundaries may drift", file=sys.stderr)
     if a.cmd == "chart":
         cmd_chart(r)
     elif a.cmd == "year":

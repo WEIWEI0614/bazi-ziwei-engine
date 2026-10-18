@@ -14,6 +14,7 @@ a 40 KB object costs it more than it learns.
 """
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import os
 import sys
@@ -22,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mingli.reading import build_reading          # noqa: E402
 from mingli import gua as gua_mod                   # noqa: E402
+from mingli.synastry import RELATIONS as SYNASTRY_RELATIONS  # noqa: E402
 from mingli.synastry import compare as syn_compare  # noqa: E402
 
 PROTOCOL = "2024-11-05"
@@ -128,14 +130,34 @@ TOOLS = [
 
 
 def _birth(args: dict) -> dict:
+    """Validate before computing: a caller that gets back `KeyError: 'year'`
+    has learned nothing, and an LLM caller will simply retry the same call."""
+    missing = [k for k in ("year", "month", "day") if k not in args]
+    if missing:
+        raise ValueError("missing required field(s): " + ", ".join(missing)
+                         + ". Need year, month, day; hour and longitude are optional.")
+    try:
+        y, mo, d = int(args["year"]), int(args["month"]), int(args["day"])
+        hh, mi = int(args.get("hour", 12)), int(args.get("minute", 0))
+    except (TypeError, ValueError):
+        raise ValueError("year, month, day, hour and minute must be whole numbers")
+    try:
+        _dt.date(y, mo, d)
+    except ValueError as exc:
+        raise ValueError(f"{y}-{mo}-{d} is not a valid date ({exc})")
+    if not 1900 <= y <= 2100:
+        # 提示而非拒绝：远期仍可算，但节气与朔望会漂
+        pass
+    if not (0 <= hh <= 23 and 0 <= mi <= 59):
+        raise ValueError(f"time {hh:02d}:{mi:02d} is out of range")
+    gender = args.get("gender", "male")
+    if gender not in ("male", "female"):
+        raise ValueError("gender must be 'male' or 'female'")
     return {
         "name": args.get("name", ""),
-        "gender": args.get("gender", "male"),
-        "year": int(args["year"]),
-        "month": int(args["month"]),
-        "day": int(args["day"]),
-        "hour": int(args.get("hour", 12)),
-        "minute": int(args.get("minute", 0)),
+        "gender": gender,
+        "year": y, "month": mo, "day": d,
+        "hour": hh, "minute": mi,
         "longitude": float(args.get("longitude", 116.40)),
         "tz_offset": float(args.get("tz_offset", 8.0)),
         "use_true_solar": bool(args.get("true_solar", True)),
@@ -287,6 +309,9 @@ def tool_backtest(args: dict) -> str:
 def tool_synastry(args: dict) -> str:
     a, b = _birth(args["a"]), _birth(args["b"])
     rel = args.get("relation", "couple")
+    if rel not in SYNASTRY_RELATIONS:
+        raise ValueError(f"unknown relation {rel!r}; choose from "
+                         + ", ".join(sorted(SYNASTRY_RELATIONS)))
     ra = _reading(args["a"])
     rb = _reading(args["b"])
     res = syn_compare(ra.chart, rb.chart, rel, ra.ziwei, rb.ziwei)
@@ -339,6 +364,10 @@ def handle(msg: dict):
         try:
             text = fn(params.get("arguments") or {})
             return _ok(req_id, {"content": [{"type": "text", "text": text}], "isError": False})
+        except ValueError as exc:
+            # 参数问题只需原文，加个 ValueError: 前缀只是噪音
+            return _ok(req_id, {"content": [{"type": "text", "text": str(exc)}],
+                                "isError": True})
         except Exception as exc:                        # noqa: BLE001
             return _ok(req_id, {"content": [{"type": "text",
                                              "text": f"{type(exc).__name__}: {exc}"}],

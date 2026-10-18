@@ -312,10 +312,20 @@
       kong: xunkong(g, z),
     }));
     const chart = {
-      name: o.name || "", gender: o.gender, birth: ts, jd: jdT,
+      name: o.name || "", gender: o.gender,
+      // birth 是「用户填的钟表时间」，trueSolar 才是校正后的时间。
+      // 早前把两者混成一个字段，结果界面把校正后的 15:07 当成出生时间显示。
+      birth: { y: o.y, m: o.m, d: o.d, h: o.h, mi: o.mi },
+      trueSolar: ts,
+      trueSolarApplied: o.trueSolar !== false,
+      trueSolarOffset: o.trueSolar === false
+        ? 0 : trueSolarOffset(jd, o.lon, o.tz === undefined ? 8 : o.tz),
+      // jd 必须是「真实时刻」，不能是真太阳时校正后的读数：
+      // 节气是北京时间的物理瞬间，用校正值去比会把同一天的节判成已过/未过，
+      // 起运就会整整错开一个大运（1964-10-08 15:59 那例错开十年）。
+      jd: jd,
       lunar: lunarFromJD(jd), pillars, dayMaster: dm,
       dayMasterWx: D.GAN_WUXING[gi(dm)],
-      trueSolarOffset: trueSolarOffset(jd, o.lon, o.tz === undefined ? 8 : o.tz),
     };
     chart.year = pillars[0]; chart.month = pillars[1];
     chart.day = pillars[2]; chart.hour = pillars[3];
@@ -439,6 +449,28 @@
      ["劫煞", SS.JIESHA], ["灾煞", SS.ZAISHA], ["亡神", SS.WANGSHEN]].forEach(([nm, tbl]) => {
       put(nm, find(tbl[yz]).concat(find(tbl[dz])), `年支/日支三合局查${nm}`);
     });
+    // 日干系（续）：天官 / 天厨 / 飞刃
+    put("天官贵人", find(SS.TIANGUAN[dm] || ""), `日干${dm}查天官`);
+    put("天厨贵人", find(SS.TIANCHU[dm] || ""), `日干${dm}查天厨`);
+    const blade = SS.YANGREN[dm];
+    if (blade) put("飞刃", find(ZHI[mod(zi(blade) + 6, 12)]), `羊刃${blade}之冲为飞刃`);
+
+    // 天德合 / 月德合：天德为干取合干，为支取六合支
+    const td = SS.TIANDE[mz];
+    const tdHe = (td && SS.GAN_HE_MAP[td]) || (td && SS.ZHI_HE_MAP[td]) || "";
+    if (tdHe) put("天德合", stemOrBranch(tdHe), `${mz}月天德为${td}，合之为${tdHe}`);
+    const md = SS.YUEDE[mz];
+    const mdHe = (md && SS.GAN_HE_MAP[md]) || "";
+    if (mdHe) put("月德合", stemOrBranch(mdHe), `${mz}月月德为${md}，合之为${mdHe}`);
+
+    // 日柱系（续）—— 用独立变量名，此处离下面的 gz 声明还在 TDZ 里
+    const dayPair = c.day.gan + c.day.zhi;
+    if (SS.JINSHEN.includes(dayPair)) put("金神", ["日"], "金神三日之一（乙丑/己巳/癸酉）");
+    if (SS.LIUXIU.includes(dayPair)) put("六秀日", ["日"], "六秀日");
+    if (SS.SHILING.includes(dayPair)) put("十灵日", ["日"], "十灵日");
+    if (SS.GULUAN.includes(dayPair)) put("孤鸾煞", ["日"], "孤鸾八日之一");
+    if (SS.RIDE.includes(dayPair)) put("日德", ["日"], "日德五日之一");
+
     const hong = mod(3 - zi(yz), 12);
     put("红鸾", find(ZHI[hong]), `年支${yz}查红鸾`);
     put("天喜", find(ZHI[mod(hong + 6, 12)]), "红鸾对宫为天喜");
@@ -499,8 +531,10 @@
     const rel = {};
     const add = (k, v) => { (rel[k] = rel[k] || []).push(v); };
     for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+      // 盘面只记合/冲/害/破/刑；伏吟与自刑属于岁运层面的说法，不在此处计
       zhiRels(zs[i], zs[j]).forEach((t) => {
-        const key = { 六合: "合", 六冲: "冲", 相害: "害", 相破: "破", 相刑: "刑", 自刑: "刑", 伏吟: "刑" }[t];
+        const key = { 六合: "合", 六冲: "冲", 相害: "害", 相破: "破", 相刑: "刑" }[t];
+        if (!key) return;
         add(key, { pair: `${pos[i]}${zs[i]}·${pos[j]}${zs[j]}`, type: t });
       });
       ganRels(gs[i], gs[j]).forEach((t) => {
@@ -513,8 +547,15 @@
       else if (uniq.length === 2) add("半合", { pair: uniq.join(""), type: `半合${grp[3]}局` });
     });
     D.SANHUI.forEach((grp) => {
-      const hit = zs.filter((z) => grp.slice(0, 3).includes(z));
-      if (new Set(hit).size === 3) add("三会", { pair: hit.join(""), type: `三会${grp[3]}方` });
+      // 去重后恰好三个不同地支；直接数命中个数会把 申申酉戌 也算成三会
+      const seen = [...new Set(zs.filter((z) => grp.slice(0, 3).includes(z)))];
+      if (seen.length === 3) add("三会", { pair: seen.join(""), type: `三会${grp[3]}方` });
+    });
+    // 自刑：同一地支重复出现（辰午酉亥）
+    [...new Set(zs)].forEach((z) => {
+      if (zs.filter((x) => x === z).length >= 2 && ["辰", "午", "酉", "亥"].includes(z)) {
+        add("刑", { pair: z + z, type: "自刑" });
+      }
     });
     c.relations = rel;
   }
@@ -747,7 +788,7 @@
       return o;
     };
     return { shishenGan: ssG, shishenZhi: ssZ, score: Math.round(score * 10) / 10,
-      band: band(score), components: comp, relations: rels,
+      band: band(Math.round(score * 10) / 10), components: comp, relations: rels,
       themes, cautions: uniq(cautions), opportunities: uniq(opps) };
   }
 
@@ -986,7 +1027,12 @@
     const ming = chart.palaces.find((p) => p.name === "命宫");
     const cai = chart.palaces.find((p) => p.name === "财帛");
     const guan = chart.palaces.find((p) => p.name === "官禄");
-    return { mingScore: palaceScore(chart, ming), wealthScore: palaceScore(chart, cai),
+    // 格局本身是贵气，不能只看主星亮度（Python 侧同样处理）
+    let mingScore = palaceScore(chart, ming);
+    const pats0 = detectPatterns(chart);
+    const bonus = pats0.reduce((n, p) => n + ((D.PATTERN_BONUS || {})[p.name] || 0), 0);
+    mingScore = Math.round(Math.max(2, Math.min(98, mingScore + bonus)) * 10) / 10;
+    return { mingScore, wealthScore: palaceScore(chart, cai),
       careerScore: palaceScore(chart, guan), patterns: detectPatterns(chart),
       mingStars: ming.stars.filter((s) => s.kind === "主星").map((s) => s.name + (s.hua ? "化" + s.hua : "") + (s.brightness ? `[${s.brightness}]` : "")),
       bodyPalace: (chart.palaces.find((p) => p.isBody) || {}).name || "" };
@@ -1222,7 +1268,8 @@
     const love = 0.35 * shareScore(share(loveEl)) + 0.35 * sanfang
       + 0.3 * (70 - 12 * zhiRels(chart.day.zhi, chart.day.zhi).filter((x) => ["六冲", "相刑", "相害"].includes(x)).length);
     const health = 0.4 * Math.max(10, 95 - Math.abs(share(dmwx) - 22) * 2.6) + 0.6 * jiPal;
-    const study = 0.45 * shareScore(share(yin2)) + 0.55 * mingPal;
+    // 学业用「带格局加成」的命宫分，与 Python 侧一致；mingPal 是未加成的原始分
+    const study = 0.45 * shareScore(share(yin2)) + 0.55 * zs.mingScore;
     const social = 0.35 * shareScore(share(dmwx)) + 0.65 * puPal;
     const clamp = (v) => Math.round(Math.max(6, Math.min(94, v)) * 10) / 10;
     return { overall: Math.round(overall * 10) / 10, percentile: pct, tier: tierOf(pct),
@@ -1464,8 +1511,11 @@
     const act = cycles.find((c) => c.active) || cycles[0];
     const timeline = [];
     const startY = focus - 2;
+    // 流年要另取 12 步大运、锚在流年起年：若复用上面那 10 步，
+    // 靠后的年份会在 JS 端找不到大运而按「无大运」计分，与 Python 分叉。
+    const tlCycles = luckCycles(bazi, 12, startY);
     for (let y = startY; y < startY + 12; y++) {
-      const cyc = cycles.find((c) => c.startYear <= y && y <= c.endYear) || null;
+      const cyc = tlCycles.find((c) => c.startYear <= y && y <= c.endYear) || null;
       timeline.push(yearPeriod(bazi, y, cyc));
     }
     return { bazi, ziwei, scores, zsummary: zs, cycles,

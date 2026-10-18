@@ -8,7 +8,7 @@
   <a href="https://weiwei0614.github.io/bazi-ziwei-engine/"><img alt="live demo" src="https://img.shields.io/badge/LIVE_DEMO-open_in_browser-e8a33d?style=for-the-badge"></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img alt="deps" src="https://img.shields.io/badge/dependencies-zero-5dcaa5?style=for-the-badge">
-  <img alt="tests" src="https://img.shields.io/badge/tests-38_passing-5dcaa5?style=for-the-badge">
+  <img alt="tests" src="https://img.shields.io/badge/tests-58_passing-5dcaa5?style=for-the-badge">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-a99ce8?style=for-the-badge">
 </p>
 
@@ -137,9 +137,10 @@ every disagreement was chased down.
 | Zi Wei vs `iztro` (14 majors + 13 auxiliaries) | 700 charts | **1 chart** differs by one major star (new-moon knife edge) |
 | Zi Wei vs `iztro` (38 adjective stars) | 700 charts | **1 chart** (same knife edge) |
 | Zi Wei vs `iztro` (长生/博士/将前/岁前, 小限, 大限) | 700 charts | **0 errors** |
-| Shensha (45 stars) JS vs Python | 30 charts | identical name set, positions and grades |
+| Shensha (45 stars) JS vs Python | 440 charts | identical name set, positions and grades |
+| Full-field JS vs Python parity | 440 charts × 35 fields | **zero mismatches** (`tools/parity_ext.js` + `tools/parity_check.py`) |
 | Grade engine JS vs Python | sample chart | identical rank and score (81.3 / upper grade) |
-| Unit tests | 38 | globals: 64 hexagrams present, weights sum to 1, rescue coefficient > 1, band monotonic in score |
+| Unit tests | 58 | globals: 64 hexagrams present, weights sum to 1, rescue coefficient > 1, band monotonic in score |
 | Browser JS vs Python | 60 charts, 15 field groups | identical; differences only from rounding convention (±0.1) |
 
 Two bugs found this way and worth recording, because both are common in other projects:

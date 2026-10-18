@@ -54,6 +54,19 @@ class Period:
     luck_cycle: str = ""
 
 
+import math as _math
+
+
+def _r1(x: float) -> float:
+    """Round half toward +infinity, i.e. exactly what JavaScript's Math.round does.
+
+    Python's built-in round() is half-to-even, so round(-2.75, 1) is -2.8 while
+    Math.round(-27.5) / 10 is -2.7. On a 0.05 boundary that flips the band
+    ("平" vs "小吉") between the CLI and the browser. This matches the browser.
+    """
+    return _math.floor(x * 10 + 0.5) / 10
+
+
 def _is_yang(gan: str) -> bool:
     return GAN.index(gan) % 2 == 0
 
@@ -68,7 +81,11 @@ def luck_direction(chart) -> int:
 def start_luck(chart) -> tuple[int, int, _dt.datetime]:
     """(起運年數, 起運月數, 交運日期) — 3 日折 1 年."""
     direction = luck_direction(chart)
-    jd_birth = chart.jd
+    # 用「钟表时刻」换算的真实 JD，不能用 chart.jd（那是真太阳时校正后的读数）：
+    # 节气是北京时间的物理瞬间，拿校正值去减会把同一天的节判错，
+    # 起运整整错开一个大运。与浏览器端保持一致。
+    b = chart.birth_local
+    jd_birth = astro.to_jd(b.year, b.month, b.day, b.hour, b.minute, b.second)
     if direction > 0:
         jd_ref = chart.jie_next[0]
         days = jd_ref - jd_birth
@@ -77,7 +94,9 @@ def start_luck(chart) -> tuple[int, int, _dt.datetime]:
         days = jd_birth - jd_ref
     total_months = days * 4.0                 # 1 日 = 4 個月
     years = int(total_months // 12)
-    months = int(round(total_months - years * 12))
+    # 用 _r1 的取整方向：round(6.5)=6 而 JS 的 Math.round(6.5)=7，
+    # 差一个月就可能把交运年推后一年（1929-06-20 那例 1933 vs 1934）。
+    months = int(_math.floor((total_months - years * 12) + 0.5))
     if months >= 12:
         years += 1
         months -= 12
@@ -294,14 +313,14 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             loss += v * (0.55 if checked >= 8 else 1.10)
     # 上限收到 ±18/−16：原来的 ±26 只要干支都落在喜用就顶格，
     # 于是同一张盘在 80 与 25 之间反复跳，读起来像「命在剧烈摇摆」。
-    comp["用神"] = round(max(-16.0, min(18.0, (gain - loss) * 40.0)), 1)
+    comp["用神"] = _r1(max(-16.0, min(18.0, (gain - loss) * 40.0)))
     comp["忌神有制"] = 1.0 if loss < sum(v * 1.10 for e, v in add.items() if e in avoid) else 0.0
 
     # ---- 2) 十神 ----------------------------------------------------------
     f_gan = GAN_WUXING[GAN.index(gan)] in favor
     f_zhi = GAN_WUXING[GAN.index(HIDDEN[zhi][0])] in favor
     god_s = _ten_god_score(ss_g, f_gan) * 0.5 + _ten_god_score(ss_z, f_zhi) * 0.7
-    comp["十神"] = round(god_s, 1)
+    comp["十神"] = _r1(god_s)
 
     # ---- 3) 会合刑冲（有合先论合）----------------------------------------
     rels: list[str] = []
@@ -344,7 +363,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
             elif len(set(have)) == 1:
                 bonus += 2.0
                 rels.append(f"{zhi}与{have[0]}半合{grp[3]}局")
-    comp["冲合"] = round(bonus - penalty, 1)
+    comp["冲合"] = _r1(bonus - penalty)
 
     # ---- 4) 大运（定十年基调，流年只作触发）------------------------------
     tone = 0.0
@@ -365,7 +384,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         elif CHONG.get(lz) == zhi:
             big -= 2.5
             rels.append("流年冲大运")
-    comp["大运"] = round(big, 1)
+    comp["大运"] = _r1(big)
 
     # ---- 5) 神煞（辅助，不压喜忌）----------------------------------------
     sha = 0.0
@@ -380,7 +399,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         rels.append("流年临禄")
     if zhi in ("辰", "戌", "丑", "未") and ss_z in ("正官", "七杀"):
         sha -= 2.0
-    comp["神煞"] = round(sha, 1)
+    comp["神煞"] = _r1(sha)
 
     raw = 50.0 + comp["用神"] + comp["十神"] + comp["冲合"] + comp["大运"] + comp["神煞"]
 
@@ -395,7 +414,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     score = 50.0 + (max(0.0, min(100.0, raw)) - 50.0) * 0.72
     score = max(40.0, min(88.0, score))
     comp["base"] = 50.0
-    comp["raw"] = round(raw, 1)
+    comp["raw"] = _r1(raw)
     comp["大运基调"] = round(tone, 2)
 
     themes = list(THEME_MAP.get(ss_g, ())) + list(THEME_MAP.get(ss_z, ()))
@@ -447,8 +466,8 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     cautions = list(dict.fromkeys(cautions))
     opps = list(dict.fromkeys(opps))
     return {
-        "shishen_gan": ss_g, "shishen_zhi": ss_z, "score": round(score, 1),
-        "band": _band(score), "components": comp, "relations": rels,
+        "shishen_gan": ss_g, "shishen_zhi": ss_z, "score": _r1(score),
+        "band": _band(_r1(score)), "components": comp, "relations": rels,
         "themes": th, "cautions": cautions, "opportunities": opps,
     }
 
