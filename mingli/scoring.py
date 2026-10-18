@@ -329,15 +329,14 @@ def _zhi_health(chart, zhi: str) -> float:
 # ---------------------------------------------------------------------------
 
 try:                                   # pragma: no cover
-    from .data_percentiles import QUANTILES, DIM_STATS  # noqa: F401
+    from .data_percentiles import QUANTILES, DIM_STATS, YEAR_QUANTILES  # noqa: F401
 except Exception:                      # pragma: no cover
     QUANTILES = [0.0] * 101
+    YEAR_QUANTILES = [0.0] * 101
     DIM_STATS = {k: [60.0, 8.0] for k in DIMS}
 
 
-def percentile_of(score: float) -> float:
-    """Where a raw score sits in the distribution of random charts (0-100)."""
-    q = QUANTILES
+def _lookup(q: list, score: float) -> float:
     if not q or q[-1] <= 0:
         return 50.0
     if score <= q[0]:
@@ -349,6 +348,20 @@ def percentile_of(score: float) -> float:
             span = (q[i + 1] - q[i]) or 1e-9
             return round(i + (score - q[i]) / span, 1)
     return 50.0
+
+
+def percentile_of(score: float) -> float:
+    """Where a raw score sits in the distribution of random charts (0-100)."""
+    return _lookup(QUANTILES, score)
+
+
+def year_percentile_of(score: float) -> float:
+    """Where an annual score sits in the distribution of random annual scores.
+
+    The annual scale is clamped to 32-94, so a raw annual score means nothing on
+    its own; this is what turns it into a position.
+    """
+    return _lookup(YEAR_QUANTILES, score)
 
 
 def tier_of(pct: float) -> str:

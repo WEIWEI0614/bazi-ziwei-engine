@@ -53,6 +53,7 @@ class Period:
     cautions: list = field(default_factory=list)
     opportunities: list = field(default_factory=list)
     luck_cycle: str = ""
+    percentile: float = 50.0      # 相对位置，不是绝对分
 
 
 import math as _math
@@ -249,6 +250,19 @@ def _band(score: float) -> str:
     if score >= 35:
         return "偏弱"
     return "凶"
+
+
+def _year_pct(score: float) -> float:
+    """Where this annual score sits among random annual scores (0-100).
+
+    The annual scale is clamped, so the raw number has no absolute meaning —
+    this is the only part of it that can be stated plainly.
+    """
+    try:
+        from ..scoring import year_percentile_of
+        return year_percentile_of(score)
+    except Exception:                  # pragma: no cover
+        return 50.0
 
 
 THEME_MAP = {
@@ -495,6 +509,7 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
         "shishen_gan": ss_g, "shishen_zhi": ss_z, "score": _r1(score),
         "band": _band(_r1(score)), "components": comp, "relations": rels,
         "themes": th, "cautions": cautions, "opportunities": opps,
+        "percentile": _year_pct(_r1(score)),
     }
 
 
@@ -513,6 +528,7 @@ def year_period(chart, year: int, luck: LuckCycle | None = None) -> Period:
     p.components, p.relations = ev["components"], ev["relations"]
     p.themes, p.cautions, p.opportunities = (ev["themes"], ev["cautions"],
                                              ev["opportunities"])
+    p.percentile = ev.get("percentile", 50.0)
     return p
 
 

@@ -41,8 +41,10 @@ SKIP = {"script", "style", "noscript", "code", "pre"}
 ALLOW_ZH = {
     "EN", "GitHub", "OpenAI", "PNG", "VSOP87", "FK5", "Meeus", "GB/T",
     "33661-2017", "lunar-python", "iztro", "JS", "Python", "build",
-    # 模型厂商名：中文界面保留原名才是对的
-    "DeepSeek", "GLM", "Kimi", "Qwen",
+    # 模型厂商名与数据集名：中文界面保留原名才是对的
+    "DeepSeek", "GLM", "Kimi", "Qwen", "MingLi-Bench",
+    # 命令行路径：中文版里写 `python tools/x.py` 也是对的
+    "python", "tools", "bench_mingli", "py", "tools/bench_mingli.py",
 }
 # 语言切换按钮在英文界面显示「中」，是唯一应当保留的汉字
 ALLOW_EN = {"中", "命理引擎"}
@@ -104,7 +106,7 @@ def scan(html: str, lang: str) -> list[tuple[str, str]]:
     hits: list[tuple[str, str]] = []
     for where, text in w.out:
         if lang == "zh":
-            words = [x for x in re.findall(r"[A-Za-z][A-Za-z0-9'\-/]{1,}", text)
+            words = [x for x in re.findall(r"[A-Za-z][A-Za-z0-9'_.\-/]{1,}", text)
                      if x not in ALLOW_ZH]
             if words:
                 hits.append((where, text))

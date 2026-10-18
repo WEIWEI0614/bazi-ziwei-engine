@@ -46,6 +46,7 @@ def _synastry_cfg():
 def _percentiles():
     from mingli import scoring
     return {"quantiles": scoring.QUANTILES,
+            "yearQuantiles": scoring.YEAR_QUANTILES,
             "dimStats": scoring.DIM_STATS,
             "weights": scoring.WEIGHTS,
             "dims": scoring.DIMS}

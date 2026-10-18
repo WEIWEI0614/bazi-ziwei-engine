@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18f";
+  const BUILD = "2026-10-18g";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -361,7 +361,7 @@
       `<div class="lk${SEL_YEAR === +d.name ? " on" : ""}" title="${d.band}" data-y="${d.name}">
         <div class="gz" style="color:${periodColor(d.score)}">${gzEn(d.label)}</div>
         <div class="yr">${d.name} · ${d.age}</div>
-        <div class="yr" style="color:${periodColor(d.score)}">${d.score.toFixed(0)} ${bandTxt(d.band)}</div>
+        <div class="yr" style="color:${periodColor(d.score)}">${d.score.toFixed(0)} · ${posLabel(d.percentile)}</div>
       </div>`).join("");
     strip.querySelectorAll(".lk").forEach((el) => {
       el.onclick = () => pickYear(+el.dataset.y);
@@ -373,7 +373,23 @@
     用神: ["用神", "Useful"], 十神: ["十神", "Ten gods"], 冲合: ["会合刑冲", "Clashes"],
     大运: ["大运基调", "Decade tone"], 神煞: ["神煞", "Stars"],
   };
+  // 每个分项：方向是古法给的，还是系数也是我拍的。* 标在自定系数上。
+  const COMP_SRC = { 用神: "classic", 十神: "classic", 冲合: "classic",
+    大运: "mixed", 神煞: "mixed" };
   const COMP_MAX = { 用神: 20, 十神: 8, 冲合: 12, 大运: 11, 神煞: 4 };
+
+  // 分位数才是能说出口的那句话：'前 3%' 比 '75.8 分' 有意义
+  function posLabel(pct) {
+    const q = Math.max(0, Math.min(100, pct || 50));
+    if (LANG === "zh") {
+      if (q >= 99) return "前 1%";
+      if (q <= 1) return "后 1%";
+      return q >= 50 ? `前 ${Math.round(100 - q)}%` : `后 ${Math.round(q)}%`;
+    }
+    if (q >= 99) return "top 1%";
+    if (q <= 1) return "bottom 1%";
+    return q >= 50 ? `top ${Math.round(100 - q)}%` : `bottom ${Math.round(q)}%`;
+  }
 
   function compBars(comp) {
     return Object.keys(COMP_LABEL).map((k) => {
@@ -381,7 +397,9 @@
       const max = COMP_MAX[k] || 10;
       const w = Math.min(50, Math.abs(v) / max * 50);
       const col = v > 0.4 ? "#8fc98a" : v < -0.4 ? "#e2635f" : "#4b4f5a";
-      return `<div class="pd-bar"><span class="nm">${LANG === "zh" ? COMP_LABEL[k][0] : COMP_LABEL[k][1]}</span>
+      const mark = COMP_SRC[k] === "mixed" ? '<sup class="pd-mark" title="' +
+        (LANG === "zh" ? "方向有古法依据，权重由本引擎自定" : "direction is classical, the weight is ours") + '">*</sup>' : "";
+      return `<div class="pd-bar"><span class="nm">${LANG === "zh" ? COMP_LABEL[k][0] : COMP_LABEL[k][1]}${mark}</span>
         <span class="track"><i style="left:50%;width:${w}%;background:${col}"></i></span>
         <span class="val" style="color:${col}">${v > 0 ? "+" : ""}${v.toFixed(1)}</span></div>`;
     }).join("");
@@ -416,7 +434,7 @@
           </div>
         </div>
         <div class="pd-kpi">
-          <div><span>${L("十年均分", "Mean")}</span><b style="color:${periodColor(avg)}">${avg.toFixed(1)}</b></div>
+          <div><span>${L("十年均分", "Mean")}</span><b style="color:${periodColor(avg)}">${avg.toFixed(1)} · ${posLabel(ML.yearPercentileOf(avg))}</b></div>
           <div><span>${L("最好", "Best")}</span><b>${best.name} ${best.score.toFixed(0)}</b></div>
           <div><span>${L("最差", "Worst")}</span><b>${worst.name} ${worst.score.toFixed(0)}</b></div>
         </div>
@@ -443,8 +461,8 @@
         <div>
           <div class="pd-title">${y} <b>${gzEn(p.label)}</b>
             <span class="pd-sub">${p.age} ${L("岁", "yrs")} · ${L("大运", "decade")} ${gzEn(p.luckCycle || "—")} · ${L("十神", "gods")} ${tr(p.shishenGan)} / ${tr(p.shishenZhi)}</span></div>
-          <div class="pd-score" style="color:${periodColor(p.score)}">${p.score.toFixed(1)}
-            <span style="font-size:13px">${bandTxt(p.band)}</span></div>
+          <div class="pd-score" style="color:${periodColor(p.score)}">${posLabel(p.percentile)}
+            <span style="font-size:13px">${p.score.toFixed(1)} · ${bandTxt(p.band)}</span></div>
         </div>
         <div class="pd-kpi">
           <div><span>${L("原始分", "Raw")}</span><b>${(p.components.raw || 0).toFixed(1)}</b></div>
@@ -453,6 +471,8 @@
         </div>
       </div>
       <div class="pd-comps">${compBars(p.components)}</div>
+      <p class="note pd-foot">${L("分项方向依古法（月令取用、十神吉凶、冲合定向）；带 * 的权重由本引擎自定。分数被压在 32–94，所以「" + p.score.toFixed(1) + "」本身没有绝对含义——有意义的是它在这批年份中的位置。",
+        "Each component's direction is classical; components marked * carry a weight we chose ourselves. The scale is clamped to 32–94, so the raw number means nothing on its own — its position among years does.")}</p>
       <div class="pd-grid">
         <div><h4>${L("主题", "Themes")}</h4>
           <div class="pd-tags">${(p.themes || []).map((t) => `<span class="tag">${tr(t)}</span>`).join("") || "—"}</div></div>
@@ -1176,12 +1196,13 @@
     });
     svg.innerHTML = g;
 
-    $("yearTable").innerHTML = `<thead><tr><th>${L("年份","Year")}</th><th>${L("干支","Pillar")}</th><th>${L("大运","Cycle")}</th><th class="num">${L("评分","Score")}</th><th>${L("评级","Band")}</th><th>${L("主题","Theme")}</th><th>${L("注意事项","Watch")}</th></tr></thead><tbody>` +
+    $("yearTable").innerHTML = `<thead><tr><th>${L("年份","Year")}</th><th>${L("干支","Pillar")}</th><th>${L("大运","Cycle")}</th><th class="num">${L("评分","Score")}</th><th class="num">${L("位置","Where")}</th><th>${L("评级","Band")}</th><th>${L("主题","Theme")}</th><th>${L("注意事项","Watch")}</th></tr></thead><tbody>` +
       data.map((d) => `<tr data-y="${d.name}" class="pd-row${SEL_YEAR === +d.name ? " on" : ""}">
         <td class="num">${d.name}<span style="color:var(--tx3)"> · ${d.age}</span></td>
         <td><b style="font-family:var(--serif)">${gzEn(d.label)}</b></td>
         <td>${d.luckCycle ? gzEn(d.luckCycle) : "—"}</td>
         <td class="num" style="color:${periodColor(d.score)}">${d.score.toFixed(1)}</td>
+        <td class="num" style="color:var(--tx2)">${posLabel(d.percentile)}</td>
         <td><span class="pill ${bandCls(d.score)}">${bandTxt(d.band)}</span></td>
         <td class="note">${d.themes.slice(0, 3).map(tr).join(" · ")}</td>
         <td class="note">${d.cautions.slice(0, 2).map(bi).join(LANG === "zh" ? "；" : "; ") || "—"}</td></tr>`).join("") + "</tbody>";
@@ -1672,6 +1693,10 @@
         "寅首五虎遁定宫干、纳音定五行局、起紫微诀（商数宫前走，借数偶顺奇逆）安十四主星；六吉六煞、38 杂曜、长生 / 博士 / 将前 / 岁前四套十二神、小限、命主身主、斗君、生年四化与宫干自化全部入盘。"],
       ["流年与流月",
         "按《子平真诠》顺序：用神专求月令，先看喜忌（地支为主）→ 再论十神吉凶（随格局而变）→ 再看会合刑冲（冲去忌神为去病，冲伤用神为凶，冲闲神则动而无咎）→ 最后叠大运基调。喜用一到两个五行、忌神一到两个，其余为闲神；闲神年份不作吉凶论，这才是「平年」的来处。分数压缩在 32–94 之间，单年读数是倾向而非判决。"],
+      ["流年分数是什么",
+        "五条分项（用神、十神、会合刑冲、大运、神煞）按权重相加，再压到 32–94。带 * 的两项权重由本引擎自定，方向来自古法。它的用途是「同一张盘内排序」——看哪几年相对顺、哪几年相对滞，不是事件预测。「75.8」本身没有绝对含义，页面因此优先显示它在这张盘的年份里所处的位置（前 3% / 后 19%）。"],
+      ["实测：它预测不了具体事件",
+        "拿 MingLi-Bench 的 160 道真实比赛题（全球算命师大赛 2022–2025，四选一）测过：可判定的 66 题答对 7 题，10.6%，随机是 25%——目前没有可测的预测力。同批题里，答案属负面事件的年份平均 53.7 分，属正面事件的 54.2 分，相差 0.5 分，而这把尺子的标准差是 10.5。这个数字留在页面上，不藏。复现：python tools/bench_mingli.py。"],
       ["校验",
         "历法与四柱：3,000 组随机时刻对 lunar-python，年月日时零误差。紫微：700 张盘对 iztro，命宫 / 五行局 / 宫干 / 十四主星 / 六吉六煞 / 38 杂曜 / 四套十二神 / 小限 / 大限全部一致（1 例主星差异源于朔日临界）。浏览器 JS 与 Python 逐字段比对，差异仅四舍五入。38 个单元测试。"],
       ["局限",
@@ -1691,6 +1716,10 @@
         "Palace stems by the Five Tiger rule, bureau by sound-element, Purple Star by the quotient/borrow method; 14 majors, 6+6 auxiliaries, 38 adjective stars, four sets of twelve gods, minor limits, life/body rulers, Dou Jun, birth-year and self transformations."],
       ["Annual & monthly",
         "Judged in the classical order: the useful god comes from the month command; favourable elements first (branch-weighted), then ten-god auspiciousness (which flips with the structure), then combinations and clashes (clashing away a hostile element is a cure, clashing the useful one is damage, clashing an idle one is mere motion), then the decade tone. One or two favourable elements, one or two hostile, the rest idle — idle years carry no verdict, which is where neutral years come from. Scores are compressed to 32–94: a tendency, not a verdict."],
+      ["What the annual score is",
+        "Five components (useful god, ten gods, interactions, decade tone, stars) are weighted and summed, then compressed to 32-94. The two marked * carry weights we chose ourselves; their direction is classical. The score ranks years within one chart — which run easier, which run against you — it does not predict events. '75.8' has no absolute meaning, which is why the page leads with its position among that chart's years (top 3% / bottom 19%)."],
+      ["Tested: it does not predict events",
+        "Against the 160 real competition questions in MingLi-Bench (Global Fortune Teller Competition 2022-2025, four options each), the engine answers 7 of the 66 decidable items correctly — 10.6%, where chance is 25%. In the same set, years whose true answer was a negative event average 53.7 against 54.2 for positive ones: a gap of 0.5 on a scale whose standard deviation is 10.5. The number stays on this page. Reproduce with: python tools/bench_mingli.py."],
       ["Validation",
         "Calendar and pillars: 3,000 random instants against lunar-python, zero mismatches on all four pillars. Zi Wei: 700 charts against iztro — palace, bureau, stems, 14 majors, 12 auxiliaries, 38 adjective stars, four sets of twelve gods, minor and decade limits all identical (one chart differs by a major star at a new-moon knife edge). Browser JS vs Python: field-by-field parity. 38 unit tests."],
       ["Limits",

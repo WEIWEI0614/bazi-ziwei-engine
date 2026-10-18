@@ -999,7 +999,9 @@
     };
     return { shishenGan: ssG, shishenZhi: ssZ, score: Math.round(score * 10) / 10,
       band: band(Math.round(score * 10) / 10), components: comp, relations: rels,
-      themes, relationsEn: relsEn, cautions: uniq(cautions), opportunities: uniq(opps) };
+      themes, relationsEn: relsEn, cautions: uniq(cautions), opportunities: uniq(opps),
+      // 相对位置：分数本身没有绝对含义，这个才是能说出口的那句话
+      percentile: yearPercentileOf(score) };
   }
 
   function yearPeriod(c, year, luckCyc) {
@@ -1333,8 +1335,9 @@
     const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
     return s * y;
   }
-  function percentileOf(v) {
-    const q = PCT.quantiles;
+  function yearPercentileOf(v) { return _pctOf(PCT.yearQuantiles, v); }
+  function percentileOf(v) { return _pctOf(PCT.quantiles, v); }
+  function _pctOf(q, v) {
     if (!q || !q[q.length - 1]) return 50;
     if (v <= q[0]) return 0;
     if (v >= q[q.length - 1]) return 100;
@@ -1777,5 +1780,6 @@
     percentileOf, tierOf, interpretBazi, interpretZiwei, termLocal, buildBazi, buildZiwei,
     luckCycles, startLuck, luckDirection, yearPeriod, monthPeriods, evaluatePeriod,
     palaceScore, detectPatterns, ziweiSummary, decades, yearlyPalace,
-    scoreOverall, compareEvents, buildReading, usefulElements, strengthUseful, shishen, zhiRels };
+    scoreOverall, compareEvents, buildReading, usefulElements, strengthUseful, shishen, zhiRels,
+    percentileOf, yearPercentileOf };
 })();

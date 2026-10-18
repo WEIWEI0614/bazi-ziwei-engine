@@ -162,6 +162,41 @@ node tools/parity.js cases.json out.json     # optional JS/Python parity harness
 
 ---
 
+## Does it predict anything?
+
+No — not yet, and the number should stay where people can see it.
+
+[MingLi-Bench](https://github.com/DestinyLinker/MingLi-Bench) collects 160
+multiple-choice questions from the Global Fortune Teller Competition (2022-2025):
+each gives a birth moment and asks what happened in a given year, or in which
+year something happened. It is the only public set where "was the engine right"
+has an answer key instead of an opinion.
+
+```bash
+python tools/bench_mingli.py
+```
+
+Of the 160 items, 66 are decidable by the engine (the rest ask about appearance,
+schooling or personality, which this engine does not attempt). It answers **7
+correctly — 10.6%, where chance is 25%**.
+
+Two ways to read that:
+
+- **Honestly:** the annual score has no measurable predictive power. Years whose
+  true answer was a negative event average 53.7; positive ones 54.2. The scale's
+  standard deviation is 10.5, so a 0.5 gap is noise.
+- **Generously:** the task is "read a specific event out of a chart", and no
+  rule-based engine does that. The option text ("因长期食药，导致健康出问题")
+  has to be mapped to a life area by keyword, and most of the loss happens
+  there. None of the upstream projects in this space attempt the task either.
+
+What follows: the score is a **ruler for ranking years inside one chart**, not a
+forecast. The UI now leads with the percentile rather than the raw number,
+because the percentile is the only part that can be stated plainly, and it marks
+the components whose weights were chosen rather than inherited.
+
+---
+
 ## Schools covered
 
 A single "correct" answer does not exist in this field. Where schools disagree, the
