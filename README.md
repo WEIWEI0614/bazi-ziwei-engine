@@ -273,6 +273,44 @@ better — 0.542 is about two standard errors, p ≈ 0.05 — but that is one ce
 of thirty comparisons, and it does not survive the correction. More complexity
 buys a little; not enough.
 
+**Fifth, can a model learn it, where hand-tuned weights failed?** If the
+problem were only our weights, a fitted model should find the pattern anyway.
+So `tools/bench_ml.py` extracts twelve features per year (score, clash strength,
+ten-god valence, useful-element hit, decade tone, shensha, Zi Wei year-palace
+overlap and transformations, the year palace's Later-Heaven trigram, and age as
+a control), fits an L2 logistic regression, and validates **leave-one-person-out**
+— splitting by year would leak, since one person's adjacent years are near
+duplicates.
+
+Health events (194 positives in 3,150 person-years):
+
+| features | AUC |
+|---|---|
+| age alone | 0.595 |
+| chart features only | 0.531 |
+| chart + age | 0.601 |
+| chart features shuffled, age kept | 0.575 |
+
+Two readings, both true:
+
+- Age is a real signal and the model finds it (+0.095 over chance). So the
+  pipeline works — it is not a broken experiment.
+- The chart features add 0.006 over age alone, and 0.026 over shuffled
+  features, p < 0.001 on 25 permutations. Some information, but a quarter of
+  what a person's age tells you.
+
+Across the other three categories there is no gain at all:
+
+| category | age | chart + age |
+|---|---|---|
+| career | 0.566 | 0.555 |
+| romance | 0.627 | 0.625 |
+| wealth | 0.505 | 0.501 |
+
+In three of four categories the chart features are neutral or slightly negative.
+A single weak positive on health, with four tries, is what a weak positive looks
+like.
+
 So: the annual score is a **ruler for ranking years inside one chart**, not a
 forecast. The UI leads with the percentile rather than the raw number, because
 the percentile is the only part that can be stated plainly, and it marks the
@@ -385,6 +423,7 @@ tools/bench_mingli.py   160 competition questions -> accuracy (see "Does it pred
 tools/bench_celebrity.py  50 public figures, 1163 dated events -> AUC
 tools/bench_ziwei.py    the paid apps' annual method, same data -> AUC
 tools/bench_methods.py   three methods head to head on one exam
+tools/bench_ml.py        does a fitted model learn anything? (leave-one-person-out)
 data/                   both benchmark sets and the hand-marked option labels
 tests/                   64 unit tests, no third-party dependencies
 ```
