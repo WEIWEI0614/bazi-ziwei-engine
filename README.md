@@ -218,6 +218,26 @@ python tools/bench_celebrity.py
 0.55; the highest cell is 0.536 on 88 samples, which is what you expect from
 testing thirty combinations at once.
 
+**Third, the method itself was tested, not just this implementation.** The
+obvious objection is "your weights are wrong, not the method". So
+`tools/bench_ziwei.py` implements what the paid Zi Wei apps describe in their own
+guides — the year palace landing on a natal palace, and the annual four
+transformations (禄/权/科/忌) landing in one — and runs it on the same 50 people.
+
+```bash
+python tools/bench_ziwei.py
+```
+
+| feature | 感情 | 财富 | 事业 | 健康 | 六亲 |
+|---|---|---|---|---|---|
+| year palace on that palace | 0.497 | 0.509 | 0.505 | 0.503 | 0.505 |
+| four transformations landing there | 0.516 | 0.476 | 0.503 | 0.502 | 0.485 |
+| direction (禄 vs 忌) | 0.532 | 0.483 | 0.480 | 0.516 | 0.507 |
+
+Even the single most quoted rule — "year palace overlapping the natal spouse
+palace means marriage" — comes out at 0.497, which is a coin flip. Fifteen cells,
+none above 0.55.
+
 So: the annual score is a **ruler for ranking years inside one chart**, not a
 forecast. The UI leads with the percentile rather than the raw number, because
 the percentile is the only part that can be stated plainly, and it marks the
@@ -328,6 +348,7 @@ tools/parity.js         JS/Python field-by-field comparison
 tools/check_lang.py     renders both languages and fails if either leaks the other
 tools/bench_mingli.py   160 competition questions -> accuracy (see "Does it predict anything?")
 tools/bench_celebrity.py  50 public figures, 1163 dated events -> AUC
+tools/bench_ziwei.py    the paid apps' annual method, same data -> AUC
 data/                   both benchmark sets and the hand-marked option labels
 tests/                   64 unit tests, no third-party dependencies
 ```

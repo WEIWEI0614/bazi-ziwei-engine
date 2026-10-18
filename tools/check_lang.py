@@ -44,8 +44,9 @@ ALLOW_ZH = {
     # 模型厂商名与数据集名：中文界面保留原名才是对的
     "DeepSeek", "GLM", "Kimi", "Qwen", "MingLi-Bench", "BaziQA", "AUC",
     # 命令行路径：中文版里写 `python tools/x.py` 也是对的
-    "python", "tools", "bench_mingli", "py", "bench_celebrity",
-    "tools/bench_mingli.py", "tools/bench_celebrity.py",
+    "python", "tools", "bench_mingli", "py", "bench_celebrity", "bench_ziwei",
+    "tools/bench_mingli.py", "tools/bench_celebrity.py", "tools/bench_ziwei.py",
+    "bench_celebrity.py", "bench_ziwei.py", "App",
 }
 # 语言切换按钮在英文界面显示「中」，是唯一应当保留的汉字
 ALLOW_EN = {"中", "命理引擎"}
