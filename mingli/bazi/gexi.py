@@ -72,16 +72,21 @@ GE_PREF = {
     "专旺": {"like": [], "dislike": []},
 }
 
-#: 用神定了之后，谁来帮它、谁来拆它 —— 按**十神生克**，不是按「生用神者」。
-#: 「生用神者为喜」只在官杀为用时成立：食伤为用，生食伤的是比劫，
-#: 把比劫当喜神，等于给已经偏强的盘再加柴。这就是旧版把「寅午半合火」
-#: 判成大吉的那条链的上游。
-SUPPORT_CLASS = {
-    "官杀": ("财", "食伤"),      # 财生官；食伤克官
-    "财": ("食伤", "比劫"),      # 食伤生财；比劫夺财
-    "食伤": ("财", "印"),        # 食伤生财；印夺食伤
-    "印": ("比劫", "财"),        # 比劫助印；财破印
-    "比劫": ("印", "官杀"),      # 印生比劫；官杀制比劫
+#: 相神 = 用神之外、**与用神同方向**的两类十神。
+#:
+#: 旧版这里是「十神生克」表，把「克用神者」当忌神。单看十神生克没错，但
+#: 套到扶抑上就翻车：丙火身旺、取官杀（水）为用，表里写「食伤克官 → 土为忌」，
+#: 而土正是泄旺火之物。于是「喜水金、忌土火」——把药当成了病，而真正的病
+#: （印木、比劫火）反而落到闲神。用户一眼就看出来了。
+#:
+#: 正确的分法只有一条：身旺则印比为病、泄克耗为药；身弱反之。用神只决定
+#: 「药里先吃哪一味」，不决定「哪些是药」。
+SAME_DIRECTION = {
+    "官杀": ("财", "食伤"),
+    "财": ("食伤", "官杀"),
+    "食伤": ("财", "官杀"),
+    "印": ("比劫",),
+    "比劫": ("印",),
 }
 
 #: 一个五行占到全局这个比例，就已经是「病」而不是「药」，不能再取为用神。
@@ -189,42 +194,34 @@ def useful_system(chart) -> dict:
             primary_cls = EL_CLASS[dm_wx][primary]
             why.append(f"喜用不见于四柱，就命局最旺之{primary}论用，用神虚而力薄")
 
-    # ---- 2) 相神与忌神：按十神生克定 -----------------------------------
-    support_cls, harm_cls = SUPPORT_CLASS.get(primary_cls, ("", ""))
+    # ---- 2) 相神与忌神：方向由扶抑定 -----------------------------------
+    # favor 是**有序**的：第 1 个是用神，后面依次是相神、次喜。
+    # 顺序就是权重，评分层按 favor_weight() 取值，不是「在列表里就算满分」。
     favor = [primary]
-    if support_cls:
-        sup_el = el_of_class(dm_wx, support_cls)
-        if sup_el != primary and sup_el not in favor:
-            favor.append(sup_el)
-    avoid = []
-    if harm_cls:
-        harm_el = el_of_class(dm_wx, harm_cls)
-        if harm_el != primary and harm_el not in favor:
-            avoid.append(harm_el)
+    for cls in SAME_DIRECTION.get(primary_cls, ()):
+        el = el_of_class(dm_wx, cls)
+        if el != primary and el not in favor:
+            favor.append(el)
 
-    # ---- 3) 身强身弱只作救应 --------------------------------------------
-    rescue = []
-    yin = [k for k in SHENG if SHENG[k] == dm_wx][0]
-    if chart.strength < 42:
-        for el in (yin, dm_wx):
-            if el in avoid:
-                avoid.remove(el)
-            if el not in favor:
-                rescue.append(el)
-        why.append("印比转为扶助，不作忌神论")
-    elif chart.strength >= 62:
-        # 印比加忌，但忌神总数封顶两个 —— 忌神铺满三个五行就回到
-        # 「年年都凶」的老毛病，与旧版「什么都好」是同一个错误的镜像
-        room = 2 - len(avoid)
-        if room > 0:
-            cand = sorted((yin, dm_wx), key=lambda k: -es.get(k, 0))
-            added = False
-            for el in cand[:room]:
-                if el not in favor and el not in avoid:
-                    avoid.append(el)
-                    added = True
-            if added:
-                why.append("印比加重为忌")
+    yin_el = [k for k in SHENG if SHENG[k] == dm_wx][0]
+    avoid = []
+    if strong:
+        # 身旺：生我（印）与同我（比劫）是病
+        for el in (yin_el, dm_wx):
+            if el not in favor and el not in avoid:
+                avoid.append(el)
+    else:
+        # 身弱：克我、我克、我生 三者为病，取局中最旺的两个
+        cand = [el_of_class(dm_wx, c) for c in ("官杀", "财", "食伤")]
+        cand = [e for e in cand if e not in favor and e not in avoid]
+        cand.sort(key=lambda e: -es.get(e, 0.0))
+        avoid = cand[:2]
+
+    # ---- 3) 扶助（身弱专用）--------------------------------------------
+    rescue = [el for el in (yin_el, dm_wx) if el not in favor and el not in avoid][:2]
+    if avoid:
+        why.append("忌" + "".join(avoid) + "（" +
+                   ("生我、同我，加重偏旺" if strong else "克我、耗我、泄我") + "）")
 
     # 忌神不得为空：空则无事可忌，每年都成了吉年
     if not avoid:
@@ -236,12 +233,9 @@ def useful_system(chart) -> dict:
     # ---- 4) 闲神：不作吉凶论 --------------------------------------------
     ents = ("木", "火", "土", "金", "水")
     neutral = [k for k in ents if k not in favor and k not in avoid and k not in rescue]
-    if not neutral and len(favor) > 1:
-        # 保险：五个全部分完就没有「平年」了，把用神旁边的弱支放回闲神
-        weakest = min(favor, key=lambda k: es.get(k, 0.0))
-        favor.remove(weakest)
-        neutral.append(weakest)
-        why.append(f"{weakest}在局中最弱，降为闲神，不作吉凶论")
+    # 闲神**允许为空**。旧版强留至少一个闲神，结果是把第三味药降级成平年，
+    # 于是「身旺三喜两忌」的盘永远有一个该吉的五行被判成无吉无凶。
+    # 五行分完不是问题：favor 内部本来就有主次（favor_weight）。
 
     # ---- 5) 十神层面的喜忌（供流年判十神用）-----------------------------
     like_gods = set(pref["like"])
@@ -262,6 +256,23 @@ def useful_system(chart) -> dict:
     }
 
 
+#: favor 列表内部的分量：用神 1.0，第一相神 0.65，次喜 0.40。
+#: 没有这一层，「三喜」的盘每个喜神都按满分算，分数会一律偏高。
+FAVOR_W = (1.0, 0.65, 0.40)
+
+
+def favor_weight(sysd: dict, el: str) -> float:
+    """单个五行对本盘的吉凶分量：+1 用神 … -1 忌神，0 闲神。"""
+    f = sysd.get("favor") or []
+    if el in f:
+        return FAVOR_W[min(f.index(el), len(FAVOR_W) - 1)]
+    if el in (sysd.get("avoid") or []):
+        return -1.0
+    if el in (sysd.get("rescue") or []):
+        return 0.5
+    return 0.0
+
+
 def describe(sysd: dict) -> str:
     """一句话判词，供 CLI / 页面展示。"""
     return (f"用神{sysd['primary']}（{CLASS_ZH[sysd['primary_class']]}），"
@@ -280,13 +291,20 @@ def rel_sign(sysd: dict, zhi: str) -> int:
     return 0
 
 
-def god_score(god: str, sysd: dict, el_favor: bool, el_avoid: bool) -> float:
+def god_score(god: str, sysd: dict, el_favor, el_avoid: bool = False) -> float:
     """十神吉凶：五行喜忌打底，格局喜忌修正。
 
-    el_favor/el_avoid 由该十神所在五行的喜忌决定，god 本身再按格局表加减 ——
-    正官格见伤官是破格，伤官格见伤官是驾御，同一十神两样结论。
+    el_favor 收 **0–1 的权重**（favor_weight 的返回值，用神 1.0 / 相神 0.65 /
+    次喜 0.40）。旧版是布尔，三喜的盘三个喜神同分；次喜与用神等权，正好把
+    「土为次喜」抬到和「水为用神」一样重。布尔 True 仍按 1.0 处理。
     """
-    base = 5.0 if el_favor else (-5.0 if el_avoid else 0.0)
+    if el_favor is True:
+        w = 1.0
+    elif el_favor is False or el_favor is None:
+        w = 0.0
+    else:
+        w = float(el_favor)
+    base = 5.0 * w if w > 0 else (-5.0 if el_avoid else 0.0)
     if god in sysd["like_gods"]:
         base += 2.5
     if god in sysd["dislike_gods"]:

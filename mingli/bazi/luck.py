@@ -366,10 +366,13 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     for el, v in add.items():
         if v <= 0:
             continue
-        if el in favor:
-            # 用神本身重于相神，不可等量齐观
-            gain += v * (2.0 if el == sysd["primary"] else 1.5)
-        elif el in avoid:
+        w = gexi.favor_weight(sysd, el)
+        if w > 0:
+            # 用神 1.0 → 2.0，第一相神 0.65 → 1.3，次喜 0.40 → 0.8。
+            # 旧版只看「在不在 favor 里」，三喜的盘等于三个满分，喜神一多
+            # 年份普遍虚高；反过来忌神一多就普遍虚低。主次必须落到数上。
+            gain += v * 2.0 * w
+        elif w < 0:
             ctrl = [k for k in KE if KE[k] == el][0]      # 克我者
             drain = SHENG[el]                              # 我生者（泄）
             checked = max(es.get(ctrl, 0), es.get(drain, 0))
@@ -381,8 +384,10 @@ def evaluate_period(chart, gan: str, zhi: str, luck: LuckCycle | None = None) ->
     # ---- 2) 十神（吉凶随格局变：正官格见伤官是破格，伤官格见伤官是驾御）--
     el_gan = GAN_WUXING[GAN.index(gan)]
     el_zhi = zhi_wx_eff
-    god_s = (gexi.god_score(ss_g, sysd, el_gan in favor, el_gan in avoid) * 0.45
-             + gexi.god_score(ss_z, sysd, el_zhi in favor, el_zhi in avoid) * 0.65)
+    gw_g = gexi.favor_weight(sysd, el_gan)
+    gw_z = gexi.favor_weight(sysd, el_zhi)
+    god_s = (gexi.god_score(ss_g, sysd, gw_g, gw_g < 0) * 0.45
+             + gexi.god_score(ss_z, sysd, gw_z, gw_z < 0) * 0.65)
     comp["十神"] = _r1(god_s)
 
     # ---- 3) 会合刑冲（有合先论合，且冲合要分喜忌）------------------------

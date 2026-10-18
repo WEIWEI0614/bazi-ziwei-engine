@@ -162,6 +162,36 @@ node tools/parity.js cases.json out.json     # optional JS/Python parity harness
 
 ---
 
+## The useful god had the medicine and the disease swapped
+
+The report was exact: a Bing-fire chart born in the Wu month (83.5% support) was told **water and metal are favourable, earth and fire hostile**, when it should be **water, metal and earth favourable, wood and fire hostile**.
+
+The cause was not a coefficient. The old code derived the hostile element from ten-god generation: taking officer (water) as the useful god, the table said output restrains officer, therefore output (earth) is hostile. But earth is precisely what drains the excess fire. The same logic left resource (wood) idle, though wood feeds fire — the real disease.
+
+One principle fixes it: **direction comes from support-and-restrain, not from ten-god generation.**
+
+- strong (support >= 62%): resource and peers are the disease; officer, wealth, output are the medicine
+- weak: the reverse
+- the useful god decides which medicine comes first, not which medicines exist
+
+Two supporting rules: an element above 34% of the chart cannot be the useful god (it is the disease), and favourable elements are weighted by order (1.0 / 0.65 / 0.40). The old boolean meant three favourable elements scored three full marks — which is exactly why annual and monthly scores ran low whenever a chart had several hostile elements.
+
+Result on the same chart: water, metal and earth favourable; wood and fire hostile. Annual distribution mean 51.9, bad years 14%, good years 34%.
+
+## Zi Wei patterns: 74 entries, each with a reason
+
+The table went from 30 entries that reported only hits to **74: 43 auspicious, 16 neutral, 15 adverse**, including the two-star combinations of the fourteen majors.
+
+Three fixes came with it:
+
+- **Same-palace was never checked.** Lu and Horse compared only opposite palaces, so the most common form — Lu Cun and Tian Ma in one palace — could never fire. Same for Twin Lu, Fire-Greedy and Bell-Greedy.
+- **Scope narrowed to the trine.** The old code scanned the whole chart, so fire in Career and Tan Lang in Spouse (opposite each other) counted as a Fire-Greedy pattern that never touched the life palace.
+- **Failures now explain themselves.** Hovering shows why: Lu Cun sits in Career, Tian Ma in Property, so the two palaces never meet.
+
+Whether a pattern holds and how clean it is are now separate fields. The previous version merged them, so on a chart with void stars in the trine every auspicious pattern was downgraded and the page showed none at all.
+
+---
+
 ## Three bugs worth naming
 
 **1. The shensha table was missing every star that warns you.** 47 stars, and

@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18p";
+  const BUILD = "2026-10-18q";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -692,19 +692,35 @@
           const hits = pats.filter((p) => p.status === "成立");
           const miss = pats.filter((p) => p.status !== "成立");
           const nm = (p) => LANG === "zh" ? p.name : (p.descEn || p.name);
+          const tierTxt = (p) => LANG === "zh" ? p.tier + "格"
+            : (p.tier === "吉" ? "favourable" : p.tier === "凶" ? "adverse" : "neutral");
           const tierColor = (p) => p.tier === "凶" ? "var(--red)"
             : p.tier === "吉" ? "var(--teal)" : "var(--amber2)";
+          // 成立：名称 + 吉凶 + 依据；有瑕疵的追加一行黄色说明（空劫同会这类）
           const rows = hits.map((p) => `<div class="note" style="color:var(--tx2);margin:3px 0">`
             + `<b style="color:${tierColor(p)}">${nm(p)}</b>`
-            + ` <span style="color:var(--tx3);font-size:10.5px">${LANG === "zh" ? p.tier + "格" : (p.tier === "吉" ? "favourable" : p.tier === "凶" ? "adverse" : "neutral")}</span>`
-            + `<span style="color:var(--tx3)"> ${LANG === "zh" ? (p.note || p.desc) : ""}</span></div>`).join("");
-          const rest = miss.length
-            ? `<div class="note" style="color:var(--tx3);margin-top:5px;line-height:1.8">`
-              + (LANG === "zh" ? "未成立：" : "Not present: ")
-              + miss.map(nm).join(LANG === "zh" ? "、" : ", ") + `</div>` : "";
+            + ` <span style="color:var(--tx3);font-size:10.5px">${tierTxt(p)}</span>`
+            + `<span style="color:var(--tx3)"> ${LANG === "zh" ? (p.note || p.desc) : (p.descEn || "")}</span>`
+            + (p.flaw ? `<div style="color:var(--amber2);font-size:10.5px;padding-left:10px">`
+                + `${LANG === "zh" ? "⚠ " + p.flaw : "⚠ the shape is there, but something breaks it"}`
+                + `</div>` : "")
+            + `</div>`).join("");
+          // 未成立：按吉凶分组列出，鼠标悬停给出可核对的原因
+          const byTier = {};
+          miss.forEach((p) => { (byTier[p.tier] = byTier[p.tier] || []).push(p); });
+          const rest = ["吉", "中", "凶"].filter((t) => byTier[t]).map((t) => {
+            const names = byTier[t].map((p) => p.why
+              ? `<span title="${p.why.replace(/"/g, "&quot;")}" style="cursor:help;border-bottom:1px dotted var(--line)">${nm(p)}</span>`
+              : nm(p)).join(LANG === "zh" ? "、" : ", ");
+            return `<div class="note" style="color:var(--tx3);margin-top:4px;line-height:1.8">`
+              + `<span style="color:${t === "凶" ? "var(--tx3)" : "var(--tx3)"}">`
+              + (LANG === "zh" ? `未成立（${t}）：` : `not present (${t === "吉" ? "auspicious" : t === "凶" ? "adverse" : "neutral"}): `)
+              + `</span>${names}</div>`;
+          }).join("");
           const head = `<div class="note" style="color:var(--tx3);margin-bottom:3px">`
-            + (LANG === "zh" ? `成格 ${hits.length} / 全表 ${pats.length} 条`
-                             : `${hits.length} of ${pats.length} patterns hold`) + `</div>`;
+            + (LANG === "zh"
+              ? `成立 ${hits.length} 条 / 全表 ${pats.length} 条（吉 ${pats.filter((p) => p.tier === "吉").length}、中 ${pats.filter((p) => p.tier === "中").length}、凶 ${pats.filter((p) => p.tier === "凶").length}）；带虚线的可悬停看未成立原因`
+              : `${hits.length} of ${pats.length} hold (${pats.filter((p) => p.tier === "吉").length} auspicious / ${pats.filter((p) => p.tier === "中").length} neutral / ${pats.filter((p) => p.tier === "凶").length} adverse); dotted names explain why they do not`) + `</div>`;
           return head + rows + rest;
         })()
         + `</div>` : "");
@@ -1742,6 +1758,10 @@
         "按《子平真诠》顺序：用神专求月令，先看喜忌（地支为主）→ 再论十神吉凶（随格局而变）→ 再看会合刑冲（冲去忌神为去病，冲伤用神为凶，冲闲神则动而无咎）→ 最后叠大运基调。喜用一到两个五行、忌神一到两个，其余为闲神；闲神年份不作吉凶论，这才是「平年」的来处。分数压缩在 32–94 之间，单年读数是倾向而非判决。"],
       ["合冲刑害怎么算",
         "三会、三合、半合、拱合、六合、三刑、相刑、自刑、六冲、六害、六破、墓库，全部由一个模型判定（mingli/bazi/relations.py），命局五行分布和流年流月都从它取数。关键不是「记下这个关系」，而是**改掉地支的五行**：寅午戌成局，寅就不再是木。份额按类封顶——三会三合整体转化，半合 0.65，拱合 0.35，六合要月令支持且化神透干才化。争合与妒合双方各打 0.55 折。墓库按「旺为库、衰为墓」判：库只是封存（可被冲开），墓才打 0.72 折。"],
+      ["喜用神怎么定",
+        "方向由扶抑定，不由十神生克定。身旺则印（生我）与比劫（同我）为病，官杀、财、食伤为药；身弱反之，印比为药、官杀财食伤为病。用神只决定「药里先吃哪一味」，不决定「哪些是药」。旧版把「克用神者」当忌神——丙火身旺取官杀（水）为用，表里写「食伤克官，故土为忌」，而土正是泄旺火之物，于是判成「喜水金、忌土火」，把药当成了病，真正的病（木印、火比劫）反而落到闲神。另加两条：占全局超过 34% 的五行不能当用神（那是病，不是药）；喜神内部按序加权（用神 1.0、相神 0.65、次喜 0.40），否则「三喜」的盘等于三个满分。"],
+      ["紫微格局表",
+        "74 条：吉 43、中 16、凶 15，覆盖传统常见格局与十四主星的双星同宫组合（紫贪、廉府、武相、机梁等）。每条都返回成立／不成立，不成立的附一句可核对的原因，例如「禄马交驰：禄存在官禄、天马在田宅，两宫不相会」。结构成立与成色受损分两个字段：前者是「有没有这个格」，后者是「这个格有多干净」，混在一个状态里就会得到「每条吉格都有瑕」这种读不出信息的结果。"],
       ["参考了哪些流派",
         "都不公布公式，公布的是判断次序，次序可以折成权重。《子平真诠》定成败救应的先后（救应按 1.35 倍计回破格）；《滴天髓》定衰旺与通关（两神相战，能通关者才是用神）；倪海厦《天纪》定紫微的次序（先三方四正、次庙旺平陷、再四化三层），最有用的是他的**形状**——先找最弱的宫，再找哪一步运打上去，那是乘法不是加法；中州派定「星曜组合重于单颗庙旺」；盲派定宾主（日主是主，财官是客，冲合要看动的是谁的客）。"],
       ["流年分数是什么",
@@ -1769,6 +1789,10 @@
         "Judged in the classical order: the useful god comes from the month command; favourable elements first (branch-weighted), then ten-god auspiciousness (which flips with the structure), then combinations and clashes (clashing away a hostile element is a cure, clashing the useful one is damage, clashing an idle one is mere motion), then the decade tone. One or two favourable elements, one or two hostile, the rest idle — idle years carry no verdict, which is where neutral years come from. Scores are compressed to 32–94: a tendency, not a verdict."],
       ["How combinations and clashes are scored",
         "Three-meetings, trines, half trines, arches, six-harmonies, the three punishments, self-punishment, the six clashes, harms, destructions and the tomb-storehouses are all decided by one model (mingli/bazi/relations.py); both the natal element distribution and the annual scores read from it. The point is not to record the interaction but to **change the branch's element**: once Yin, Wu and Xu combine, Yin is no longer wood. Transformation share is capped by kind — full trines convert entirely, half combinations 0.65, arches 0.35, six-harmonies only when the month command supports it and the transformed element is transparent. Contested and jealous combinations are halved on both sides. Tombs follow the rule that a strong element is stored and a weak one is buried: a storehouse merely seals (and can be opened by a clash), only a tomb costs 0.72x."],
+      ["How the useful god is chosen",
+        "Direction comes from the support-and-restrain logic, not from ten-god generation alone. When the day master is strong, resource (what generates it) and peers (what matches it) are the disease, while officer, wealth and output are the medicine; when it is weak, the reverse. The useful god decides which medicine to take first, not which medicines exist. The previous version treated whatever controls the useful god as hostile — a strong Bing fire taking water as its officer was told earth was unfavourable because output restrains officer, yet earth is exactly what drains the excess fire. That is how a chart ended up with water and metal favourable while earth was called hostile: the medicine was named the disease, and the real disease was left idle. Two more rules: an element above 34 percent of the chart cannot be the useful god, and favourable elements are weighted by order (1.0 / 0.65 / 0.40), otherwise a chart with three favourable elements scores three full marks."],
+      ["The Zi Wei pattern table",
+        "74 entries: 43 auspicious, 16 neutral, 15 adverse, covering the classical named patterns plus the two-star combinations of the fourteen majors (Zi Wei with Tan Lang, Lian Zhen with Tian Fu, Wu Qu with Tian Xiang, Tian Ji with Tian Liang and so on). Each entry returns holds or does not hold, and the ones that do not carry a checkable reason — for instance, Lu and Horse: Lu Cun sits in Career, Tian Ma in Property, so the two palaces never meet. Whether a pattern exists and how clean it is are separate fields; merging them produces the useless reading where every auspicious pattern is marked flawed."],
       ["Which schools this borrows from",
         "None of them publish a formula; they publish an order of decision, and an order converts into weights. Zi Ping Zhen Quan fixes the order in which a structure is built, broken and rescued (a rescue counts 1.35x a break). Di Tian Sui fixes strength and mediation — when two elements fight, the one that mediates is the useful god. Ni Haixia's Tian Ji fixes the Zi Wei order (trine first, brightness second, four transformations in three layers third), and its most useful part is a **shape**: find the weakest palace, then find the period that hits it. That is a product, not a sum. The Zhongzhou school holds that combinations outrank single-star brightness. The blind school uses host-and-guest: the day master is host, wealth and office are guests, and an interaction is read by whose guest it moves."],
       ["What the annual score is",

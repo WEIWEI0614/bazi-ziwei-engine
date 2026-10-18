@@ -231,8 +231,13 @@ class TestPeriodScoringIsNotFlat(unittest.TestCase):
         bands = {p["band"] for p in timeline(c, from_year=2024, years=20)}
         self.assertGreaterEqual(len(bands), 3)
 
-    def test_there_is_always_an_idle_element(self):
-        """喜用加忌神不能覆盖五个五行 —— 没有闲神就没有「平年」。"""
+    def test_favor_and_avoid_never_cover_everything(self):
+        """喜用 + 忌神 + 扶助 不得覆盖五个五行，且忌神不得为空。
+
+        闲神**允许为空**：身旺盘「三喜（官杀/财/食伤）两忌（印/比）」正好
+        分完五行，这是对的。旧断言要求必有闲神，等于强迫把一味药降级成
+        「无吉无凶」，正是上一版「喜水金、忌土火」那类错误的余波。
+        """
         import random
         from mingli.bazi.gexi import useful_system
         random.seed(3)
@@ -242,9 +247,17 @@ class TestPeriodScoringIsNotFlat(unittest.TestCase):
                             random.randint(1, 28), random.randint(0, 23), 0,
                             longitude=116.4)
             s = useful_system(c)
-            self.assertTrue(s["neutral"],
-                            f"{''.join(p.gan + p.zhi for p in c.pillars)} 没有闲神")
-            self.assertLessEqual(len(s["favor"]) + len(s["avoid"]), 4)
+            label = "".join(p.gan + p.zhi for p in c.pillars)
+            self.assertTrue(s["avoid"], f"{label} 没有忌神")
+            self.assertGreaterEqual(len(s["favor"]), 1, f"{label} 没有喜用")
+            covered = set(s["favor"]) | set(s["avoid"]) | set(s["rescue"])
+            # 五个五行可以分完（三喜两忌），但不能「全是要么满分喜、要么满分忌」——
+            # 那由 favor_weight 的主次保证：用神 1.0、相神 0.65、次喜 0.40。
+            self.assertLessEqual(len(covered), 5, f"{label} 分类超过五行")
+            weights = sorted((__import__("mingli.bazi.gexi", fromlist=["x"])
+                              .favor_weight(s, el) for el in s["favor"]), reverse=True)
+            self.assertGreater(weights[0], weights[-1],
+                               f"{label} 喜神之间没有主次，等于什么都好")
 
     def test_clashing_the_hostile_element_counts_as_a_cure(self):
         """冲掉忌神是去病，不该扣分；冲掉用神才叫伤用。"""
