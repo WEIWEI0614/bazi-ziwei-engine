@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mingli-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "BaZi (Four Pillars) + Zi Wei Dou Shu dual-system engine with astronomical calendar and back-test calibration"
 readme = "README.md"
 requires-python = ">=3.9"

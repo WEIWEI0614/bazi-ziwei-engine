@@ -20,18 +20,25 @@ is worth far more than a confident one they cannot check.
 
 ## Run it
 
-Two entry points, same engine, no dependencies.
+Three entry points, same engine, no dependencies (Python 3.9+, standard library
+only — no pip install).
 
 ```bash
+cd /path/to/bazi-ziwei-engine    # every command below runs from here
+
 # CLI
 python -m mingli chart --date 1993-06-14 --time 17:31 --gender male --lon 116.65
 python -m mingli month 2027 --date ... --events events.json
 
-# MCP (add to your client config)
+# MCP (add to your client config, then restart the client)
 {"mcpServers": {"bazi-ziwei": {
-  "command": "python",
+  "command": "python3",
   "args": ["/absolute/path/to/bazi-ziwei-engine/mcp_server.py"]}}}
 ```
+
+`python -m mingli` resolves the package from the working directory, so either
+`cd` into the repo or set `PYTHONPATH` to it. If `python` is not on `PATH`, use
+`python3`, or an absolute interpreter path.
 
 MCP tools:
 

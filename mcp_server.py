@@ -306,14 +306,32 @@ def tool_backtest(args: dict) -> str:
     return "\n".join(out)
 
 
+def _pair(args: dict) -> tuple[dict, dict]:
+    """Pull the two births out of `{a: {...}, b: {...}}`.
+
+    Callers that flatten the two sides into one object get a sentence telling
+    them the shape, not `KeyError: 'a'` — an LLM caller cannot act on a bare
+    KeyError, it can act on "wrap each side under a and b".
+    """
+    missing = [k for k in ("a", "b") if not isinstance(args.get(k), dict)]
+    if missing:
+        raise ValueError(
+            "synastry needs both births nested, as {\"a\": {...}, \"b\": {...}}; "
+            f"missing or not an object: {', '.join(missing)}. "
+            "Each side needs year, month, day; gender, hour and longitude are optional."
+        )
+    return args["a"], args["b"]
+
+
 def tool_synastry(args: dict) -> str:
-    a, b = _birth(args["a"]), _birth(args["b"])
+    aa, bb = _pair(args)
+    a, b = _birth(aa), _birth(bb)
     rel = args.get("relation", "couple")
     if rel not in SYNASTRY_RELATIONS:
         raise ValueError(f"unknown relation {rel!r}; choose from "
                          + ", ".join(sorted(SYNASTRY_RELATIONS)))
-    ra = _reading(args["a"])
-    rb = _reading(args["b"])
+    ra = _reading(aa)
+    rb = _reading(bb)
     res = syn_compare(ra.chart, rb.chart, rel, ra.ziwei, rb.ziwei)
     out = [f"# Synastry — {res.get('relationZh')} · {res.get('score')} ({res.get('band')})",
            f"A {res['a']['four']} ({res['a']['dm']})  ·  B {res['b']['four']} ({res['b']['dm']})", ""]
