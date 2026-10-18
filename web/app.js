@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18t";
+  const BUILD = "2026-10-18u";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -667,16 +667,36 @@
     const gcol = (v) => v >= 88 ? "var(--amber2)" : v >= 40 ? "var(--teal)" : "var(--tx2)";
     $("gradeName").style.color = gcol(g.percentile === undefined ? 50 : g.percentile);
     const beat = (v) => LANG === "zh" ? `胜 ${(+v).toFixed(0)}%` : `ahead of ${(+v).toFixed(0)}%`;
+    // 「格」说的是盘，不是人。出身量级（资产、父母资源、时代）在四柱里没有符号，
+    // 这里把这一点连证据一起写在旁边，免得又一个出身很好的人被「中格」两个字冒犯。
+    const fuPal = (R.ziwei.palaces || []).find((p) => p.name === "父母");
+    const fuPct = fuPal && ML.palaceScore
+      ? ML.pctFromStats(((window.ML_DATA.PERCENTILES || {}).palaceStats || {}).父母, ML.palaceScore(R.ziwei, fuPal))
+      : null;
+    const caveat = LANG === "zh"
+      ? `<div style="margin-top:8px;padding:8px 11px;border-left:2px solid var(--line);color:var(--tx3)">
+           <b style="color:var(--tx2)">这一栏评的是盘，不是你。</b>
+           「格」是这张盘靠自己的结构能撑起多少——成不成格、有没有破、破了有没有救。
+           它不含出身的量级（家产、父母资源、时代β），因为四柱里没有「资产」这个符号：
+           本引擎的祖荫代理只有年月六条，紫微父母宫也只按星曜亮度加减${fuPct === null ? "" : `（本盘第 ${fuPct.toFixed(0)} 百分位）`}。
+           所以「中格」不等于「中等人」；反过来，「上格」也不保证过得好。格低而荫厚、运助者，古法叫「命好不如运好」。</div>`
+      : `<div style="margin-top:8px;padding:8px 11px;border-left:2px solid var(--line);color:var(--tx3)">
+           <b style="color:var(--tx2)">This column rates the chart, not the person.</b>
+           Grade asks how much the chart can carry on its own structure — is it formed, is it broken, is it rescued.
+           It says nothing about the scale of what you inherit: assets, parents' standing and era have no symbol in four pillars.
+           The engine's only proxy for ancestry is six year/month checks, and the Zi Wei parents palace is scored on star brightness alone${fuPct === null ? "" : ` (the ${fuPct.toFixed(0)}th percentile here)`}.
+           A middle grade is not a middle life; an upper grade does not promise a good one.</div>`;
     $("tierNote").innerHTML = LANG === "zh"
       ? `${g.basis || ""}<br>
          <span style="color:var(--tx3)">格位判「贵贱」（成格 / 破格 / 救应），强度判「力量」（五行、调候、流通）。二者不互相折算——
          从格可以身弱而格高，身强之造也可以格低。<b>分档一律按百分位，不按分数</b>：上格＝前 12%，中上格＝前 28%，
-         中格＝中间三成。所以「八字 72、紫微 80」不一定是两个档次：同一个 80 分，在紫微格里是第 76 百分位，放进八字格里只有第 67——分数本身不能横比，位置才能。</span><br>
+         中格＝中间三成。分数不能横比，位置才能：同一个 80 分，在紫微格里是第 76 百分位，放进八字格里只剩第 67。</span><br>
          八字 <b style="color:${gcol(bz.percentile || 0)}">${bz.grade || "—"} ${(bz.score || 0).toFixed(1)}</b>（${bz.percentile !== undefined ? beat(bz.percentile) : "—"}）
          · 紫微 <b style="color:${gcol(zw.percentile || 0)}">${zw.grade || "—"} ${(zw.score || 0).toFixed(1)}</b>（${zw.percentile !== undefined ? beat(zw.percentile) : "—"}）
          · 合计 <b>${g.percentile !== undefined ? beat(g.percentile) : "—"}</b>
-         · 强度 ${s.overall.toFixed(1)}（${LANG === "zh" ? "超过 " + s.percentile.toFixed(0) + "%" : "P" + s.percentile.toFixed(0)}）`
-      : `${g.basisEn || ""}`;
+         · 强度 ${s.overall.toFixed(1)}（${LANG === "zh" ? "超过 " + s.percentile.toFixed(0) + "%" : "P" + s.percentile.toFixed(0)}）
+         ${caveat}`
+      : `${g.basisEn || ""}${caveat}`;
 
     // 成格 / 破格 / 救应 明细
     const it = (bz.items || []);
@@ -1780,7 +1800,7 @@
       ["神煞",
         "52 颗，分吉 / 中 / 凶三组。每颗都给出「落宫 + 依据」，例如「日干丙帝旺之位」「年支酉查红鸾」「年支酉，阳男阴女查元辰」，可逐条复核，不是黑箱。三合系八颗（驿马 / 桃花 / 华盖 / 将星 / 劫煞 / 灾煞 / 亡神 / 六厄）各自固定在十二长生的一个位置上——这既是查法的来源，也是自检：八张表必须分别落在 病 / 沐浴 / 墓 / 帝旺 / 绝 / 胎 / 临官 / 死，一张不错才算过。元辰与勾绞是全表仅有的两颗分性别神煞（阳男阴女进一位、阴男阳女退一位），走了哪一支会直接写在依据里。"],
       ["格位判定",
-        "格位与强度分成两个数，互不折算。\n格位是一份**成格清单**，不是加权平均：满分 67.4，逐条给分——取格有据 6、格清气透 8、官 / 财 / 印三者有根各 5、日主得地 5、「官财印身俱备」10、身强能任财官 7、命带天乙天德月德文昌学堂国印 ≤12、五行相生链 ≤8。\n破格逐条扣：官星被合 7、伤官见官 5、羊刃无官杀制 5、比劫争财 4、月令被冲 6、日主被合 4、调候全缺 5（得同类替代减半）。\n救应按 1.35 倍回补——《五言独步》「有病方为贵」：食伤反制 7、财旺生官 6、食伤通关化劫 5、冲而得合 5、忌神有制 4。\n分数 = 26 + 62 × 成格度 − 破格 + 1.35 × 救应。\n**档位不看分数，看百分位。** 3000 张随机盘标定后，八字格均值 75.3（标准差 11.0）、紫微格 69.7（标准差 14.8）。旧版把切点硬写成 88 / 74 / 60，却没人核对分数本身的分布，结果「上格」占了随机盘的四成、「中上格」成了众数——同一个词在不同人嘴里指的是两个位置。现在与整体强度共用一套切点：上上格＝前 3%、上格＝前 12%、中上格＝前 28%、中格＝中间三成、中下格＝后 25%、下格＝后 15%。所以「八字 72、紫微 80」不是两个档次，是两个零点：72 在八字格里是第 38 百分位（中下），80 在紫微格里是第 76 百分位（中上）。\n合成时也不按分数平均：两边零点不同，直接 0.55 / 0.45 加权会让八字悄悄多占份额；现在先各自换成百分位再加权。\n八字格看「官财印身是否俱备」，天生偏爱中和盘，偏枯或专旺的盘在这把尺子上吃亏——这是清单的局限，不是结论；紫微一侧只计命宫吉格成立与否，成立与成色受损分两个字段。"],
+        "格位与强度分成两个数，互不折算。\n格位是一份**成格清单**，不是加权平均：满分 67.4，逐条给分——取格有据 6、格清气透 8、官 / 财 / 印三者有根各 5、日主得地 5、「官财印身俱备」10、身强能任财官 7、命带天乙天德月德文昌学堂国印 ≤12、五行相生链 ≤8。\n破格逐条扣：官星被合 7、伤官见官 5、羊刃无官杀制 5、比劫争财 4、月令被冲 6、日主被合 4、调候全缺 5（得同类替代减半）。\n救应按 1.35 倍回补——《五言独步》「有病方为贵」：食伤反制 7、财旺生官 6、食伤通关化劫 5、冲而得合 5、忌神有制 4。\n分数 = 26 + 62 × 成格度 − 破格 + 1.35 × 救应。\n**档位不看分数，看百分位。** 3000 张随机盘标定后，八字格均值 75.3（标准差 11.0）、紫微格 69.7（标准差 14.8）。旧版把切点硬写成 88 / 74 / 60，却没人核对分数本身的分布，结果「上格」占了随机盘的四成、「中上格」成了众数——同一个词在不同人嘴里指的是两个位置。现在与整体强度共用一套切点：上上格＝前 3%、上格＝前 12%、中上格＝前 28%、中格＝中间三成、中下格＝后 25%、下格＝后 15%。所以「八字 72、紫微 80」不是两个档次，是两个零点：72 在八字格里是第 38 百分位（中下），80 在紫微格里是第 76 百分位（中上）。\n合成时也不按分数平均：两边零点不同，直接 0.55 / 0.45 加权会让八字悄悄多占份额；现在先各自换成百分位再加权。\n八字格看「官财印身是否俱备」，天生偏爱中和盘，偏枯或专旺的盘在这把尺子上吃亏——这是清单的局限，不是结论；紫微一侧只计命宫吉格成立与否，成立与成色受损分两个字段。\n**这一项评的是盘，不是人。** 它不含出身的量级（家产、父母资源、时代），四柱里也没有「资产」这个符号：本引擎的祖荫代理只有年月六条，紫微父母宫只按星曜亮度加减。所以「中格」不等于「中等人」——格低而荫厚、运助者，古法叫「命好不如运好」；反过来，上格也可能一生落空。\n成格清单里还有一条容易被漏掉的：**格有变通**（《子平真诠·论用神变化》）。官星被合而去、食伤透干又财有根，格不废，只是换了条路——月刃格的「食神生财」和「刃杀两停」同为成格路径，旧清单只认官路，会把走通第二条路的盘误判成缺官。"],
       ["紫微斗数",
         "寅首五虎遁定宫干、纳音定五行局、起紫微诀（商数宫前走，借数偶顺奇逆）安十四主星；六吉六煞、38 杂曜、长生 / 博士 / 将前 / 岁前四套十二神、小限、命主身主、斗君、生年四化与宫干自化全部入盘。"],
       ["流年与流月",

@@ -234,6 +234,23 @@
       }
     }
 
+    // 格有变通（《子平真诠·论用神变化》）：官星被合而去，若食伤透干、财又有根，
+    // 格不废，只是换了条路——食神生财照样是月刃格的成格路径。
+    if (b0) {
+      const bridges = c.pillars.filter((p) => (p.shishenGan === "食神" || p.shishenGan === "伤官") && p.position !== "day");
+      const caiOk = branchWx(c, caiWx) >= 1;
+      add("setup", T("格有变通", "Structure rerouted"), !!(bridges.length && caiOk), 7,
+        bridges.length && caiOk
+          ? T(`官星被合，改以${bridges[0].shishenGan}${bridges[0].gan}生财为用，格转而不断（用神变化）`,
+              `The officer is combined away, so ${bridges[0].gan} output feeds wealth instead — the structure bends but does not break`)
+          : (bridges.length
+            ? T("官星被合，食伤虽见而财无根，转亦无力", "The officer is gone and the wealth has no root — rerouting does not help")
+            : T("官星被合而食伤不见，无路可转", "The officer is gone with no output to take over")));
+    } else {
+      add("setup", T("格有变通", "Structure rerouted"), false, 7,
+        T("官星未损，不必变通", "The officer is intact — nothing to reroute"));
+    }
+
     const setup = items.filter((i) => i.kind === "setup" && i.ok).reduce((n, i) => n + i.weight, 0);
     const setupMax = items.filter((i) => i.kind === "setup").reduce((n, i) => n + i.weight, 0) || 1;
     const brk = items.filter((i) => i.kind === "break" && i.ok).reduce((n, i) => n + i.weight, 0);

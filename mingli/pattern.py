@@ -324,6 +324,24 @@ def bazi_grade(chart) -> dict:
             add("rescue", "忌神无制", False, 4,
                 f"忌神{main}（占 {es[main]:.1f}%）不见有力之克，其势肆行")
 
+    # 格有变通（《子平真诠·论用神变化》）：官星被合而去，若食伤透干、财又有根，
+    # 则格不废，只是换了条路——「食神生财」照样是月刃格的成格路径。
+    # 旧清单只认「官财印身俱备」，不认格变，于是把「一条路堵了、另一条走通了」
+    # 的盘一律判成缺官，这与「格有转用，其格不敗」的古法正好相反。
+    if b0:
+        bridges = [p for p in chart.pillars
+                   if p.shishen_gan in ("食神", "伤官") and p.position != "日"]
+        if bridges and _branch_wx(chart, cai_wx) >= 1:
+            add("setup", "格有变通", True, 7,
+                f"官星被合，改以{bridges[0].shishen_gan}{bridges[0].gan}生财为用，"
+                f"格转而不断（用神变化）")
+        elif bridges:
+            add("setup", "格有变通", False, 7, "官星被合，食伤虽见而财无根，转亦无力")
+        else:
+            add("setup", "格有变通", False, 7, "官星被合而食伤不见，无路可转")
+    else:
+        add("setup", "格有变通", False, 7, "官星未损，不必变通")
+
     # ---- 汇总 ------------------------------------------------------------
     setup = sum(i["weight"] for i in items if i["kind"] == "setup" and i["ok"])
     setup_max = sum(i["weight"] for i in items if i["kind"] == "setup") or 1
