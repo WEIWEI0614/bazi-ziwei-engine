@@ -10,24 +10,23 @@ from .chart import (BRIGHT_SCORE, HUA_NAMES, LUCKY, MAJOR_STARS, PALACE_NAMES,
 
 OPPOSITE = 6   # 對宮 offset in palace index
 
+#: 格局对命宫分的加减。键必须用**简体**——旧表是繁体键（極向離明 / 殺破狼…），
+#: 而格局名是简体，`get()` 一年到头都取不到值，等于格局从来没参与过评分。
+#: 吉格按「结构有多难得」给分，凶格按「破得多重」扣分，中格不动。
 PATTERN_BONUS = {
-    "極向離明": 8.0, "君臣慶會": 7.0, "紫府朝垣": 6.0, "月朗天門": 5.0,
-    "日照雷門": 5.0, "石中隱玉": 4.0, "英星入廟": 3.0, "機月同梁": 3.0,
-    "殺破狼": 2.0, "命無正曜": -4.0,
+    "极向离明": 7.0, "紫府同宫": 7.0, "君臣庆会": 6.0, "紫府朝垣": 5.0,
+    "府相朝垣": 5.0, "三奇嘉会": 6.0, "阳梁昌禄": 5.0, "日月并明": 5.0,
+    "双禄交流": 4.0, "禄马交驰": 4.0, "日丽中天": 4.0, "日照雷门": 3.0,
+    "月朗天门": 3.0, "石中隐玉": 3.0, "英星入庙": 3.0, "巨日同宫": 3.0,
+    "文星拱命": 3.0, "左右夹命": 3.0, "魁钺夹命": 3.0, "日月夹命": 3.0,
+    "紫府夹命": 3.0, "机月同梁": 2.0,
+    "命无正曜": -2.0, "杀破狼": -2.0,
+    "命里逢空": -6.0, "空劫夹命": -5.0, "火铃夹命": -5.0,
+    "羊陀夹忌": -6.0, "刑忌夹印": -6.0, "日月反背": -5.0,
 }
 
-PATTERNS = [
-    ("紫府朝垣", "紫微与天府分居命、财、官三合，主格局宽厚、资源聚合"),
-    ("君臣庆会", "紫微坐命而左辅右弼、天魁天钺同会，主贵人成群的领导格"),
-    ("杀破狼", "七杀、破军、贪狼三方会照，主一生起伏大、宜开创不宜守成"),
-    ("机月同梁", "天机、太阴、天同、天梁会照，主谋略与文职，宜幕僚与专业"),
-    ("月朗天门", "太阴在亥坐命，主聪慧阴柔、宜夜间与远方发展"),
-    ("日照雷门", "太阳在卯坐命，主光明外向、早年得志"),
-    ("石中隐玉", "巨门在子或午坐命，主口才与研究，先苦后甘"),
-    ("极向离明", "紫微在午坐命，主格局最高，领袖之象"),
-    ("英星入庙", "破军在子或午坐命，主敢破敢立、成败皆速"),
-    ("命无正曜", "命宫无十四主星，借对宫安星，主性格随环境塑造"),
-]
+#: 格局表已移到 ziwei/patterns.py —— 那里是唯一实现，吉格凶格全列。
+from .patterns import PATTERNS as _PATTERNS, detect as _detect   # noqa: E402
 
 DECADE_THEMES = {
     "命宫": ("自我与方向", "以建立个人定位为主"),
@@ -83,69 +82,13 @@ def palace_score(chart: ZiweiChart, palace) -> tuple[float, dict]:
 
 
 def detect_patterns(chart: ZiweiChart) -> list[dict]:
-    ming = chart.palace("命宫")
-    branches = {p.branch: p for p in chart.palaces}
-    found = []
-    majors_ming = {s.name for s in ming.major}
-    tri = {ming.branch}
-    for off in (-4, 4, 6):
-        tri.add(ZHI[(ming.index + off) % 12])
-    trio_majors = set()
-    for b in tri:
-        trio_majors |= {s.name for s in branches[b].major}
-
-    def add(name):
-        for n, desc in PATTERNS:
-            if n == name:
-                found.append({"name": n, "desc": desc})
-                return
-
-    if "紫微" in trio_majors and "天府" in trio_majors:
-        add("紫府朝垣")
-    if "紫微" in majors_ming:
-        helpers = {s.name for s in ming.stars}
-        for off in (-4, 4, 6):
-            helpers |= {s.name for s in branches[ZHI[(ming.index + off) % 12]].stars}
-        if {"左辅", "右弼"} & helpers and {"天魁", "天钺"} & helpers:
-            add("君臣庆会")
-        if ming.branch == "午":
-            add("极向离明")
-        if {"破軍"} & trio_majors:
-            add("英星入庙")
-    if {"七殺", "破軍", "貪狼"} <= trio_majors:
-        add("杀破狼")
-    if {"天機", "太陰", "天同", "天梁"} <= trio_majors:
-        add("机月同梁")
-    if "太陰" in majors_ming and ming.branch == "亥":
-        add("月朗天门")
-    if "太陽" in majors_ming and ming.branch == "卯":
-        add("日照雷门")
-    if "巨門" in majors_ming and ming.branch in ("子", "午"):
-        add("石中隐玉")
-    if not ming.major:
-        add("命无正曜")
-    seen, out = set(), []
-    for f in found:
-        if f["name"] not in seen:
-            seen.add(f["name"])
-            out.append(f)
-    return out
+    """全部格局，含未成立的。成立与否由 patterns.detect 判。"""
+    return _detect(chart)
 
 
-@dataclass
-class Decade:
-    index: int
-    branch: str
-    palace: str
-    start_age: int
-    end_age: int
-    start_year: int
-    end_year: int
-    theme: str
-    advice: str
-    score: float
-    active: bool = False
-
+def pattern_hits(chart: ZiweiChart) -> list[str]:
+    """只取成立的 —— 评分与摘要用这个，展示用全表。"""
+    return [p["name"] for p in _detect(chart) if p["status"] == "成立"]
 
 def decades(chart: ZiweiChart, as_of_year: int | None = None) -> list[Decade]:
     import datetime as _dt
@@ -192,7 +135,8 @@ def summary(chart: ZiweiChart) -> dict:
     sc, detail = palace_score(chart, ming)
     pats = detect_patterns(chart)
     # 格局本身是贵气，不能只看主星亮度
-    sc = max(2.0, min(98.0, sc + sum(PATTERN_BONUS.get(p["name"], 0) for p in pats)))
+    hits = [p for p in pats if p["status"] == "成立"]
+    sc = max(2.0, min(98.0, sc + sum(PATTERN_BONUS.get(p["name"], 0) for p in hits)))
     cai = chart.palace("财帛")
     guan = chart.palace("官禄")
     cai_s, _ = palace_score(chart, cai)
@@ -202,6 +146,9 @@ def summary(chart: ZiweiChart) -> dict:
         "wealth_score": cai_s,
         "career_score": guan_s,
         "patterns": pats,
+        "patternHits": [x["name"] for x in pats if x["status"] == "成立"],
+        "patternBad": [x["name"] for x in pats
+                       if x["status"] == "成立" and x.get("tier") == "凶"],
         "ming_stars": [f"{s.name}" + (f"化{s.hua}" if s.hua else "")
                        + (f"[{s.brightness}]" if s.brightness else "")
                        for s in ming.major],

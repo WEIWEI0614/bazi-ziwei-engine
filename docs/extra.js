@@ -330,7 +330,11 @@
     const score = Math.max(8, Math.min(99, base + Math.max(-8, Math.min(8, bonus))));
     return {
       score: Math.round(score * 10) / 10, grade: gradeOf(score), gradeEn: GRADE_EN[gradeOf(score)],
-      patterns: found, mingAux: [...aux4], mingBad: [...bad4], ji: ji4,
+      // 展示用全表（30 条，含未成立）；格位分仍按本文件的 found 算。
+      // 两套并存是历史包袱：这里判「格位」，引擎判「贵气」，口径不同不能混。
+      patterns: (typeof window !== "undefined" && window.ML && window.ML.detectPatterns)
+        ? window.ML.detectPatterns(z) : found,
+      mingAux: [...aux4], mingBad: [...bad4], ji: ji4,
     };
   }
 

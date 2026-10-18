@@ -1,7 +1,7 @@
 /* UI layer. All computation comes from engine.js. */
 (function () {
   "use strict";
-  const BUILD = "2026-10-18n";
+  const BUILD = "2026-10-18p";
   /* 自愈：如果页面骨架是旧版缓存（没有新容器），强制带参数重载一次，
      避免「旧 HTML + 新 JS」这种半新半旧组合把整页打空。 */
   if (!document.getElementById("bzTable")) {
@@ -18,6 +18,8 @@
   }
   const ML = window.ML;
   const I18 = window.ML_DATA.I18N;
+  // 格局英译放在 data 顶层（不在 I18N 里），这里单独取一次
+  const PATTERN_EN = window.ML_DATA.PATTERN_EN || {};
   let LANG = "zh";
   // 支持 ?lang=en 直接进入英文，便于分享与测试
   try {
@@ -92,7 +94,7 @@
   const BAND_EN = { 大吉: "excellent", 吉: "good", 小吉: "fair", 平: "neutral",
     小凶: "soft", 偏弱: "weak", 凶: "difficult", 大凶: "difficult" };
   const tr = (x) => !x ? x : (LANG === "zh" ? x :
-    (I18.shishen[x] || I18.shensha[x] || I18.structure[x] || I18.star[x] ||
+    (PATTERN_EN[x] || I18.shishen[x] || I18.shensha[x] || I18.structure[x] || I18.star[x] ||
      I18.palaceNameEn[x] || I18.theme[x] || I18.strength[x] || STRUCT_EXTRA[x] ||
      STAGE_EN[x] || ZW_MINOR_EN[x] || NAYIN_EN[x] || x));
   const bi = (x) => !x ? "" : (typeof x === "string" ? x : (LANG === "zh" ? x.zh : x.en));
@@ -199,6 +201,13 @@
     const set = (id, txt) => { const e = $(id); if (e) e.textContent = txt; };
     set("h-bazi", t("bazi")); set("h-dayun", t("dayun")); set("h-liunian", t("liunian"));
     set("h-zw", t("zw")); set("h-overall", t("overall")); set("h-radar", t("radar"));
+    // 免责声明：每个视图都在标签栏下方常驻，语言跟着走
+    const disc = document.getElementById("disclaimer");
+    if (disc) {
+      disc.innerHTML = LANG === "zh"
+        ? "AI 算命仅供自我性格观察与娱乐参考，不构成医疗、法律、投资或任何实际决策依据。"
+        : "AI-generated reading, for self-observation and entertainment only. Not medical, legal, financial or any real-world decision advice.";
+    }
     set("h-dims", t("dims")); set("h-areas", t("areas")); set("h-read", t("read"));
     set("h-school", t("school")); set("h-ss", t("ss")); set("h-luck", t("luck"));
     set("h-timeline", t("timeline")); set("h-month", t("month"));
@@ -577,7 +586,7 @@
       <div class="r"><span>${L("命主 / 身主","Rulers")}</span><b>${tr(z.mingZhu)} / ${tr(z.shenZhu)}</b></div>
       <div class="r"><span>${L("斗君","Dou Jun")}</span><b>${gzEn(z.douJun)}</b></div>
       <div class="r"><span>${L("生年四化","Birth sihua")}</span><b style="font-size:11px">${sihua}</b></div>
-      <div class="r"><span>${L("格局","Patterns")}</span><b style="font-size:11px">${zs.patterns.map((p) => tr(p.name)).join(LANG === "zh" ? "、" : ", ") || "—"}</b></div>
+      <div class="r"><span>${L("格局","Patterns")}</span><b style="font-size:11px">${(zs.patternHits || []).map((n) => tr(n)).join(LANG === "zh" ? "、" : ", ") || "—"}</b></div>
       <div class="r"><span>${L("流年命宫","Annual palace")}</span><b>${gzEn(R.ziweiYear.ganzhi)} · ${tr(R.ziweiYear.palace)}</b></div>`;
     board.appendChild(c);
     $("zwLegend").innerHTML = LANG === "zh"
@@ -678,7 +687,27 @@
       + grp("break", LANG === "zh" ? "破格" : "Broken", "var(--red)")
       + grp("rescue", LANG === "zh" ? "救应" : "Rescued", "var(--blue)")
       + (zw.patterns && zw.patterns.length ? `<div style="margin-top:6px"><div style="font-size:10.5px;letter-spacing:.12em;color:var(--purple);margin-bottom:4px">${LANG === "zh" ? "紫微格局" : "Zi Wei patterns"}</div>`
-        + zw.patterns.map((p) => `<div class="note" style="color:var(--tx2);margin:2px 0">· <b style="color:${p.status === "成立" ? "var(--teal)" : "var(--tx2)"}">${LANG === "zh" ? p.name : (p.nameEn || p.name)}</b>${LANG === "zh" ? `（${p.status}）` : ` (${p.statusEn || p.status})`}<span style="color:var(--tx3)"> ${LANG === "zh" ? p.note : (p.noteEn || p.note)}</span></div>`).join("") + `</div>` : "");
+        + (() => {
+          const pats = zw.patterns || [];
+          const hits = pats.filter((p) => p.status === "成立");
+          const miss = pats.filter((p) => p.status !== "成立");
+          const nm = (p) => LANG === "zh" ? p.name : (p.descEn || p.name);
+          const tierColor = (p) => p.tier === "凶" ? "var(--red)"
+            : p.tier === "吉" ? "var(--teal)" : "var(--amber2)";
+          const rows = hits.map((p) => `<div class="note" style="color:var(--tx2);margin:3px 0">`
+            + `<b style="color:${tierColor(p)}">${nm(p)}</b>`
+            + ` <span style="color:var(--tx3);font-size:10.5px">${LANG === "zh" ? p.tier + "格" : (p.tier === "吉" ? "favourable" : p.tier === "凶" ? "adverse" : "neutral")}</span>`
+            + `<span style="color:var(--tx3)"> ${LANG === "zh" ? (p.note || p.desc) : ""}</span></div>`).join("");
+          const rest = miss.length
+            ? `<div class="note" style="color:var(--tx3);margin-top:5px;line-height:1.8">`
+              + (LANG === "zh" ? "未成立：" : "Not present: ")
+              + miss.map(nm).join(LANG === "zh" ? "、" : ", ") + `</div>` : "";
+          const head = `<div class="note" style="color:var(--tx3);margin-bottom:3px">`
+            + (LANG === "zh" ? `成格 ${hits.length} / 全表 ${pats.length} 条`
+                             : `${hits.length} of ${pats.length} patterns hold`) + `</div>`;
+          return head + rows + rest;
+        })()
+        + `</div>` : "");
 
     $("dims").innerHTML = Object.keys(s.dimensions).map((k) =>
       `<div class="dimrow"><span class="nm">${dimName(k)}</span>
@@ -716,8 +745,8 @@
       <dt>${LANG === "zh" ? "身宫" : "Body palace"}</dt><dd>${gzEn(z.shenBranch)} · ${tr(R.zsummary.bodyPalace)}</dd>
       <dt>${LANG === "zh" ? "命主 / 身主" : "Rulers"}</dt><dd>${tr(z.mingZhu)} / ${tr(z.shenZhu)}</dd>
       <dt>${LANG === "zh" ? "五行局" : "Bureau"}</dt><dd>${LANG === "zh" ? z.ju : (JU_EN[z.ju] || z.ju)}</dd>
-      <dt>${LANG === "zh" ? "格局" : "Patterns"}</dt><dd>${R.zsummary.patterns.map((p) => LANG === "zh" ? p.name : (p.nameEn || p.name)).join(LANG === "zh" ? "、" : ", ") || "—"}</dd>
-      <dt></dt><dd class="note">${LANG === "zh" ? R.zsummary.patterns.map((p) => p.desc).join("；") : ""}</dd>
+      <dt>${LANG === "zh" ? "格局" : "Patterns"}</dt><dd>${(R.zsummary.patternHits || []).map((n) => tr(n)).join(LANG === "zh" ? "、" : ", ") || "—"}</dd>
+      <dt></dt><dd class="note">${LANG === "zh" ? R.zsummary.patterns.filter((p) => p.status === "成立").map((p) => p.desc).join("；") : ""}</dd>
       <dt>${LANG === "zh" ? "大限" : "Decade"}</dt><dd>${dec ? `${dec.startAge}–${dec.endAge} · ${tr(dec.palace)} · ${LANG === "zh" ? dec.theme : ""}` : "—"}</dd>
       <dt>${LANG === "zh" ? "宫位分" : "Palace scores"}</dt><dd>${R.zsummary.mingScore.toFixed(0)} / ${R.zsummary.careerScore.toFixed(0)} / ${R.zsummary.wealthScore.toFixed(0)}</dd>`;
 
@@ -1084,8 +1113,8 @@
         古法原话是「神煞不压五行」——这句话本身就是给神煞定权重。`],
 
       ["sanhe", `三合派以三方四正与格局论命。命宫 ${z.mingBranch}，${zs.mingStars.join("、") || "空宫（借对宫）"}；
-        三方四正得分 ${s.dimensions.sanfang}。${zs.patterns.length
-          ? "成格：" + zs.patterns.map((p) => p.name + "（" + p.desc + "）").join("；")
+        三方四正得分 ${s.dimensions.sanfang}。${(zs.patternHits || []).length
+          ? "成格：" + zs.patterns.filter((p) => p.status === "成立").map((p) => p.name + "（" + p.desc + "）").join("；")
           : "未成典型格局，按宫位单论"}。
         财帛 ${zs.wealthScore}、官禄 ${zs.careerScore}——
         ${zs.careerScore > zs.wealthScore ? "事业强于财帛，宜以职位与专业换资源。" : "财帛强于官禄，宜以经营与配置取胜。"}
@@ -1731,7 +1760,7 @@
       ["BaZi components",
         "Ten gods, hidden stems (primary / middle / residual weighted), nayin, twelve stages, void branches, seasonal states, quantified element shares, day-master strength, structure, climate god (120 rules from Qiong Tong Bao Jian), and every clash / combination / punishment / harm."],
       ["Shensha",
-        "47 stars in three grades. Each reports where it lands and which rule produced it — auditable, not a black box."],
+        "52 stars in three grades. Each reports where it lands and which rule produced it — auditable, not a black box."],
       ["Grade vs strength",
         "Two separate numbers. Rank is judged by the classical audit: 12 setup conditions, 7 break conditions, 5 rescue conditions, with rescues weighted 1.35x. Zi Wei patterns require auxiliary stars present and no malefic in the life palace. Strength is a seven-dimension weighted score. They are never averaged together."],
       ["Zi Wei",

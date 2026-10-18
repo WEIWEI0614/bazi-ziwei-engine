@@ -176,8 +176,8 @@ def cmd_chart(r):
               + (f"   自化 {' '.join(n + h for n, h in p.self_hua)}" if p.self_hua else ""))
     zs = r.zsummary
     print(f"\n  命宫星 {''.join(zs['ming_stars']) or '空宫'}   格局 "
-          + ("、".join(x["name"] for x in zs["patterns"]) or "无"))
-    for p in zs["patterns"]:
+          + ("、".join(zs.get("patternHits") or []) or "无"))
+    for p in [x for x in zs["patterns"] if x.get("status") == "成立"]:
         print(f"    · {p['name']}：{p['desc']}")
 
     _head("评分")
@@ -274,7 +274,7 @@ def cmd_md(r, out):
                        for x in p.stars if x.kind != "主星")
         L.append(f"| {p.name} | {p.gan}{p.branch} | {maj} | {oth} | {p.decade[0]}-{p.decade[1]} |")
     L.append("")
-    L.append(f"格局：{'、'.join(x['name'] for x in r.zsummary['patterns']) or '无'}\n")
+    L.append(f"格局：{'、'.join(r.zsummary.get('patternHits') or []) or '无'}\n")
     L.append("## 三、评分\n")
     L.append("| 维度 | 分数 |\n|---|---|")
     for k, v in s["dimensions"].items():

@@ -242,11 +242,24 @@ def useful_elements(chart) -> tuple[list[str], list[str], dict]:
 
 
 def strength_useful(chart) -> tuple[list[str], list[str], dict]:
-    """扶抑派的粗判，仅供整体评分里的「身强用财官」一句判断使用。
+    """整体评分用的喜忌 —— **与流年同一套用神**。
 
-    整体评分与分位数表是按这一套标定的，换掉会让所有人的分数一起漂移，
-    所以这里保留旧口径，与流年所用的格局用神体系分开。
+    旧版这里另有一套「扶抑粗判」（身强喜财官食伤全上），而流年用格局用神，
+    于是页面写「喜水木」、评分却按「喜水木火」算，两套标准互相打架。
+    现在统一走 gexi.useful_system，只保留这个名字给调用方。
+
+    gexi 判不出结论时（极端盘）才退回旧的扶抑口径，保证评分不会崩。
     """
+    try:
+        from . import gexi
+        sysd = gexi.useful_system(chart)
+        favor, avoid = list(sysd["favor"]), list(sysd["avoid"])
+        if favor:
+            return favor, avoid, {"strong": sysd["strong"],
+                                  "primary": sysd["primary"],
+                                  "class": sysd["primary_class"]}
+    except Exception:                       # pragma: no cover
+        pass
     dm_wx = chart.day_master_wx
     yin = [k for k in SHENG if SHENG[k] == dm_wx][0]
     shi = SHENG[dm_wx]

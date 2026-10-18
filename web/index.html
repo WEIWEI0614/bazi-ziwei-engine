@@ -309,6 +309,13 @@ tr.pd-row{cursor:pointer}
 tr.pd-row:hover{background:#1d2029}
 tr.pd-row.on{background:#241f16;box-shadow:inset 3px 0 0 var(--amber)}
 .period-detail .pd-mark{color:var(--amber);font-size:9px;margin-left:1px}
+.disclaimer{
+  margin:10px 0 2px;padding:7px 12px;
+  font-size:11.5px;line-height:1.6;color:var(--tx3);
+  background:rgba(232,163,61,.06);
+  border:1px dashed rgba(232,163,61,.34);border-radius:7px;
+  letter-spacing:.2px}
+.disclaimer b{color:var(--amber2);font-weight:600}
 .period-detail .pd-merge{margin:10px 0 2px;padding:7px 10px;font-size:12px;line-height:1.6;
   background:rgba(232,163,61,.08);border-left:2px solid var(--amber);border-radius:5px;color:var(--tx2)}
 .period-detail .pd-merge b{color:var(--amber2)}
@@ -368,6 +375,9 @@ tr.pd-row.on{background:#241f16;box-shadow:inset 3px 0 0 var(--amber)}
   </div>
 
   <div class="tabs" id="tabs"></div>
+
+  <!-- 免责声明：常驻在标签栏下方，切到任何一页都在 -->
+  <div class="disclaimer" id="disclaimer">AI 算命仅供自我性格观察与娱乐参考，不构成医疗、法律、投资或任何实际决策依据。</div>
 
   <section class="view on" id="v-chart">
     <h2 class="sec" id="h-bazi">四柱八字 <small>Four Pillars</small></h2>
@@ -572,9 +582,9 @@ window.addEventListener("error", function (e) {
 }, true);
 </script>
 <noscript><div style="padding:36px;font:14px/1.9 system-ui;color:#e9e6df">这个页面需要启用 JavaScript 才能排盘。</div></noscript>
-<script src="data.js?v=19"></script>
-<script src="engine.js?v=19"></script>
-<script src="extra.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="data.js?v=20"></script>
+<script src="engine.js?v=20"></script>
+<script src="extra.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

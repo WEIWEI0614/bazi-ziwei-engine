@@ -72,6 +72,22 @@ GE_PREF = {
     "专旺": {"like": [], "dislike": []},
 }
 
+#: 用神定了之后，谁来帮它、谁来拆它 —— 按**十神生克**，不是按「生用神者」。
+#: 「生用神者为喜」只在官杀为用时成立：食伤为用，生食伤的是比劫，
+#: 把比劫当喜神，等于给已经偏强的盘再加柴。这就是旧版把「寅午半合火」
+#: 判成大吉的那条链的上游。
+SUPPORT_CLASS = {
+    "官杀": ("财", "食伤"),      # 财生官；食伤克官
+    "财": ("食伤", "比劫"),      # 食伤生财；比劫夺财
+    "食伤": ("财", "印"),        # 食伤生财；印夺食伤
+    "印": ("比劫", "财"),        # 比劫助印；财破印
+    "比劫": ("印", "官杀"),      # 印生比劫；官杀制比劫
+}
+
+#: 一个五行占到全局这个比例，就已经是「病」而不是「药」，不能再取为用神。
+#: 旧版没有这一条，于是 42% 的官杀照样被取为用神，流年再加官杀反而加分。
+DOMINANT_SHARE = 34.0
+
 ZH_CLASS = {"比劫": "比劫", "食伤": "食伤", "财": "财", "官杀": "官杀", "印": "印"}
 CLASS_ZH = {"比劫": "比劫（同党）", "食伤": "食伤（泄秀）", "财": "财（耗身）",
             "官杀": "官杀（制身）", "印": "印（生身）"}
@@ -144,27 +160,47 @@ def useful_system(chart) -> dict:
             # 中和：回到格局本意
             order = list(pref["like"]) or ["正官", "正财", "食神"]
             why.append(f"日主中和（同党 {chart.strength:.1f}%），依格局取用")
-        # 格局定先后：格局所喜者提到前面
+        # 格局定先后：格局所喜者排前；同档之内按「局中谁最缺」排。
         order = [g for g in order if g in pref["like"]] + \
                 [g for g in order if g not in pref["like"]]
+        cands, seen = [], set()
         for god in order:
             cls = GOD_CLASS[god]
             el = el_of_class(dm_wx, cls)
-            if el in present and el not in (primary,):
-                primary, primary_cls = el, cls
-                why.append(f"取{god}所属之{el}（{CLASS_ZH[cls]}）为用，命局有根")
-                break
-        if not primary:
+            if el not in present or el in seen:
+                continue
+            seen.add(el)
+            cands.append((god, cls, el, 0 if god in pref["like"] else 1,
+                          es.get(el, 0.0)))
+        # 已经当令的五行不能当用神：占四成的官杀是病，不是药。
+        fit = [c for c in cands if c[4] <= DOMINANT_SHARE]
+        pool = fit or cands
+        pool.sort(key=lambda c: (c[3], c[4]))
+        if pool:
+            god, primary_cls, primary, _rank, share = pool[0]
+            why.append(f"取{god}所属之{primary}（{CLASS_ZH[primary_cls]}）为用，"
+                       f"局中占 {share:.1f}%")
+            if len(cands) > len(fit):
+                dropped = [c[2] for c in cands if c[4] > DOMINANT_SHARE]
+                why.append(f"{''.join(dropped)}已过旺（> {DOMINANT_SHARE:.0f}%），"
+                           f"不作用神")
+        else:
             primary = _strongest_element(chart, exclude="")
             primary_cls = EL_CLASS[dm_wx][primary]
             why.append(f"喜用不见于四柱，就命局最旺之{primary}论用，用神虚而力薄")
 
-    # ---- 2) 相神（生用神者）与忌神（克用神者）---------------------------
-    xiang = [k for k in SHENG if SHENG[k] == primary][0]      # 生用神
-    ji = [k for k in KE if KE[k] == primary][0]               # 克用神
-    favor, avoid = [primary], [ji]
-    if xiang != ji and xiang not in avoid:
-        favor.append(xiang)
+    # ---- 2) 相神与忌神：按十神生克定 -----------------------------------
+    support_cls, harm_cls = SUPPORT_CLASS.get(primary_cls, ("", ""))
+    favor = [primary]
+    if support_cls:
+        sup_el = el_of_class(dm_wx, support_cls)
+        if sup_el != primary and sup_el not in favor:
+            favor.append(sup_el)
+    avoid = []
+    if harm_cls:
+        harm_el = el_of_class(dm_wx, harm_cls)
+        if harm_el != primary and harm_el not in favor:
+            avoid.append(harm_el)
 
     # ---- 3) 身强身弱只作救应 --------------------------------------------
     rescue = []

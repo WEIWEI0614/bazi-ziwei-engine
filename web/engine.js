@@ -831,6 +831,19 @@
     put("寡宿", find(SS.GUASU[yz]), `年支${yz}查寡宿`);
     put("破碎", find(SS.POSUI[yz]), `年支${yz}查破碎`);
     put("蜚廉", find(SS.FEILIAN[yz]), `年支${yz}查蜚廉`);
+
+    // 年支系（续）：元辰与勾绞分「阳男阴女 / 阴男阳女」，是唯一依赖性别的两张表
+    const male = ["male", "m", "男", "M", "Male"].indexOf(String(c.gender)) >= 0;
+    const yangPath = ("甲丙戊庚壬".indexOf(c.year.gan) >= 0) === male;
+    const yi = ZHI.indexOf(yz);
+    const yc = (yangPath ? SS.YUANCHEN_YANG : SS.YUANCHEN_YIN)[yz];
+    put("元辰", find(yc), `年支${yz}${yangPath ? "阳男阴女" : "阴男阳女"}查元辰（${yc}）`);
+    const gou = ZHI[mod(yi + (yangPath ? 3 : -3), 12)];
+    const jiao = ZHI[mod(yi + (yangPath ? -3 : 3), 12)];
+    put("勾绞", find(gou + jiao), `年支${yz}，勾${gou}绞${jiao}`);
+    put("六厄", find(SS.LIUE[yz]), `年支${yz}三合死位为六厄`);
+    put("丧门", find(ZHI[mod(yi + 2, 12)]), `年支${yz}前二位为丧门`);
+    put("吊客", find(ZHI[mod(yi - 2, 12)]), `年支${yz}后二位为吊客`);
     put("天德贵人", stemOrBranch(SS.TIANDE[mz]), `月支${mz}查天德`);
     put("月德贵人", stemOrBranch(SS.YUEDE[mz]), `月支${mz}查月德`);
     put("天医", find(ZHI[mod(zi(mz) - 1, 12)]), `月支${mz}前一位为天医`);
@@ -1052,6 +1065,15 @@
       .sort((a, b) => es[b] - es[a])[0];
   };
 
+  // 用神定了以后谁来帮它、谁来拆它 —— 按十神生克，不是「生用神者」。
+  // 「生用神者为喜」只在官杀为用时成立；食伤为用时生它的是比劫，加柴而已。
+  const SUPPORT_CLASS = {
+    "官杀": ["财", "食伤"], "财": ["食伤", "比劫"], "食伤": ["财", "印"],
+    "印": ["比劫", "财"], "比劫": ["印", "官杀"]
+  };
+  // 占到全局这个比例的五行已经是「病」不是「药」，不能再取为用神
+  const DOMINANT_SHARE = 34.0;
+
   function usefulElements(c) {
     const dmwx = c.dayMasterWx;
     const ge = geKey((c.structure || {}).name || "");
@@ -1084,13 +1106,23 @@
       // 格局定先后：格局所喜者提到前面
       order = order.filter((g) => pref.like.includes(g))
         .concat(order.filter((g) => !pref.like.includes(g)));
+      const cands = [], seen = new Set();
       for (const god of order) {
         const cls = GOD_CLASS[god];
         const el = elOfClass(dmwx, cls);
-        if (present.has(el)) {
-          primary = el; primaryCls = cls;
-          why.push(`取${god}所属之${el}（${CLASS_ZH[cls]}）为用，命局有根`);
-          break;
+        if (!present.has(el) || seen.has(el)) continue;
+        seen.add(el);
+        cands.push({ god, cls, el, rank: pref.like.includes(god) ? 0 : 1, share: es[el] || 0 });
+      }
+      // 已经当令的五行不能当用神：占四成的官杀是病，不是药
+      const fit = cands.filter((x) => x.share <= DOMINANT_SHARE);
+      const pool = (fit.length ? fit : cands).slice()
+        .sort((a, b) => (a.rank - b.rank) || (a.share - b.share));
+      if (pool.length) {
+        primary = pool[0].el; primaryCls = pool[0].cls;
+        why.push(`取${pool[0].god}所属之${primary}（${CLASS_ZH[primaryCls]}）为用，局中占 ${pool[0].share.toFixed(1)}%`);
+        if (cands.length > fit.length) {
+          why.push(`${cands.filter((x) => x.share > DOMINANT_SHARE).map((x) => x.el).join("")}已过旺（> ${DOMINANT_SHARE}%），不作用神`);
         }
       }
       if (!primary) {
@@ -1100,11 +1132,17 @@
       }
     }
 
-    const xiang = Object.keys(D.SHENG).find((k) => D.SHENG[k] === primary);
-    const ji = Object.keys(D.KE).find((k) => D.KE[k] === primary);
+    const sup = SUPPORT_CLASS[primaryCls] || ["", ""];
     const favor = [primary];
-    const avoid = [ji];
-    if (xiang !== ji && !avoid.includes(xiang)) favor.push(xiang);
+    if (sup[0]) {
+      const supEl = elOfClass(dmwx, sup[0]);
+      if (supEl !== primary && !favor.includes(supEl)) favor.push(supEl);
+    }
+    const avoid = [];
+    if (sup[1]) {
+      const harmEl = elOfClass(dmwx, sup[1]);
+      if (harmEl !== primary && !favor.includes(harmEl)) avoid.push(harmEl);
+    }
 
     const rescue = [];
     const yin = Object.keys(D.SHENG).find((k) => D.SHENG[k] === dmwx);
@@ -1165,6 +1203,13 @@
   // 整体分与分位数表是按这一套标定的，换成格局用神会让所有人的分数一起漂移，
   // 所以刻意与流年所用的 usefulElements 分开。
   function strengthUseful(c) {
+    // 与流年同一套用神。旧版这里另有一套「身强喜财官食伤全上」，
+    // 于是页面写「喜水木」、评分却按「喜水木火」算，两套标准互相打架。
+    const u = usefulElements(c);
+    if (u && u.favor && u.favor.length) {
+      return { favor: u.favor.slice(), avoid: u.avoid.slice(), strong: u.strong,
+               primary: u.primary, primaryClass: u.primaryClass };
+    }
     const dmwx = c.dayMasterWx;
     const yin = Object.keys(D.SHENG).find((k) => D.SHENG[k] === dmwx);
     const shi = D.SHENG[dmwx], cai = D.KE[dmwx];
@@ -1173,6 +1218,7 @@
       ? { favor: [shi, cai, guan], avoid: [dmwx, yin], strong: true }
       : { favor: [yin, dmwx], avoid: [cai, guan, shi], strong: false };
   }
+
 
   function band(s) {
     // 阈值按实际分布的分位数定；旧的 80/68/58/46 把七成年份塞进「平」和
@@ -1655,33 +1701,124 @@
     const raw = comp.main + comp.lucky - comp.unlucky + comp.hua;
     return Math.round(Math.max(2, Math.min(98, 50 + raw * 5.2)) * 10) / 10;
   }
+    /* 紫微格局全表 —— 与 mingli/ziwei/patterns.py 逐条对应。
+     旧版拿繁体星名（破軍/貪狼/天機）去比简体星曜表，除了三个格局以外全都不命中；
+     而且只返回命中的，看不到「差一点」的那些。现在三十条全返回，各带成立/不成立。 */
   function detectPatterns(chart) {
+    const palace = {};
+    chart.palaces.forEach((p) => { palace[p.index] = p; });
     const ming = chart.palaces.find((p) => p.name === "命宫");
-    const branches = {};
-    chart.palaces.forEach((p) => { branches[p.branch] = p; });
-    const tri = new Set([ming.branch]);
-    [-4, 4, 6].forEach((o) => tri.add(ZHI[mod(ming.index + o, 12)]));
-    const trioMajors = new Set();
-    tri.forEach((b) => branches[b].stars.forEach((s) => { if (s.kind === "主星") trioMajors.add(s.name); }));
-    const mingMajors = new Set(ming.stars.filter((s) => s.kind === "主星").map((s) => s.name));
-    const found = [];
-    const add = (n) => { const p = D.PATTERNS.find((x) => x[0] === n); if (p && !found.some((f) => f.name === n)) found.push({ name: p[0], desc: p[1] }); };
-    if (trioMajors.has("紫微") && trioMajors.has("天府")) add("紫府朝垣");
-    if (mingMajors.has("紫微")) {
-      const helpers = new Set(ming.stars.map((s) => s.name));
-      [-4, 4, 6].forEach((o) => branches[ZHI[mod(ming.index + o, 12)]].stars.forEach((s) => helpers.add(s.name)));
-      if ((["左辅", "右弼"].some((x) => helpers.has(x))) && (["天魁", "天钺"].some((x) => helpers.has(x)))) add("君臣庆会");
-      if (ming.branch === "午") add("极向离明");
-      if (trioMajors.has("破軍")) add("英星入庙");
+    const starSet = (p) => new Set(p.stars.map((s) => s.name));
+    const majorSet = (p) => new Set(p.stars.filter((s) => s.kind === "主星").map((s) => s.name));
+    const huaOf = (p) => {
+      const o = {};
+      p.stars.forEach((s) => { if (s.hua) o[s.name] = s.hua; });
+      return o;
+    };
+    const trio = [ming.index].concat([-4, 4, 6].map((o) => mod(ming.index + o, 12)))
+      .map((i) => palace[i]);
+    const trioStars = new Set(), trioMajors = new Set(), trioHua = {};
+    trio.forEach((p) => {
+      starSet(p).forEach((x) => trioStars.add(x));
+      majorSet(p).forEach((x) => trioMajors.add(x));
+      Object.assign(trioHua, huaOf(p));
+    });
+    const flank = (idx) => [palace[mod(idx - 1, 12)], palace[mod(idx + 1, 12)]];
+    const flanked = (idx, a, b) => {
+      const lr = flank(idx), sl = starSet(lr[0]), sr = starSet(lr[1]);
+      return (sl.has(a) && sr.has(b)) || (sl.has(b) && sr.has(a));
+    };
+    const brightOf = (star) => {
+      for (const p of trio) {
+        for (const s of p.stars) if (s.name === star) return s.brightness || "";
+      }
+      return "";
+    };
+    const hasAny = (set, arr) => arr.some((x) => set.has(x));
+    const sameOrOpp = (star, star2, hua) => {
+      for (const p of chart.palaces) {
+        const opp = palace[mod(p.index + 6, 12)];
+        const pairs = [[p, opp], [opp, p]];
+        for (const pair of pairs) {
+          const a = starSet(pair[0]), b = starSet(pair[1]);
+          const hitB = star2 ? b.has(star2)
+            : Object.keys(huaOf(pair[1])).some((k) => huaOf(pair[1])[k] === hua);
+          if (a.has(star) && hitB) return true;
+        }
+      }
+      return false;
+    };
+
+    const mingMajors = majorSet(ming), mingStars = starSet(ming);
+    const out = [];
+    const add = (name, ok, note) => {
+      const d = D.PATTERNS.find((x) => x[0] === name);
+      if (!d) return;
+      out.push({ name: name, tier: d[1], desc: d[2], descEn: d[3],
+        status: ok ? "成立" : "不成立", note: ok ? (note || "") : "" });
+    };
+    const pairIn = (a, b) => a.every((x) => trioMajors.has(x)) || (a.every((x) => trioMajors.has(x)) && b);
+
+    add("紫府同宫", ["紫微", "天府"].every((x) => mingMajors.has(x))
+      && ["寅", "申"].indexOf(ming.branch) >= 0, "二帝同宫，贵气最重");
+    add("紫府朝垣", ["紫微", "天府"].every((x) => trioMajors.has(x))
+      && !(["紫微", "天府"].every((x) => mingMajors.has(x))));
+    add("君臣庆会", mingMajors.has("紫微")
+      && hasAny(trioStars, ["左辅", "右弼"]) && hasAny(trioStars, ["天魁", "天钺"]),
+      "辅弼魁钺同会");
+    add("府相朝垣", ["天府", "天相"].every((x) => trioMajors.has(x)));
+    add("机月同梁", ["天机", "太阴", "天同", "天梁"].every((x) => trioMajors.has(x)));
+    add("日月并明", ["太阳", "太阴"].every((x) => trioMajors.has(x))
+      && ["庙", "旺"].indexOf(brightOf("太阳")) >= 0
+      && ["庙", "旺"].indexOf(brightOf("太阴")) >= 0);
+    add("日丽中天", mingMajors.has("太阳") && ming.branch === "午");
+    add("日照雷门", mingMajors.has("太阳") && ming.branch === "卯");
+    add("月朗天门", mingMajors.has("太阴") && ming.branch === "亥");
+    add("石中隐玉", mingMajors.has("巨门") && ["子", "午"].indexOf(ming.branch) >= 0);
+    add("极向离明", mingMajors.has("紫微") && ming.branch === "午");
+    add("英星入庙", mingMajors.has("破军") && ["子", "午"].indexOf(ming.branch) >= 0, "破军入庙");
+    add("阳梁昌禄", ["太阳", "天梁", "文昌", "禄存"].every((x) => trioStars.has(x)));
+    add("巨日同宫", mingMajors.has("太阳") && mingMajors.has("巨门")
+      && ["寅", "申"].indexOf(ming.branch) >= 0);
+    add("三奇嘉会", ["禄", "权", "科"].every((h) => Object.keys(trioHua).some((k) => trioHua[k] === h)));
+    add("双禄交流", sameOrOpp("禄存", "", "禄"));
+    add("禄马交驰", sameOrOpp("禄存", "天马", ""));
+    add("文星拱命", ["文昌", "文曲"].every((x) => trioStars.has(x)));
+    add("左右夹命", flanked(ming.index, "左辅", "右弼"));
+    add("魁钺夹命", flanked(ming.index, "天魁", "天钺"));
+    add("日月夹命", flanked(ming.index, "太阳", "太阴"));
+    add("紫府夹命", flanked(ming.index, "紫微", "天府"));
+
+    add("命无正曜", mingMajors.size === 0, "借对宫安星");
+    add("杀破狼", ["七杀", "破军", "贪狼"].every((x) => trioMajors.has(x)));
+
+    const emptyHit = ["地空", "地劫"].filter((x) => mingStars.has(x));
+    add("命里逢空", emptyHit.length > 0, "命宫见" + emptyHit.join("、"));
+    add("空劫夹命", flanked(ming.index, "地空", "地劫"));
+    add("火铃夹命", flanked(ming.index, "火星", "铃星"));
+
+    let jiFlank = false;
+    for (const p of chart.palaces) {
+      const hv = Object.keys(huaOf(p)).map((k) => huaOf(p)[k]);
+      if (hv.indexOf("忌") >= 0 && flanked(p.index, "擎羊", "陀罗")) jiFlank = true;
     }
-    if (["七殺", "破軍", "貪狼"].every((x) => trioMajors.has(x))) add("杀破狼");
-    if (["天機", "太陰", "天同", "天梁"].every((x) => trioMajors.has(x))) add("机月同梁");
-    if (mingMajors.has("太陰") && ming.branch === "亥") add("月朗天门");
-    if (mingMajors.has("太陽") && ming.branch === "卯") add("日照雷门");
-    if (mingMajors.has("巨門") && ["子", "午"].includes(ming.branch)) add("石中隐玉");
-    if (!ming.stars.some((s) => s.kind === "主星")) add("命无正曜");
-    return found;
+    add("羊陀夹忌", jiFlank);
+
+    let xingJiSeal = false;
+    for (const p of chart.palaces) {
+      if (!starSet(p).has("天相")) continue;
+      const lr = flank(p.index);
+      const lj = Object.keys(huaOf(lr[0])).some((k) => huaOf(lr[0])[k] === "忌");
+      const rj = Object.keys(huaOf(lr[1])).some((k) => huaOf(lr[1])[k] === "忌");
+      if ((starSet(lr[0]).has("擎羊") && rj) || (starSet(lr[1]).has("擎羊") && lj)) xingJiSeal = true;
+    }
+    add("刑忌夹印", xingJiSeal);
+
+    const sunB = brightOf("太阳"), moonB = brightOf("太阴");
+    add("日月反背", ["陷", "不"].indexOf(sunB) >= 0 && ["陷", "不"].indexOf(moonB) >= 0);
+    return out;
   }
+
   function ziweiSummary(chart) {
     const ming = chart.palaces.find((p) => p.name === "命宫");
     const cai = chart.palaces.find((p) => p.name === "财帛");
@@ -1689,11 +1826,15 @@
     // 格局本身是贵气，不能只看主星亮度（Python 侧同样处理）
     let mingScore = palaceScore(chart, ming);
     const pats0 = detectPatterns(chart);
-    const bonus = pats0.reduce((n, p) => n + ((D.PATTERN_BONUS || {})[p.name] || 0), 0);
+    // 只有「成立」的才计分。全表三十条都带着不成立的条目，不过滤等于每条都算。
+    const hits0 = pats0.filter((p) => p.status === "成立");
+    const bonus = hits0.reduce((n, p) => n + ((D.PATTERN_BONUS || {})[p.name] || 0), 0);
     mingScore = Math.round(Math.max(2, Math.min(98, mingScore + bonus)) * 10) / 10;
     const majorMing = ming.stars.filter((s) => s.kind === "主星");
     return { mingScore, wealthScore: palaceScore(chart, cai),
       careerScore: palaceScore(chart, guan), patterns: detectPatterns(chart),
+      patternHits: hits0.map((p) => p.name),
+      patternBad: hits0.filter((p) => p.tier === "凶").map((p) => p.name),
       mingStars: majorMing.map((s) => s.name + (s.hua ? "化" + s.hua : "") + (s.brightness ? `[${s.brightness}]` : "")),
       // 分字段的版本：中文串没法在展示层安全地翻译，英文界面用这个自己拼
       mingStarParts: majorMing.map((s) => ({ name: s.name, hua: s.hua || "", bright: s.brightness || "" })),

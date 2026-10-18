@@ -38,7 +38,7 @@ drawing the chart. This one is built around five ideas the others skip:
    test — does the structure hold, what breaks it, what rescues it — not by averaging seven
    dimensions. A "following" structure can be physically weak and still upper-grade; a strong
    chart can be structurally low. Averaging the two is the most common mistake in this space.
-5. **Every term is explained in place.** 126 terms (stems, ten gods, structures, all 47 stars,
+5. **Every term is explained in place.** 126 terms (stems, ten gods, structures, all 52 stars,
    the twelve palaces, 64 hexagram vocabulary) carry a hover/click definition in both languages,
    annotated automatically across the whole page.
 
@@ -137,7 +137,7 @@ every disagreement was chased down.
 | Zi Wei vs `iztro` (14 majors + 13 auxiliaries) | 700 charts | **1 chart** differs by one major star (new-moon knife edge) |
 | Zi Wei vs `iztro` (38 adjective stars) | 700 charts | **1 chart** (same knife edge) |
 | Zi Wei vs `iztro` (长生/博士/将前/岁前, 小限, 大限) | 700 charts | **0 errors** |
-| Shensha (47 stars) JS vs Python | 440 charts | identical name set, positions and grades |
+| Shensha (52 stars) JS vs Python | 440 charts | identical name set, positions and grades |
 | Full-field JS vs Python parity | 440 charts × 35 fields | **zero mismatches** (`tools/parity_ext.js` + `tools/parity_check.py`) |
 | Grade engine JS vs Python | sample chart | identical rank and score (81.3 / upper grade) |
 | Unit tests | 58 | globals: 64 hexagrams present, weights sum to 1, rescue coefficient > 1, band monotonic in score |
@@ -159,6 +159,48 @@ Run them yourself:
 python -m unittest discover -s tests -v      # 19 tests, zero dependencies
 node tools/parity.js cases.json out.json     # optional JS/Python parity harness
 ```
+
+---
+
+## Three bugs worth naming
+
+**1. The shensha table was missing every star that warns you.** 47 stars, and
+none of 元辰, 勾绞, 六厄, 丧门, 吊客 — the five that a reading uses to say "watch
+out". Five added, 52 now, each with its 查法 written down. Two of them
+(元辰, 勾绞) depend on gender, so they are the only stars that do; the branch
+taken is printed in the basis line.
+
+The existing tables were checked rather than assumed: every 三合系 star
+(驿马 / 桃花 / 华盖 / 将星 / 劫煞 / 灾煞 / 亡神 / 六厄) must sit on a specific
+position of the twelve-stage cycle — 病 / 沐浴 / 墓 / 帝旺 / 绝 / 胎 / 临官 / 死.
+All eight pass, and each 三合 group points at a single branch. 禄 / 羊刃 /
+学堂 are 临官 / 帝旺 / 长生 by arithmetic, all ten stems correct.
+
+**2. 喜用神 was pointing the wrong way, and it was two systems.** The demo chart
+— 庚 53.6% 偏强 with fire at 42.5% — was told its useful god was fire. A five
+element already at 42% is the disease, not the medicine. And the page and the
+scorer used different tables: the reading used the structure-based 用神, the
+score used a crude "strong → wealth, officer, output" rule, so the page could
+say "favourable: water wood" while the score computed with "water wood fire".
+
+Now there is one table, with two rules added:
+
+- a candidate element above 34% of the chart cannot be the useful god;
+- the element that supports it is chosen by **ten-god relation**, not by "what
+  generates it". "What generates the useful god is favourable" holds only when
+  officer is the useful god; when output is, what generates it is the day
+  master's own peer, and calling that favourable is adding fuel.
+
+**3. Zi Wei patterns were being tested against traditional characters.** The
+detector compared `破軍 / 貪狼 / 天機` while the star tables are simplified, so
+seven of ten patterns could never fire. The pattern bonus table had the same
+defect — its keys were traditional, so almost every pattern scored zero even
+when it did fire.
+
+Both are now one table of 30 patterns in `mingli/ziwei/patterns.py`, good and
+bad, each returning 成立 / 不成立 rather than being silently dropped. The page
+lists all thirty: the ones that hold with their reasoning, then the ones that do
+not.
 
 ---
 

@@ -20,6 +20,7 @@ from mingli.calendar import ganzhi as G  # noqa: E402
 from mingli.bazi import chart as BC  # noqa: E402
 from mingli.ziwei import chart as ZC  # noqa: E402
 from mingli.ziwei import analysis as ZA  # noqa: E402
+from mingli.ziwei import patterns as ZP  # noqa: E402
 
 
 def _glossary():
@@ -85,7 +86,8 @@ def _shensha_tables():
              "JINYU", "HONGYAN", "LIUXIA", "XUETANG", "YIMA", "TAOHUA", "HUAGAI",
              "JIANGXING", "JIESHA", "ZAISHA", "WANGSHEN", "GUSHEN", "GUASU",
              "POSUI", "FEILIAN", "TIANDE", "YUEDE",
-             "TIANGUAN", "TIANCHU", "GAN_HE_MAP", "ZHI_HE_MAP", "DESHOW"]
+             "TIANGUAN", "TIANCHU", "GAN_HE_MAP", "ZHI_HE_MAP", "DESHOW",
+             "YUANCHEN_YANG", "YUANCHEN_YIN", "LIUE"]
     out = {n: getattr(S, n) for n in names}
     out["TIANSHU_HIT"] = {k: list(v) for k, v in S.TIANSHU_HIT.items()}
     out["SIFEI"] = {k: list(v) for k, v in S.SIFEI.items()}
@@ -153,8 +155,11 @@ def dump():
         "GUA": _gua(),
         "SYNASTRY": _synastry_cfg(),
         "PERCENTILES": _percentiles(),
-        "PATTERNS": [list(p) for p in ZA.PATTERNS],
+        # [名, 吉凶, 说明, 英文名] —— 全表 30 条，吉格凶格都在
+        "PATTERNS": [[k, v[0], v[1], v[2]]
+                     for k, v in ZP.PATTERNS.items()],
         "PATTERN_BONUS": ZA.PATTERN_BONUS,
+        "PATTERN_EN": {k: v[2] for k, v in ZP.PATTERNS.items()},
         "DECADE_THEMES": {k: list(v) for k, v in ZA.DECADE_THEMES.items()},
         "THEME_MAP": BC.__dict__.get("THEME_MAP") or {},
     }
